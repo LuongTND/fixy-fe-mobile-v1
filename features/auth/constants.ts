@@ -1,0 +1,4 @@
+export const CUSTOMER_ROLE_REGISTER = 0;
+export const WORKER_ROLE_REGISTER = 1;
+export const REGISTRATION_OTP_PURPOSE = 0;
+export const FORGOT_PASSWORD_OTP_PURPOSE = 1;

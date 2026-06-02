@@ -1,0 +1,19 @@
+{
+  "compilerOptions": {
+    "target": "ES2022",
+    "module": "CommonJS",
+    "moduleResolution": "Node",
+    "strict": true,
+    "esModuleInterop": true,
+    "skipLibCheck": true,
+    "outDir": ".tmp-unit-tests",
+    "rootDir": "."
+  },
+  "include": [
+    "features/auth/*.ts",
+    "features/auth/__tests__/*.ts",
+    "services/api/worker-schedules-utils.ts",
+    "services/api/voucher-utils.ts",
+    "services/api/__tests__/*.ts"
+  ]
+}
