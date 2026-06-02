@@ -2,13 +2,31 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as React from 'react';
-import { ActivityIndicator, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
-import { getWorkerBookings, Booking } from '@/services/api/bookings';
+import { getWorkerBookings, Booking, BookingStatus } from '@/services/api/bookings';
+import { fetchCategories } from '@/services/api/categories';
 import { getWorkerCategoryIcon } from '@/utils/category-ui';
 import { formatCurrency } from '@/utils/format';
+import { formatDateTime } from '@/utils/date';
+
+const STATUS_STYLES: Record<
+  number,
+  { label: string; color: string; bg: string }
+> = {
+  [BookingStatus.Pending]: { label: 'Chờ phản hồi', color: '#D97706', bg: '#FEF3C7' },
+  [BookingStatus.Matching]: { label: 'Đang ghép cặp', color: '#EA580C', bg: '#FFEDD5' },
+  [BookingStatus.Confirmed]: { label: 'Đã nhận', color: '#059669', bg: '#D1FAE5' },
+  [BookingStatus.Traveling]: { label: 'Đang di chuyển', color: '#2563EB', bg: '#DBEAFE' },
+  [BookingStatus.Arrived]: { label: 'Đã đến nơi', color: '#4F46E5', bg: '#EEF2FF' },
+  [BookingStatus.InProgress]: { label: 'Đang sửa chữa', color: '#7C3AED', bg: '#F5F3FF' },
+  [BookingStatus.Completed]: { label: 'Hoàn thành', color: '#059669', bg: '#D1FAE5' },
+  [BookingStatus.Cancelled]: { label: 'Đã hủy', color: '#475569', bg: '#F1F5F9' },
+  [BookingStatus.Disputed]: { label: 'Tranh chấp', color: '#DC2626', bg: '#FEE2E2' },
+  [BookingStatus.PendingPayment]: { label: 'Chờ thanh toán', color: '#E11D48', bg: '#FFE4E6' },
+};
 
 export default function WorkerJobsScreen() {
   const insets = useSafeAreaInsets();
@@ -19,11 +37,24 @@ export default function WorkerJobsScreen() {
     queryFn: () => getWorkerBookings(),
   });
 
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
+  });
+
   const activeJobs = bookings.filter(
-    (b) => b.status === 2 || b.status === 3 || b.status === 4 || b.status === 5
+    (b) =>
+      b.status === BookingStatus.Confirmed ||
+      b.status === BookingStatus.Traveling ||
+      b.status === BookingStatus.Arrived ||
+      b.status === BookingStatus.InProgress
   );
   const historyJobs = bookings.filter(
-    (b) => b.status === 6 || b.status === 7 || b.status === 8 || b.status === 9
+    (b) =>
+      b.status === BookingStatus.Completed ||
+      b.status === BookingStatus.Cancelled ||
+      b.status === BookingStatus.Disputed ||
+      b.status === BookingStatus.PendingPayment
   );
 
   const displayedJobs = jobsSubTab === 'active' ? activeJobs : historyJobs;
@@ -63,20 +94,32 @@ export default function WorkerJobsScreen() {
           showsVerticalScrollIndicator={false}>
           <View style={styles.jobsList}>
             {displayedJobs.length > 0 ? (
-              displayedJobs.map((job) => (
-                <Pressable
-                  key={job.id}
-                  style={styles.jobCard}
-                  onPress={() => router.push(`/worker-job-detail?id=${job.id}` as any)}>
-                  <View style={styles.jobRow}>
-                    <View style={[styles.jobIconBox, { backgroundColor: '#FFE6D5' }]}>
-                      <MaterialIcons
-                        name={getWorkerCategoryIcon(job.categoryId) as any}
-                        size={24}
-                        color="#FF8228"
-                      />
-                    </View>
-                    <View style={styles.jobDetails}>
+              displayedJobs.map((job) => {
+                const category = categories.find((c) => c.id === job.categoryId || c.code === job.categoryId);
+                return (
+                  <Pressable
+                    key={job.id}
+                    style={styles.jobCard}
+                    onPress={() => router.push(`/worker-job-detail?id=${job.id}` as any)}>
+                    <View style={styles.jobRow}>
+                      {category?.imageUrl ? (
+                        <View style={styles.jobIconBox}>
+                          <Image
+                            source={{ uri: category.imageUrl }}
+                            style={{ width: 48, height: 48, borderRadius: 12 }}
+                            resizeMode="contain"
+                          />
+                        </View>
+                      ) : (
+                        <View style={[styles.jobIconBox, { backgroundColor: '#FFE6D5' }]}>
+                          <MaterialIcons
+                            name={getWorkerCategoryIcon(job.categoryId) as any}
+                            size={24}
+                            color="#FF8228"
+                          />
+                        </View>
+                      )}
+                      <View style={styles.jobDetails}>
                       <View style={styles.jobTitleRow}>
                         <Text style={styles.jobTitle} numberOfLines={1}>
                           {job.description || 'Yêu cầu sửa chữa'}
@@ -85,22 +128,38 @@ export default function WorkerJobsScreen() {
                           {formatCurrency(job.finalAmount || job.estimatedAmount || 150000)}
                         </Text>
                       </View>
-                      <Text style={styles.jobAddressText} numberOfLines={1}>
-                        {job.address}
-                      </Text>
-                      <Text style={styles.jobMetaText}>
-                        Trạng thái: {job.status === 2 && 'Đã nhận'}
-                        {job.status === 3 && ' Đang di chuyển'}
-                        {job.status === 4 && ' Đã đến nơi'}
-                        {job.status === 5 && ' Đang sửa'}
-                        {job.status === 6 && ' Hoàn thành'}
-                        {job.status === 7 && ' Đã hủy'}
-                        {job.status === 9 && ' Chờ thanh toán'}
-                      </Text>
+                      
+                      <View style={styles.infoRow}>
+                        <MaterialIcons name="place" size={14} color="#818A91" />
+                        <Text style={styles.jobAddressText} numberOfLines={1}>
+                          {job.address}
+                        </Text>
+                      </View>
+
+                      <View style={styles.infoRow}>
+                        <MaterialIcons name="access-time" size={14} color="#818A91" />
+                        <Text style={styles.jobTimeText}>
+                          {job.scheduledType === 0 || String(job.scheduledType).toLowerCase() === 'now'
+                            ? 'Làm ngay'
+                            : 'Hẹn lịch'}
+                          {job.scheduledAt && ` • ${formatDateTime(job.scheduledAt)}`}
+                        </Text>
+                      </View>
+
+                      {STATUS_STYLES[job.status] && (
+                        <View style={styles.statusRow}>
+                          <View style={[styles.statusBadge, { backgroundColor: STATUS_STYLES[job.status].bg }]}>
+                            <Text style={[styles.statusBadgeText, { color: STATUS_STYLES[job.status].color }]}>
+                              {STATUS_STYLES[job.status].label}
+                            </Text>
+                          </View>
+                        </View>
+                      )}
                     </View>
                   </View>
                 </Pressable>
-              ))
+                );
+              })
             ) : (
               <View style={styles.emptyContainer}>
                 <MaterialIcons name="assignment-late" size={40} color="#818A91" />
@@ -154,14 +213,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EEEEEE',
     padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   jobRow: { flexDirection: 'row', alignItems: 'flex-start', gap: 12 },
   jobIconBox: {
     width: 48,
     height: 48,
-    borderRadius: 10,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -178,13 +242,33 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
     fontSize: 12,
     color: '#818A91',
+    flex: 1,
+  },
+  jobTimeText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#818A91',
+  },
+  infoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     marginTop: 4,
   },
-  jobMetaText: {
+  statusRow: {
+    flexDirection: 'row',
+    marginTop: 8,
+  },
+  statusBadge: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+    borderRadius: 6,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  statusBadgeText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 11,
-    color: '#818A91',
-    marginTop: 6,
   },
   emptyContainer: { alignItems: 'center', justifyContent: 'center', paddingVertical: 40, gap: 8 },
   emptyText: { fontFamily: 'Montserrat_600SemiBold', fontSize: 13, color: '#818A91' },

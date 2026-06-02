@@ -99,29 +99,13 @@ try {
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-// Goong Map configs
-const GOONG_API_KEY =
-  Constants.expoConfig?.extra?.goongApiKey || '8tQmkMZJtPD8PY5HBTn253HX7Xrjw3ekS942AcSU';
-const GOONG_MAPTILES_API_KEY =
-  Constants.expoConfig?.extra?.goongMaptilesApiKey || 'i859SSpDHqrw9FtrEddg6UaevWnJmBnbWD0Kjz0c';
+const GOONG_API_KEY = Constants.expoConfig?.extra?.goongApiKey || '';
+const GOONG_MAPTILES_API_KEY = Constants.expoConfig?.extra?.goongMaptilesApiKey || '';
 
 const MAP_STYLE_URL = `https://tiles.goong.io/assets/goong_map_web.json?api_key=${GOONG_MAPTILES_API_KEY}`;
 const DEFAULT_CENTER: [number, number] = [105.83991, 21.028]; // [lng, lat] Hanoi
 
-// Offline mock addresses fallback
-const DEFAULT_MOCK_ADDRESSES: Address[] = [
-  {
-    id: 'home-default',
-    label: 'Nhà riêng',
-    city: 'Hà Nội',
-    district: 'Thanh Xuân',
-    ward: 'Thanh Xuân Trung',
-    detail: '123 Nguyễn Trãi',
-    lat: 21.0028,
-    lng: 105.8056,
-    isDefault: true,
-  },
-];
+// No offline addresses fallback
 
 // Helper to decode Goong/Google overview polyline points
 function decodePolyline(encoded: string): [number, number][] {
@@ -173,7 +157,7 @@ export default function LocationSetupScreen() {
 
   // Address lists
   const [addresses, setAddresses] = React.useState<Address[]>([]);
-  const [selectedAddressId, setSelectedAddressId] = React.useState<string>('home-default');
+  const [selectedAddressId, setSelectedAddressId] = React.useState<string>('');
 
   // Search autocomplete state
   const [searchQuery, setSearchQuery] = React.useState('');
@@ -207,11 +191,10 @@ export default function LocationSetupScreen() {
           setCurrentCoord([data[0].lng, data[0].lat]);
         }
       } else {
-        setAddresses(DEFAULT_MOCK_ADDRESSES);
+        setAddresses([]);
       }
     } catch {
-      // Fallback
-      setAddresses(DEFAULT_MOCK_ADDRESSES);
+      setAddresses([]);
     }
   };
 
@@ -433,28 +416,8 @@ export default function LocationSetupScreen() {
       Alert.alert('Thành công', 'Địa chỉ đã được lưu lại.', [
         { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch {
-      // Offline fallback simulation
-      const offlineId = `offline-${Date.now()}`;
-      const fallbackAddr: Address = {
-        id: offlineId,
-        label: newLabel,
-        city: 'Hà Nội',
-        district: 'Thanh Xuân',
-        ward: 'Trung Hòa',
-        detail: newDetail || searchQuery || 'Địa chỉ mới vừa chọn',
-        lat: selectedCoord[1],
-        lng: selectedCoord[0],
-        isDefault: false,
-      };
-      setAddresses([...addresses, fallbackAddr]);
-      setSelectedAddressId(offlineId);
-      setShowSaveModal(false);
-      setNewLabel('');
-      setNewDetail('');
-      Alert.alert('Lưu địa chỉ ngoại tuyến', 'Đã lưu địa chỉ vào bộ nhớ cục bộ.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không thể lưu địa chỉ.');
     } finally {
       setLoading(false);
     }
@@ -467,13 +430,7 @@ export default function LocationSetupScreen() {
       await updateAddress(addr.id, { ...addr, isDefault: true });
       await loadAddresses();
     } catch {
-      // Offline fallback
-      setAddresses(
-        addresses.map((a) => ({
-          ...a,
-          isDefault: a.id === addr.id,
-        }))
-      );
+      Alert.alert('Lỗi', 'Không thể thiết lập địa chỉ mặc định.');
     }
   };
 
@@ -490,7 +447,7 @@ export default function LocationSetupScreen() {
             await deleteAddress(id);
             await loadAddresses();
           } catch {
-            setAddresses(addresses.filter((a) => a.id !== id));
+            Alert.alert('Lỗi', 'Không thể xóa địa chỉ.');
           }
         },
       },

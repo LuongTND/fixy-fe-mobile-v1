@@ -8,6 +8,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
 import { Booking, getWorkerBookings, getWallet } from '@/services/api/bookings';
+import { fetchCategories } from '@/services/api/categories';
 import { getWorkerProfileMe } from '@/services/api/workers';
 import { getWorkerCategoryIcon } from '@/utils/category-ui';
 import { formatCurrency } from '@/utils/format';
@@ -30,6 +31,11 @@ export default function WorkerHomeScreen() {
   const { data: bookings = [] } = useQuery<Booking[]>({
     queryKey: ['workerBookings'],
     queryFn: () => getWorkerBookings(),
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
   });
 
   // Filter Bookings (incoming jobs)
@@ -99,45 +105,58 @@ export default function WorkerHomeScreen() {
 
           <View style={styles.jobsList}>
             {incomingJobs.length > 0 ? (
-              incomingJobs.map((job) => (
-                <View key={job.id} style={styles.jobCard}>
-                  <View style={styles.jobRow}>
-                    <View style={[styles.jobIconBox, { backgroundColor: '#FFE6D5' }]}>
-                      <MaterialIcons
-                        name={getWorkerCategoryIcon(job.categoryId) as any}
-                        size={24}
-                        color="#FF8228"
-                      />
-                    </View>
-                    <View style={styles.jobDetails}>
-                      <View style={styles.jobTitleRow}>
-                        <Text style={styles.jobTitle} numberOfLines={1}>
-                          {job.description || 'Yêu cầu sửa chữa'}
-                        </Text>
-                        <Text style={styles.jobPrice}>
-                          {formatCurrency(job.estimatedAmount || job.estimatedPrice || 150000)}
-                        </Text>
-                      </View>
-                      <View style={styles.jobMetaRow}>
-                        <View style={styles.metaItem}>
-                          <MaterialIcons name="location-on" size={14} color="#818A91" />
-                          <Text style={styles.metaText} numberOfLines={1}>
-                            {job.address}
+              incomingJobs.map((job) => {
+                const category = categories.find((c) => c.id === job.categoryId || c.code === job.categoryId);
+                return (
+                  <View key={job.id} style={styles.jobCard}>
+                    <View style={styles.jobRow}>
+                      {category?.imageUrl ? (
+                        <View style={styles.jobIconBox}>
+                          <Image
+                            source={{ uri: category.imageUrl }}
+                            style={{ width: 48, height: 48, borderRadius: 10 }}
+                            resizeMode="contain"
+                          />
+                        </View>
+                      ) : (
+                        <View style={[styles.jobIconBox, { backgroundColor: '#FFE6D5' }]}>
+                          <MaterialIcons
+                            name={getWorkerCategoryIcon(job.categoryId) as any}
+                            size={24}
+                            color="#FF8228"
+                          />
+                        </View>
+                      )}
+                      <View style={styles.jobDetails}>
+                        <View style={styles.jobTitleRow}>
+                          <Text style={styles.jobTitle} numberOfLines={1}>
+                            {job.description || 'Yêu cầu sửa chữa'}
                           </Text>
+                          <Text style={styles.jobPrice}>
+                            {formatCurrency(job.estimatedAmount || job.estimatedPrice || 150000)}
+                          </Text>
+                        </View>
+                        <View style={styles.jobMetaRow}>
+                          <View style={styles.metaItem}>
+                            <MaterialIcons name="location-on" size={14} color="#818A91" />
+                            <Text style={styles.metaText} numberOfLines={1}>
+                              {job.address}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     </View>
-                  </View>
 
-                  <View style={styles.jobActions}>
-                    <Pressable
-                      style={styles.detailsButton}
-                      onPress={() => router.push(`/worker-job-detail?id=${job.id}` as any)}>
-                      <Text style={styles.detailsButtonText}>Xem chi tiết</Text>
-                    </Pressable>
+                    <View style={styles.jobActions}>
+                      <Pressable
+                        style={styles.detailsButton}
+                        onPress={() => router.push(`/worker-job-detail?id=${job.id}` as any)}>
+                        <Text style={styles.detailsButtonText}>Xem chi tiết</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              ))
+                );
+              })
             ) : (
               <View style={styles.emptyContainer}>
                 <MaterialIcons name="hourglass-empty" size={36} color="#818A91" />

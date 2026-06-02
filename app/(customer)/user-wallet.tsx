@@ -50,38 +50,6 @@ export default function UserWalletScreen() {
         if (!silent) {
           Alert.alert('Lỗi', getApiErrorMessage(error));
         }
-        // Offline fallback defaults for demo
-        setWallet((currentWallet) =>
-          currentWallet ?? {
-            balance: 750000,
-            lifetimeEarned: 0,
-            lifetimeSpent: 1250000,
-            recentTransactions: [
-              {
-                id: 'tx-1',
-                type: 'TopUp',
-                direction: 'Credit',
-                amount: 500000,
-                balanceBefore: 250000,
-                balanceAfter: 750000,
-                status: 'Completed',
-                createdDate: new Date().toISOString(),
-                description: 'Nạp tiền qua VNPay',
-              },
-              {
-                id: 'tx-2',
-                type: 'Payment',
-                direction: 'Debit',
-                amount: 180000,
-                balanceBefore: 430000,
-                balanceAfter: 250000,
-                status: 'Completed',
-                createdDate: new Date(Date.now() - 86400000).toISOString(),
-                description: 'Thanh toán Sửa đường nước',
-              },
-            ],
-          }
-        );
       } finally {
         setIsLoading(false);
         setIsRefreshing(false);

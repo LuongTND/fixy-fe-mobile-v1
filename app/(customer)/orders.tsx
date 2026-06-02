@@ -20,80 +20,81 @@ import {
   getMyBookings,
 } from '@/services/api/bookings';
 import { formatDateTime } from '@/utils/date';
+import { fetchCategories } from '@/services/api/categories';
 
 const STATUS_MAP: Record<
   number,
   { label: string; color: string; bg: string; border: string; icon: React.ComponentProps<typeof MaterialIcons>['name'] }
 > = {
-  0: {
+  [BookingStatus.Pending]: {
     label: 'Chờ thợ phản hồi',
     color: '#D97706',
     bg: '#FEF3C7',
     border: '#FDE68A',
     icon: 'hourglass-empty',
   },
-  1: {
+  [BookingStatus.PendingPayment]: {
+    label: 'Chờ thanh toán',
+    color: '#E11D48',
+    bg: '#FFE4E6',
+    border: '#FECDD3',
+    icon: 'payment',
+  },
+  [BookingStatus.Matching]: {
     label: 'Đang kết nối thợ',
     color: '#EA580C',
     bg: '#FFEDD5',
     border: '#FED7AA',
     icon: 'sync',
   },
-  2: {
+  [BookingStatus.Confirmed]: {
     label: 'Đã nhận lịch',
     color: '#059669',
     bg: '#D1FAE5',
     border: '#A7F3D0',
     icon: 'assignment-turned-in',
   },
-  3: {
+  [BookingStatus.Traveling]: {
     label: 'Thợ đang di chuyển',
     color: '#2563EB',
     bg: '#DBEAFE',
     border: '#BFDBFE',
     icon: 'directions-car',
   },
-  4: {
+  [BookingStatus.Arrived]: {
     label: 'Thợ đã đến nơi',
     color: '#4F46E5',
     bg: '#EEF2FF',
     border: '#E0E7FF',
     icon: 'hail',
   },
-  5: {
+  [BookingStatus.InProgress]: {
     label: 'Đang thực hiện',
     color: '#7C3AED',
     bg: '#F5F3FF',
     border: '#DDD6FE',
     icon: 'build',
   },
-  6: {
+  [BookingStatus.Completed]: {
     label: 'Hoàn thành',
     color: '#059669',
     bg: '#D1FAE5',
     border: '#A7F3D0',
     icon: 'check-circle',
   },
-  7: {
+  [BookingStatus.Cancelled]: {
     label: 'Đã hủy',
     color: '#475569',
     bg: '#F1F5F9',
     border: '#E2E8F0',
     icon: 'cancel',
   },
-  8: {
+  [BookingStatus.Disputed]: {
     label: 'Tranh chấp',
     color: '#DC2626',
     bg: '#FEE2E2',
     border: '#FCA5A5',
     icon: 'report-problem',
-  },
-  9: {
-    label: 'Chờ thanh toán',
-    color: '#E11D48',
-    bg: '#FFE4E6',
-    border: '#FECDD3',
-    icon: 'payment',
   },
 };
 
@@ -120,6 +121,13 @@ export default function CustomerOrdersScreen() {
     queryFn: () => getMyBookings(),
   });
 
+  const { data: categories = [], isLoading: isLoadingCats } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
+  });
+
+  const isLoadingAll = isLoading || isLoadingCats;
+
   const filteredBookings = React.useMemo(() => {
     return bookings.filter((b) => {
       const status = Number(b.status);
@@ -133,10 +141,13 @@ export default function CustomerOrdersScreen() {
   }, [bookings, activeTab]);
 
   const renderBookingItem = ({ item }: { item: Booking }) => {
-    const catInfo = CATEGORIES_INFO[item.categoryId] || {
-      label: 'Dịch vụ sửa chữa',
-      icon: 'build',
-      color: '#FF8228',
+    const category = categories.find((c) => c.id === item.categoryId || c.code === item.categoryId);
+    const code = category?.code || item.categoryId;
+    const mappedInfo = CATEGORIES_INFO[code];
+    const catInfo = {
+      label: category?.name || mappedInfo?.label || 'Dịch vụ sửa chữa',
+      icon: mappedInfo?.icon || 'build',
+      color: mappedInfo?.color || '#FF8228',
     };
     const statusInfo = STATUS_MAP[Number(item.status)] || {
       label: 'Chờ xử lý',
@@ -158,9 +169,19 @@ export default function CustomerOrdersScreen() {
       >
         <View style={styles.cardHeader}>
           <View style={styles.categoryBadge}>
-            <View style={[styles.categoryIconFrame, { backgroundColor: `${catInfo.color}15` }]}>
-              <MaterialIcons name={catInfo.icon} size={20} color={catInfo.color} />
-            </View>
+            {category?.imageUrl ? (
+              <View style={[styles.categoryIconFrame, { backgroundColor: 'transparent' }]}>
+                <Image
+                  source={{ uri: category.imageUrl }}
+                  style={{ width: 28, height: 28, borderRadius: 14 }}
+                  resizeMode="contain"
+                />
+              </View>
+            ) : (
+              <View style={[styles.categoryIconFrame, { backgroundColor: `${catInfo.color}15` }]}>
+                <MaterialIcons name={catInfo.icon} size={20} color={catInfo.color} />
+              </View>
+            )}
             <Text style={styles.categoryLabel}>{catInfo.label}</Text>
           </View>
           <View
@@ -237,7 +258,7 @@ export default function CustomerOrdersScreen() {
         </Pressable>
       </View>
 
-      {isLoading ? (
+      {isLoadingAll ? (
         <View style={styles.centerContainer}>
           <ActivityIndicator size="large" color="#FF8228" />
         </View>
@@ -249,7 +270,7 @@ export default function CustomerOrdersScreen() {
           contentContainerStyle={styles.listContent}
           showsVerticalScrollIndicator={false}
           onRefresh={refetch}
-          refreshing={isLoading}
+          refreshing={isLoadingAll}
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <MaterialIcons name="assignment-late" size={48} color="#818A91" />

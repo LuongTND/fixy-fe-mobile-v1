@@ -44,10 +44,11 @@ const CATEGORY_IMAGES = {
 type HomeService = {
   id: string;
   name: string;
-  image: ImageSourcePropType;
+  image?: ImageSourcePropType;
+  imageUrl?: string | null;
 };
 
-const SERVICES = [
+const SERVICES: HomeService[] = [
   { id: 'dien', name: 'Điện', image: CATEGORY_IMAGES.electric },
   { id: 'nuoc', name: 'Nước', image: CATEGORY_IMAGES.water },
   { id: 'dieuhoa', name: 'Điều hòa', image: CATEGORY_IMAGES.ac },
@@ -57,7 +58,7 @@ const SERVICES = [
   { id: 'son', name: 'Sơn sửa nhà', image: CATEGORY_IMAGES.housePaintRenovate },
   { id: 'vesinh', name: 'Vệ sinh', image: CATEGORY_IMAGES.hygiene },
   { id: 'thongtac', name: 'Thông tắc bồn cầu', image: CATEGORY_IMAGES.toiletPump },
-] satisfies HomeService[];
+];
 
 const FEATURED_CRAFTSMEN = [
   {
@@ -126,6 +127,7 @@ export default function HomeScreen() {
         id: c.id,
         name: c.name,
         image: uiInfo.image,
+        imageUrl: c.imageUrl,
       };
     });
   }, [apiCategories]);
@@ -228,11 +230,19 @@ export default function HomeScreen() {
               style={styles.serviceItem}
               onPress={() => handleServicePress(service.id, service.name)}>
               <View style={styles.serviceIconFrame}>
-                <Image
-                  source={service.image}
-                  style={styles.serviceIconImage}
-                  resizeMode="contain"
-                />
+                {service.imageUrl ? (
+                  <Image
+                    source={{ uri: service.imageUrl }}
+                    style={styles.serviceIconImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Image
+                    source={service.image}
+                    style={styles.serviceIconImage}
+                    resizeMode="contain"
+                  />
+                )}
               </View>
               <Text style={styles.serviceLabel} numberOfLines={2}>
                 {service.name}

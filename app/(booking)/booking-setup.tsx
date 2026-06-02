@@ -24,6 +24,7 @@ import { uploadMediaFiles } from '@/services/api/media';
 import { checkAvailability } from '@/services/api/workers';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getApiErrorMessage } from '@/services/api/client';
+import { fetchCategories } from '@/services/api/categories';
 
 const TIME_SLOTS = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
 
@@ -40,6 +41,11 @@ export default function BookingSetupScreen() {
   const { data: addresses = [], isLoading: loading } = useQuery<Address[]>({
     queryKey: ['addresses'],
     queryFn: getMyAddresses,
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
   });
 
   const [selectedAddress, setSelectedAddress] = React.useState<Address | null>(null);
@@ -100,9 +106,14 @@ export default function BookingSetupScreen() {
         uploadedIds = await uploadMediaFiles(params.selectedImages);
       }
 
+      // Find category GUID
+      const category = categories.find((c) => c.id === categoryId || c.code === categoryId);
+      const defaultCategory = categories.find((c) => c.code === 'dien');
+      const categoryGuid = category?.id || defaultCategory?.id || categoryId;
+
       // Step B: Create draft
       const payload = {
-        categoryId: categoryId || 'dien',
+        categoryId: categoryGuid,
         description: params.description.trim(),
         mediaIds: uploadedIds,
         addressId: selectedAddress?.id,

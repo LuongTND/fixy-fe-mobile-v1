@@ -36,6 +36,7 @@ import { verifyVnpayCallback } from '@/services/api/payment';
 import { applyVoucher, getEligibleVouchers } from '@/services/api/vouchers';
 import { getBookingReview, Review } from '@/services/api/reviews';
 import { getMediaUrl } from '@/services/api/media';
+import { fetchCategories } from '@/services/api/categories';
 import { formatDateTime } from '@/utils/date';
 import { formatCurrency } from '@/utils/format';
 import {
@@ -49,52 +50,52 @@ const STATUS_MAP: Record<
   number,
   { label: string; style: any; icon: React.ComponentProps<typeof MaterialIcons>['name'] }
 > = {
-  0: {
+  [BookingStatus.Pending]: {
     label: 'Chờ thợ phản hồi',
     style: { color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
     icon: 'hourglass-empty',
   },
-  1: {
+  [BookingStatus.Matching]: {
     label: 'Đang kết nối thợ',
     style: { color: '#EA580C', bg: '#FFEDD5', border: '#FED7AA' },
     icon: 'sync',
   },
-  2: {
+  [BookingStatus.Confirmed]: {
     label: 'Đã nhận lịch',
     style: { color: '#059669', bg: '#D1FAE5', border: '#A7F3D0' },
     icon: 'assignment-turned-in',
   },
-  3: {
+  [BookingStatus.Traveling]: {
     label: 'Thợ đang di chuyển',
     style: { color: '#2563EB', bg: '#DBEAFE', border: '#BFDBFE' },
     icon: 'directions-car',
   },
-  4: {
+  [BookingStatus.Arrived]: {
     label: 'Thợ đã đến nơi',
     style: { color: '#4F46E5', bg: '#EEF2FF', border: '#E0E7FF' },
     icon: 'hail',
   },
-  5: {
+  [BookingStatus.InProgress]: {
     label: 'Đang thực hiện',
     style: { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
     icon: 'build',
   },
-  6: {
+  [BookingStatus.Completed]: {
     label: 'Hoàn thành',
     style: { color: '#059669', bg: '#D1FAE5', border: '#A7F3D0' },
     icon: 'check-circle',
   },
-  7: {
+  [BookingStatus.Cancelled]: {
     label: 'Đã hủy',
     style: { color: '#475569', bg: '#F1F5F9', border: '#E2E8F0' },
     icon: 'cancel',
   },
-  8: {
+  [BookingStatus.Disputed]: {
     label: 'Tranh chấp',
     style: { color: '#DC2626', bg: '#FEE2E2', border: '#FCA5A5' },
     icon: 'report-problem',
   },
-  9: {
+  [BookingStatus.PendingPayment]: {
     label: 'Chờ thanh toán',
     style: { color: '#E11D48', bg: '#FFE4E6', border: '#FECDD3' },
     icon: 'payment',
@@ -142,6 +143,14 @@ export default function BookingDetailScreen() {
       return isTerminalBookingStatus(Number(data.status)) ? false : 5000;
     },
   });
+
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
+  });
+
+  const category = categories.find((c) => c.id === booking?.categoryId || c.code === booking?.categoryId);
+  const categoryName = category?.name || (booking ? getCategoryLabel(booking.categoryId) : '');
 
   const { data: tracking = null } = useQuery<BookingTracking | null>({
     queryKey: ['bookingTracking', bookingId],
@@ -202,53 +211,6 @@ export default function BookingDetailScreen() {
   }, [bookingStatus]);
 
   // Mutations
-  const simulateMutation = useMutation({
-    mutationFn: async () => {
-      if (!booking) return;
-      let nextStatus = 1;
-      let successMessage = '';
-
-      if (booking.status === 1 || booking.status === 0) {
-        nextStatus = 2; // confirmed
-        successMessage = 'Thợ Nguyễn Văn Thắng đã đồng ý nhận việc!';
-      } else if (booking.status === 2) {
-        nextStatus = 3; // traveling
-        successMessage = 'Thợ đang di chuyển đến vị trí của bạn.';
-      } else if (booking.status === 3) {
-        nextStatus = 4; // arrived
-        successMessage = 'Thợ báo đã đến địa chỉ sửa chữa.';
-      } else if (booking.status === 4) {
-        nextStatus = 5; // in progress
-        successMessage = 'Thợ đã bắt đầu công việc sửa chữa.';
-      } else if (booking.status === 5) {
-        nextStatus = 9; // pending payment
-        successMessage = 'Thợ đã hoàn thành công việc và gửi hóa đơn nghiệm thu.';
-      } else if (booking.status === 9) {
-        nextStatus = 6; // completed
-        successMessage = 'Thanh toán thành công. Đơn hàng hoàn tất!';
-      } else {
-        return;
-      }
-
-      const updatedBooking = {
-        ...booking,
-        status: nextStatus,
-        worker: booking.worker || {
-          id: 'worker-thang-dien',
-          fullName: 'Nguyễn Văn Thắng',
-          avatarUrl: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-          phone: '0987111222',
-          rating: 4.9,
-        },
-      };
-
-      queryClient.setQueryData(['booking', bookingId], updatedBooking);
-      return successMessage;
-    },
-    onSuccess: (message) => {
-      if (message) Alert.alert('Mô phỏng quy trình', message);
-    },
-  });
 
   const cancelMutation = useMutation({
     mutationFn: async () => {
@@ -267,9 +229,12 @@ export default function BookingDetailScreen() {
       return respondBookingProposal(bookingId || '', payload);
     },
     onSuccess: (updatedBooking) => {
-      queryClient.setQueryData(['booking', bookingId], updatedBooking);
+      if (updatedBooking && updatedBooking.id) {
+        queryClient.setQueryData(['booking', bookingId], updatedBooking);
+      }
       queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
-      const msg = updatedBooking.status === BookingStatus.Confirmed
+      const status = updatedBooking?.status ?? (booking?.status === BookingStatus.Pending ? BookingStatus.Confirmed : booking?.status);
+      const msg = status === BookingStatus.Confirmed
         ? 'Bạn đã đồng ý với đề xuất của kỹ thuật viên.'
         : 'Bạn đã từ chối đề xuất của kỹ thuật viên.';
       Alert.alert('Thành công', msg);
@@ -356,9 +321,7 @@ export default function BookingDetailScreen() {
     },
   });
 
-  const handleSimulateNextStep = () => {
-    simulateMutation.mutate();
-  };
+
 
   const handleCancelBooking = () => {
     Alert.alert('Hủy đặt lịch', 'Bạn có chắc chắn muốn hủy yêu cầu đặt lịch này?', [
@@ -419,7 +382,7 @@ export default function BookingDetailScreen() {
     Alert.alert('Kết quả thanh toán', errorMsg);
   };
 
-  const loading = bookingLoading;
+  const loading = bookingLoading || categoriesLoading;
   const actionLoading = payBillMutation.isPending || isVerifyingVnpay;
   const voucherApplying = applyVoucherMutation.isPending;
 
@@ -486,20 +449,13 @@ export default function BookingDetailScreen() {
             <Text style={styles.bookingIdText}>ID: #{booking.id.slice(-8).toUpperCase()}</Text>
           </View>
 
-          {/* Helper alert for offline testing */}
-          {(booking.status < 6 || booking.status === 9) && (
-            <Pressable style={styles.simulateBtn} onPress={handleSimulateNextStep}>
-              <MaterialIcons name="fast-forward" size={16} color="#ffffff" />
-              <Text style={styles.simulateBtnText}>Mô phỏng bước tiếp theo (Test flow)</Text>
-            </Pressable>
-          )}
         </View>
 
         {/* Proposal Card */}
         {Number(booking.status) === BookingStatus.Pending &&
-          (booking.workerProposedPrice !== undefined ||
-            booking.workerProposedTime !== undefined ||
-            booking.workerProposedNote !== undefined) && (
+          ((booking.workerProposedPrice !== null && booking.workerProposedPrice !== undefined) ||
+            (booking.workerProposedTime !== null && booking.workerProposedTime !== undefined) ||
+            (booking.workerProposedNote !== null && booking.workerProposedNote !== undefined && booking.workerProposedNote !== '')) && (
             <View style={[styles.infoCard, styles.proposalCard]}>
               <Text style={styles.proposalCardTitle}>Đề xuất mới từ kỹ thuật viên</Text>
 
@@ -544,7 +500,7 @@ export default function BookingDetailScreen() {
           )}
 
         {/* Pulse Matching Loader for status == 1 */}
-        {booking.status === 1 && (
+        {Number(booking.status) === BookingStatus.Matching && (
           <View style={styles.matchingContainer}>
             <ActivityIndicator size="large" color="#FF8228" />
             <Text style={styles.matchingText}>Hệ thống đang tìm kiếm thợ xung quanh...</Text>
@@ -587,7 +543,7 @@ export default function BookingDetailScreen() {
           )}
 
         {/* Worker Info Card (Visible if assigned: status >= 2) */}
-        {booking.status >= 2 && (booking.worker || booking.workerName) && (
+        {Number(booking.status) >= BookingStatus.Confirmed && (booking.worker || booking.workerName) && (
           <View style={styles.infoCard}>
             <Text style={styles.infoCardTitle}>Kỹ thuật viên phụ trách</Text>
             <View style={styles.workerRow}>
@@ -602,7 +558,7 @@ export default function BookingDetailScreen() {
               />
               <View style={styles.workerDetails}>
                 <Text style={styles.workerName}>
-                  {booking.worker?.fullName || booking.workerName || 'Ká»¹ thuáº­t viÃªn'}
+                  {booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên'}
                 </Text>
                 <View style={styles.ratingRow}>
                   <MaterialIcons name="star" size={14} color="#FFB020" />
@@ -616,7 +572,7 @@ export default function BookingDetailScreen() {
               </View>
             </View>
 
-            {booking.status < 6 && (
+            {Number(booking.status) < BookingStatus.Completed && (
               <View style={styles.actionButtonsRow}>
                 <Pressable
                   style={[styles.actionBtn, styles.actionBtnCall]}
@@ -632,7 +588,7 @@ export default function BookingDetailScreen() {
                 <Pressable
                   style={[styles.actionBtn, styles.actionBtnChat]}
                   onPress={() =>
-                    Alert.alert('Trò chuyện', 'Cổng chat Websocket thời gian thực đang kết nối.')
+                    router.push(`/booking-chat?bookingId=${booking.id}` as any)
                   }>
                   <MaterialIcons name="chat" size={18} color="#ffffff" />
                   <Text style={styles.actionBtnTextChat}>Nhắn tin</Text>
@@ -649,14 +605,7 @@ export default function BookingDetailScreen() {
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Loại dịch vụ</Text>
             <Text style={styles.detailValue}>
-              {booking.categoryId === 'dien' && 'Điện – Điện tử'}
-              {booking.categoryId === 'nuoc' && 'Nước – Ống nước'}
-              {booking.categoryId === 'dieuhoa' && 'Bảo dưỡng điều hòa'}
-              {booking.categoryId === 'maygiat' && 'Sửa Máy giặt'}
-              {booking.categoryId === 'xemay' && 'Sửa Xe máy – Ô tô'}
-              {booking.categoryId === 'moc' && 'Mộc – Nội thất'}
-              {booking.categoryId === 'son' && 'Sơn – Trần nhà'}
-              {booking.categoryId === 'vesinh' && 'Dọn dẹp Vệ sinh'}
+              {categoryName}
             </Text>
           </View>
 
@@ -705,7 +654,7 @@ export default function BookingDetailScreen() {
         </View>
 
         {/* Invoice Summary (Visible if PENDING_PAYMENT or COMPLETED) */}
-        {(booking.status === 9 || booking.status === 6) && (
+        {(Number(booking.status) === BookingStatus.PendingPayment || Number(booking.status) === BookingStatus.Completed) && (
           <View style={styles.infoCard}>
             <Text style={styles.infoCardTitle}>Chi phí nghiệm thu thực tế</Text>
 
@@ -748,7 +697,7 @@ export default function BookingDetailScreen() {
         )}
 
         {/* Your Review Card (Visible if status == 6 and review exists) */}
-        {booking.status === 6 && bookingReview && (
+        {Number(booking.status) === BookingStatus.Completed && bookingReview && (
           <View style={styles.infoCard}>
             <View style={styles.reviewCardHeader}>
               <Text style={styles.infoCardTitle}>Đánh giá của bạn</Text>
@@ -771,8 +720,12 @@ export default function BookingDetailScreen() {
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.photoList}>
-                {bookingReview.images.map((imgUri, idx) => {
-                  const resolvedImgUri = imgUri.startsWith('http') ? imgUri : getMediaUrl(imgUri);
+                {bookingReview.images.map((imgUri: any, idx) => {
+                  const imgUrl = typeof imgUri === 'string' 
+                    ? imgUri 
+                    : (imgUri?.fileUrl ?? imgUri?.imageUrl ?? imgUri?.url ?? '');
+                  if (!imgUrl) return null;
+                  const resolvedImgUri = imgUrl.startsWith('http') ? imgUrl : getMediaUrl(imgUrl);
                   return (
                     <Pressable
                       key={idx}
@@ -801,7 +754,7 @@ export default function BookingDetailScreen() {
           </View>
         )}
 
-        {booking.status === 9 && (
+        {Number(booking.status) === BookingStatus.PendingPayment && (
           <View style={styles.infoCard}>
             <Text style={styles.infoCardTitle}>Thanh toán đặt lịch</Text>
 
@@ -918,8 +871,8 @@ export default function BookingDetailScreen() {
 
       {/* Footer Actions */}
       <View style={[styles.footerBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        {booking.status === 9 ? (
-          // Pay now button for status == 9
+        {Number(booking.status) === BookingStatus.PendingPayment ? (
+          // Pay now button for PendingPayment
           <Pressable
             style={[
               styles.primaryActionBtn,
@@ -937,7 +890,7 @@ export default function BookingDetailScreen() {
               </Text>
             )}
           </Pressable>
-        ) : booking.status < 2 ? (
+        ) : (Number(booking.status) === BookingStatus.Pending || Number(booking.status) === BookingStatus.Matching) ? (
           // Cancel button for draft/matching statuses
           <Pressable style={styles.cancelBtn} onPress={handleCancelBooking}>
             <Text style={styles.cancelBtnText}>Hủy đặt lịch</Text>
@@ -958,7 +911,7 @@ export default function BookingDetailScreen() {
                   params: {
                     bookingId: booking.id,
                     workerName: booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên',
-                    categoryName: getCategoryLabel(booking.categoryId),
+                    categoryName: categoryName,
                   },
                 });
               }}>
@@ -1165,21 +1118,7 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#818A91',
   },
-  simulateBtn: {
-    backgroundColor: '#383838',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    borderRadius: 8,
-    height: 38,
-    marginTop: 14,
-  },
-  simulateBtnText: {
-    color: '#ffffff',
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 12,
-  },
+
   matchingContainer: {
     backgroundColor: '#ffffff',
     borderRadius: 16,

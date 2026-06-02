@@ -5,25 +5,14 @@ import * as React from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-// Booking status enum from API_FLOWS
-const BOOKING_STATUS = {
-  Pending: 0,
-  Matching: 1,
-  Confirmed: 2,
-  Traveling: 3,
-  Arrived: 4,
-  InProgress: 5,
-  Completed: 6,
-  Cancelled: 7,
-  Disputed: 8,
-};
+import { BookingStatus } from '@/services/api/bookings';
 
 const TIMELINE_STEPS = [
-  { key: 'confirmed', label: 'Chờ xác nhận', statusThreshold: BOOKING_STATUS.Confirmed },
-  { key: 'traveling', label: 'Thợ đang đến', statusThreshold: BOOKING_STATUS.Traveling },
-  { key: 'arrived', label: 'Đã đến nơi', statusThreshold: BOOKING_STATUS.Arrived },
-  { key: 'inprogress', label: 'Đang thực hiện', statusThreshold: BOOKING_STATUS.InProgress },
-  { key: 'completed', label: 'Hoàn thành', statusThreshold: BOOKING_STATUS.Completed },
+  { key: 'confirmed', label: 'Chờ xác nhận', statusThreshold: BookingStatus.Confirmed },
+  { key: 'traveling', label: 'Thợ đang đến', statusThreshold: BookingStatus.Traveling },
+  { key: 'arrived', label: 'Đã đến nơi', statusThreshold: BookingStatus.Arrived },
+  { key: 'inprogress', label: 'Đang thực hiện', statusThreshold: BookingStatus.InProgress },
+  { key: 'completed', label: 'Hoàn thành', statusThreshold: BookingStatus.Completed },
 ];
 
 type StepState = 'done' | 'active' | 'pending';
@@ -59,7 +48,7 @@ export default function BookingTrackingScreen() {
     categoryName?: string;
   }>();
 
-  const currentStatusNum = Number(params.status ?? BOOKING_STATUS.Traveling);
+  const currentStatusNum = Number(params.status ?? BookingStatus.Traveling);
 
   const getStepState = (stepThreshold: number): StepState => {
     if (currentStatusNum > stepThreshold) return 'done';
@@ -127,7 +116,7 @@ export default function BookingTrackingScreen() {
             <View>
               <Text style={styles.etaLabel}>Dự kiến đến</Text>
               <Text style={styles.etaValue}>
-                {currentStatusNum >= BOOKING_STATUS.Arrived ? 'Đã đến nơi' : '5 phút nữa'}
+                {currentStatusNum >= BookingStatus.Arrived ? 'Đã đến nơi' : '5 phút nữa'}
               </Text>
             </View>
           </View>

@@ -3,15 +3,15 @@ import { getCategoryGuid, getCategorySlug } from './categories';
 
 export enum BookingStatus {
   Pending = 0,
-  Matching = 1,
-  Confirmed = 2,
-  Traveling = 3,
-  Arrived = 4,
-  InProgress = 5,
-  Completed = 6,
-  Cancelled = 7,
-  Disputed = 8,
-  PendingPayment = 9,
+  PendingPayment = 1,
+  Matching = 2,
+  Confirmed = 3,
+  Traveling = 4,
+  Arrived = 5,
+  InProgress = 6,
+  Completed = 7,
+  Cancelled = 8,
+  Disputed = 9,
 }
 
 export enum BookingScheduledType {
@@ -160,31 +160,6 @@ export type CompleteBookingPayload = {
 
 const BOOKING_PATH = '/bookings';
 
-const offlineDrafts: Record<string, BookingDraft> = {};
-const offlineBookings: Record<string, Booking> = {
-  'booking-sample-1': {
-    id: 'booking-sample-1',
-    categoryId: 'dien',
-    description: 'Sửa ổ cắm điện bị chập cháy ở phòng khách',
-    mediaIds: [],
-    address: '123 Nguyễn Trãi, Thanh Xuân, Hà Nội',
-    lat: 21.0028,
-    lng: 105.8056,
-    scheduledType: BookingScheduledType.Now,
-    autoMatch: false,
-    status: BookingStatus.Completed,
-    finalAmount: 180000,
-    worker: {
-      id: 'worker-thang-dien',
-      fullName: 'Nguyễn Văn Thắng',
-      avatarUrl: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-      phone: '0987111222',
-      rating: 4.9,
-    },
-    createdDate: new Date(Date.now() - 86400000 * 3).toISOString(),
-  },
-};
-
 function unwrapData<T = any>(responseData: any): T {
   return responseData?.data ?? responseData;
 }
@@ -229,6 +204,9 @@ function normalizeScheduledType(type: unknown): BookingScheduledType | number {
 
 function normalizeDraft(raw: any, fallback?: Partial<BookingDraft>): BookingDraft {
   const source = raw ?? {};
+  const rawScheduledType = source.scheduledType ?? source.ScheduledType ?? source.scheduleType ?? source.ScheduleType;
+  const rawScheduledAt = source.scheduledAt ?? source.ScheduledAt ?? source.scheduleAt ?? source.ScheduleAt;
+
   return {
     ...fallback,
     ...source,
@@ -243,8 +221,9 @@ function normalizeDraft(raw: any, fallback?: Partial<BookingDraft>): BookingDraf
     lat: Number(source.lat ?? fallback?.lat ?? 0),
     lng: Number(source.lng ?? fallback?.lng ?? 0),
     scheduledType: normalizeScheduledType(
-      source.scheduledType ?? fallback?.scheduledType ?? BookingScheduledType.Now
+      rawScheduledType ?? fallback?.scheduledType ?? BookingScheduledType.Now
     ),
+    scheduledAt: rawScheduledAt ?? fallback?.scheduledAt,
     autoMatch: Boolean(source.autoMatch ?? fallback?.autoMatch),
   };
 }
@@ -252,6 +231,9 @@ function normalizeDraft(raw: any, fallback?: Partial<BookingDraft>): BookingDraf
 function normalizeBooking(raw: any): Booking {
   const source = raw ?? {};
   const worker = source.worker;
+  const rawScheduledType = source.scheduledType ?? source.ScheduledType ?? source.scheduleType ?? source.ScheduleType;
+  const rawScheduledAt = source.scheduledAt ?? source.ScheduledAt ?? source.scheduleAt ?? source.ScheduleAt;
+
   return {
     ...source,
     id: source.id ?? source.bookingId,
@@ -260,7 +242,8 @@ function normalizeBooking(raw: any): Booking {
     address: source.address ?? '',
     lat: Number(source.lat ?? 0),
     lng: Number(source.lng ?? 0),
-    scheduledType: normalizeScheduledType(source.scheduledType),
+    scheduledType: normalizeScheduledType(rawScheduledType),
+    scheduledAt: rawScheduledAt,
     autoMatch: Boolean(source.autoMatch),
     status: normalizeStatus(source.status),
     finalAmount: source.finalAmount ?? source.finalPrice,
@@ -316,28 +299,9 @@ export function isTerminalBookingStatus(status: number) {
 }
 
 export async function createDraft(draft: BookingDraftInput): Promise<BookingDraft> {
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/drafts`, buildDraftPayload(draft));
-    const data = unwrapData(response.data);
-    const normalized = normalizeDraft(data, draft);
-
-    if (normalized.id) offlineDrafts[normalized.id] = normalized;
-    return normalized;
-  } catch (error) {
-    console.warn('[bookings API] Error creating draft, falling back offline', error);
-    const draftId = `draft-${Date.now()}`;
-    const newDraft = normalizeDraft(
-      {
-        ...draft,
-        id: draftId,
-        draftId,
-        estimatedAmount: draft.workerProfileId ? 150000 : 120000,
-      },
-      draft
-    );
-    offlineDrafts[draftId] = newDraft;
-    return newDraft;
-  }
+  const response = await apiClient.post(`${BOOKING_PATH}/drafts`, buildDraftPayload(draft));
+  const data = unwrapData(response.data);
+  return normalizeDraft(data, draft);
 }
 
 export async function listDrafts(): Promise<BookingDraft[]> {
@@ -346,174 +310,51 @@ export async function listDrafts(): Promise<BookingDraft[]> {
     const data = unwrapData(response.data);
     const items = Array.isArray(data?.items) ? data.items : data;
     if (Array.isArray(items)) return items.map((item) => normalizeDraft(item));
-    return Object.values(offlineDrafts);
+    return [];
   } catch (error) {
-    console.warn('[bookings API] Error listing drafts, falling back offline', error);
-    return Object.values(offlineDrafts);
+    console.warn('[bookings API] Error listing drafts', error);
+    return [];
   }
 }
 
 export async function getDraftDetails(draftId: string): Promise<BookingDraft> {
-  try {
-    const response = await apiClient.get(`${BOOKING_PATH}/drafts/${draftId}`);
-    const data = unwrapData(response.data);
-    return normalizeDraft(data, offlineDrafts[draftId]);
-  } catch (error) {
-    console.warn('[bookings API] Error getting draft details, falling back offline', error);
-    const localDraft = offlineDrafts[draftId];
-    if (localDraft) return localDraft;
-    throw new Error('Draft not found.');
-  }
+  const response = await apiClient.get(`${BOOKING_PATH}/drafts/${draftId}`);
+  const data = unwrapData(response.data);
+  return normalizeDraft(data);
 }
 
 export async function updateDraft(
   draftId: string,
   draft: BookingDraftInput
 ): Promise<BookingDraft> {
-  try {
-    const response = await apiClient.put(
-      `${BOOKING_PATH}/drafts/${draftId}`,
-      buildDraftPayload(draft)
-    );
-    const normalized = normalizeDraft(unwrapData(response.data), draft);
-    if (normalized.id) offlineDrafts[normalized.id] = normalized;
-    return normalized;
-  } catch (error) {
-    console.warn('[bookings API] Error updating draft, falling back offline', error);
-    const updatedDraft = normalizeDraft({ ...draft, id: draftId, draftId }, draft);
-    offlineDrafts[draftId] = updatedDraft;
-    return updatedDraft;
-  }
+  const response = await apiClient.put(
+    `${BOOKING_PATH}/drafts/${draftId}`,
+    buildDraftPayload(draft)
+  );
+  return normalizeDraft(unwrapData(response.data), draft);
 }
 
 export async function deleteDraft(draftId: string): Promise<void> {
-  try {
-    await apiClient.delete(`${BOOKING_PATH}/drafts/${draftId}`);
-  } finally {
-    delete offlineDrafts[draftId];
-  }
+  await apiClient.delete(`${BOOKING_PATH}/drafts/${draftId}`);
 }
 
 export async function confirmDraft(
   draftId: string
 ): Promise<{ bookingId: string; booking?: Booking }> {
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/drafts/${draftId}/confirm`);
-    const data = unwrapData(response.data);
-    const bookingId = data?.bookingId ?? data?.id ?? response.data?.bookingId ?? response.data?.id;
-    const booking =
-      data?.status !== undefined || data?.description ? normalizeBooking(data) : undefined;
+  const response = await apiClient.post(`${BOOKING_PATH}/drafts/${draftId}/confirm`);
+  const data = unwrapData(response.data);
+  const bookingId = data?.bookingId ?? data?.id ?? response.data?.bookingId ?? response.data?.id;
+  const booking =
+    data?.status !== undefined || data?.description ? normalizeBooking(data) : undefined;
 
-    if (booking?.id) {
-      offlineBookings[booking.id] = booking;
-    } else if (bookingId) {
-      const localDraft = offlineDrafts[draftId];
-      offlineBookings[bookingId] = normalizeBooking({
-        id: bookingId,
-        categoryId: localDraft?.categoryId ?? 'dien',
-        description: localDraft?.description ?? 'Yêu cầu sửa chữa',
-        mediaIds: localDraft?.mediaIds ?? [],
-        address: localDraft?.address ?? '',
-        lat: localDraft?.lat ?? 0,
-        lng: localDraft?.lng ?? 0,
-        scheduledType: localDraft?.scheduledType ?? 0,
-        scheduledAt: localDraft?.scheduledAt,
-        workerProfileId: localDraft?.workerProfileId,
-        autoMatch: localDraft?.autoMatch ?? false,
-        status: BookingStatus.Pending,
-        createdDate: new Date().toISOString(),
-      });
-    }
-
-    if (bookingId) return { bookingId, booking: booking || offlineBookings[bookingId] };
-    throw new Error('Confirm response does not include bookingId.');
-  } catch (error) {
-    console.warn('[bookings API] Error confirming draft, falling back offline', error);
-    const localDraft = offlineDrafts[draftId];
-    const bookingId = `booking-${Date.now()}`;
-
-    if (localDraft) {
-      const booking: Booking = normalizeBooking({
-        id: bookingId,
-        categoryId: localDraft.categoryId,
-        description: localDraft.description,
-        mediaIds: localDraft.mediaIds,
-        addressId: localDraft.addressId,
-        address: localDraft.address,
-        lat: localDraft.lat,
-        lng: localDraft.lng,
-        scheduledType: localDraft.scheduledType,
-        scheduledAt: localDraft.scheduledAt,
-        workerProfileId: localDraft.workerProfileId,
-        autoMatch: localDraft.autoMatch,
-        status: localDraft.autoMatch ? BookingStatus.Matching : BookingStatus.Pending,
-        finalAmount: localDraft.estimatedAmount ?? localDraft.estimatedPrice ?? 150000,
-        worker: localDraft.workerProfileId
-          ? {
-              id: localDraft.workerProfileId,
-              fullName: 'Nguyễn Văn Thắng',
-              avatarUrl: 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-              phone: '0987111222',
-              rating: 4.9,
-            }
-          : undefined,
-        createdDate: new Date().toISOString(),
-      });
-
-      offlineBookings[bookingId] = booking;
-      delete offlineDrafts[draftId];
-      return { bookingId, booking };
-    }
-
-    throw new Error('Draft details not found offline.');
-  }
+  if (bookingId) return { bookingId, booking };
+  throw new Error('Confirm response does not include bookingId.');
 }
 
 export async function getBookingDetails(bookingId: string): Promise<Booking> {
-  if (bookingId.startsWith('booking-')) {
-    const localBooking = offlineBookings[bookingId];
-    if (localBooking) return localBooking;
-    throw new Error('Booking not found offline.');
-  }
-
-  try {
-    const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}`);
-    const data = unwrapData(response.data);
-    const booking = normalizeBooking(data);
-    if (booking.id) offlineBookings[booking.id] = booking;
-    return booking;
-  } catch (error) {
-    console.warn('[bookings API] Error getting booking details, falling back offline', error);
-
-    // Self-healing fallback: query active lists to retrieve this booking object
-    try {
-      const list = await getMyBookings();
-      const found = list.find((b) => b.id === bookingId);
-      if (found) {
-        console.log('[bookings API] Recovered booking details from customer list:', bookingId);
-        offlineBookings[bookingId] = found;
-        return found;
-      }
-    } catch (listErr) {
-      console.warn('[bookings API] Customer list recovery failed:', listErr);
-    }
-
-    try {
-      const list = await getWorkerBookings();
-      const found = list.find((b) => b.id === bookingId);
-      if (found) {
-        console.log('[bookings API] Recovered booking details from worker list:', bookingId);
-        offlineBookings[bookingId] = found;
-        return found;
-      }
-    } catch (listErr) {
-      console.warn('[bookings API] Worker list recovery failed:', listErr);
-    }
-
-    const localBooking = offlineBookings[bookingId];
-    if (localBooking) return localBooking;
-    throw new Error('Booking not found.');
-  }
+  const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}`);
+  const data = unwrapData(response.data);
+  return normalizeBooking(data);
 }
 
 export async function getMyBookings(params?: Record<string, unknown>): Promise<Booking[]> {
@@ -522,10 +363,10 @@ export async function getMyBookings(params?: Record<string, unknown>): Promise<B
     const data = unwrapData(response.data);
     const items = Array.isArray(data?.items) ? data.items : data;
     if (Array.isArray(items)) return items.map((item) => normalizeBooking(item));
-    return Object.values(offlineBookings);
+    return [];
   } catch (error) {
-    console.warn('[bookings API] Error getting bookings, falling back offline', error);
-    return Object.values(offlineBookings);
+    console.warn('[bookings API] Error getting bookings', error);
+    return [];
   }
 }
 
@@ -536,257 +377,65 @@ export async function getWorkerBookings(params?: Record<string, unknown>): Promi
     const items = Array.isArray(data?.items) ? data.items : data;
     return Array.isArray(items) ? items.map((item) => normalizeBooking(item)) : [];
   } catch (error) {
-    console.warn('[bookings API] Error getting worker bookings, falling back offline', error);
-    return Object.values(offlineBookings).filter((b) => b.workerId || b.worker?.id);
+    console.warn('[bookings API] Error getting worker bookings', error);
+    return [];
   }
 }
 
 export async function acceptBooking(bookingId: string): Promise<Booking> {
-  if (bookingId.startsWith('booking-')) {
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Confirmed;
-      return booking;
-    }
-    throw new Error('Booking not found offline.');
-  }
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/accept`);
-    const booking = normalizeBooking(unwrapData(response.data));
-    if (booking.id) offlineBookings[booking.id] = booking;
-    return booking;
-  } catch (error) {
-    console.warn('[bookings API] Error accepting booking, falling back offline', error);
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Confirmed;
-      return booking;
-    }
-    throw error;
-  }
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/accept`);
+  return normalizeBooking(unwrapData(response.data));
 }
 
 export async function declineBooking(bookingId: string, rejectReason: string): Promise<Booking> {
-  if (bookingId.startsWith('booking-')) {
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Cancelled;
-      return booking;
-    }
-    throw new Error('Booking not found offline.');
-  }
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/decline`, { rejectReason });
-    const booking = normalizeBooking(unwrapData(response.data));
-    if (booking.id) offlineBookings[booking.id] = booking;
-    return booking;
-  } catch (error) {
-    console.warn('[bookings API] Error declining booking, falling back offline', error);
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Cancelled;
-      return booking;
-    }
-    throw error;
-  }
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/decline`, { rejectReason });
+  return normalizeBooking(unwrapData(response.data));
 }
 
 export async function proposeBooking(
   bookingId: string,
   payload: { proposedPrice: number; proposedTime?: string; proposedNote?: string }
 ): Promise<Booking> {
-  if (bookingId.startsWith('booking-')) {
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Pending;
-      booking.workerProposedPrice = payload.proposedPrice;
-      booking.workerProposedTime = payload.proposedTime;
-      booking.workerProposedNote = payload.proposedNote;
-      return booking;
-    }
-    throw new Error('Booking not found offline.');
-  }
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/propose`, payload);
-    const booking = normalizeBooking(unwrapData(response.data));
-    if (booking.id) offlineBookings[booking.id] = booking;
-    return booking;
-  } catch (error) {
-    console.warn('[bookings API] Error proposing booking, falling back offline', error);
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.workerProposedPrice = payload.proposedPrice;
-      booking.workerProposedTime = payload.proposedTime;
-      booking.workerProposedNote = payload.proposedNote;
-      return booking;
-    }
-    throw error;
-  }
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/propose`, payload);
+  return normalizeBooking(unwrapData(response.data));
 }
 
 export async function respondBookingProposal(
   bookingId: string,
   payload: { accept: boolean; rejectReason?: string }
 ): Promise<Booking> {
-  if (bookingId.startsWith('booking-')) {
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = payload.accept ? BookingStatus.Confirmed : BookingStatus.Cancelled;
-      return booking;
-    }
-    throw new Error('Booking not found offline.');
-  }
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/respond-proposal`, payload);
-    const booking = normalizeBooking(unwrapData(response.data));
-    if (booking.id) offlineBookings[booking.id] = booking;
-    return booking;
-  } catch (error) {
-    console.warn('[bookings API] Error responding proposal, falling back offline', error);
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = payload.accept ? BookingStatus.Confirmed : BookingStatus.Cancelled;
-      return booking;
-    }
-    throw error;
-  }
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/respond-proposal`, payload);
+  return normalizeBooking(unwrapData(response.data));
 }
 
 export async function startTravel(bookingId: string): Promise<Booking> {
-  if (bookingId.startsWith('booking-')) {
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Traveling;
-      return booking;
-    }
-    throw new Error('Booking not found offline.');
-  }
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/start-travel`);
-    const booking = normalizeBooking(unwrapData(response.data));
-    if (booking.id) offlineBookings[booking.id] = booking;
-    return booking;
-  } catch (error) {
-    console.warn('[bookings API] Error starting travel, falling back offline', error);
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Traveling;
-      return booking;
-    }
-    throw error;
-  }
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/start-travel`);
+  return normalizeBooking(unwrapData(response.data));
 }
 
 export async function arriveBooking(bookingId: string): Promise<Booking> {
-  if (bookingId.startsWith('booking-')) {
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Arrived;
-      return booking;
-    }
-    throw new Error('Booking not found offline.');
-  }
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/arrive`);
-    const booking = normalizeBooking(unwrapData(response.data));
-    if (booking.id) offlineBookings[booking.id] = booking;
-    return booking;
-  } catch (error) {
-    console.warn('[bookings API] Error arriving booking, falling back offline', error);
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Arrived;
-      return booking;
-    }
-    throw error;
-  }
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/arrive`);
+  return normalizeBooking(unwrapData(response.data));
 }
 
 export async function startWork(bookingId: string): Promise<Booking> {
-  if (bookingId.startsWith('booking-')) {
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.InProgress;
-      return booking;
-    }
-    throw new Error('Booking not found offline.');
-  }
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/start-work`);
-    const booking = normalizeBooking(unwrapData(response.data));
-    if (booking.id) offlineBookings[booking.id] = booking;
-    return booking;
-  } catch (error) {
-    console.warn('[bookings API] Error starting work, falling back offline', error);
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.InProgress;
-      return booking;
-    }
-    throw error;
-  }
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/start-work`);
+  return normalizeBooking(unwrapData(response.data));
 }
 
 export async function completeBooking(
   bookingId: string,
   payload: CompleteBookingPayload
 ): Promise<Booking> {
-  if (bookingId.startsWith('booking-')) {
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Completed;
-      return booking;
-    }
-    throw new Error('Booking not found offline.');
-  }
-  try {
-    const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/complete`, {
-      mediaIds: payload.mediaIds,
-    });
-    const booking = normalizeBooking(unwrapData(response.data));
-    if (booking.id) offlineBookings[booking.id] = booking;
-    return booking;
-  } catch (error) {
-    console.warn('[bookings API] Error completing booking, falling back offline', error);
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      booking.status = BookingStatus.Completed;
-      return booking;
-    }
-    throw error;
-  }
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/complete`, {
+    mediaIds: payload.mediaIds,
+  });
+  return normalizeBooking(unwrapData(response.data));
 }
 
 export async function getBookingTracking(bookingId: string): Promise<BookingTracking | null> {
-  if (bookingId.startsWith('booking-')) {
-    const booking = offlineBookings[bookingId];
-    if (booking) {
-      return {
-        bookingId,
-        status: booking.status,
-        workerLat: 21.0028,
-        workerLng: 105.8056,
-        locationUpdatedAt: new Date().toISOString(),
-        workerInfo: booking.worker
-          ? {
-              workerId: booking.worker.id,
-              fullName: booking.worker.fullName,
-              phone: booking.worker.phone,
-              avatarUrl: booking.worker.avatarUrl,
-              ratingAvg: booking.worker.rating,
-            }
-          : undefined,
-      };
-    }
-    return null;
-  }
-  try {
-    const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/tracking`);
-    return unwrapData<BookingTracking>(response.data);
-  } catch (error) {
-    console.warn('[bookings API] Error getting tracking', error);
-    return null;
-  }
+  const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/tracking`);
+  return unwrapData<BookingTracking>(response.data);
 }
 
 export async function updateWorkerLocation(lat: number, lng: number): Promise<void> {
@@ -813,99 +462,83 @@ export async function startBookingPayment(
   bookingId: string,
   method: PaymentMethod | number
 ): Promise<BookingPaymentResult> {
-  if (bookingId.startsWith('booking-')) {
-    return {
-      bookingId,
-      method,
-      status: 'paid',
-      transactionId: `tx-${Date.now()}`,
-    };
-  }
-  try {
-    const response = await apiClient.post(`/payment/booking/${bookingId}`, { method });
-    const data = unwrapData(response.data);
-    return {
-      bookingId,
-      method,
-      paymentUrl: extractPaymentUrl(data),
-      redirectUrl: data?.redirectUrl,
-      transactionId: data?.transactionId ?? data?.id,
-      status: data?.status,
-      raw: data,
-    };
-  } catch (error) {
-    console.warn('[payment API] Error starting booking payment', error);
-    if (method === PaymentMethod.Wallet) return payBookingWithWallet(bookingId);
-    throw error;
-  }
+  const response = await apiClient.post(`/payment/booking/${bookingId}`, { method });
+  const data = unwrapData(response.data);
+  return {
+    bookingId,
+    method,
+    paymentUrl: extractPaymentUrl(data),
+    redirectUrl: data?.redirectUrl,
+    transactionId: data?.transactionId ?? data?.id,
+    status: data?.status,
+    raw: data,
+  };
 }
 
 export async function payBookingWithWallet(bookingId: string): Promise<BookingPaymentResult> {
-  if (bookingId.startsWith('booking-')) {
-    return {
-      bookingId,
-      method: PaymentMethod.Wallet,
-      status: 'paid',
-      transactionId: `tx-${Date.now()}`,
-    };
+  const response = await apiClient.post(`/wallet/booking/${bookingId}/wallet`);
+  const data = unwrapData(response.data);
+  return {
+    bookingId,
+    method: PaymentMethod.Wallet,
+    transactionId: data?.transactionId ?? data?.id,
+    status: data?.status ?? 'paid',
+    raw: data,
+  };
+}
+
+export function normalizeChatMessage(msg: any): BookingChatMessage {
+  if (!msg) return msg;
+
+  // Normalize type: 0 = Text, 1 = Image
+  let normalizedType = 0;
+  const rawType = msg.type !== undefined ? msg.type : msg.Type;
+  if (rawType === 1 || String(rawType).toLowerCase() === 'image') {
+    normalizedType = 1;
   }
-  try {
-    const response = await apiClient.post(`/wallet/booking/${bookingId}/wallet`);
-    const data = unwrapData(response.data);
-    return {
-      bookingId,
-      method: PaymentMethod.Wallet,
-      transactionId: data?.transactionId ?? data?.id,
-      status: data?.status ?? 'paid',
-      raw: data,
-    };
-  } catch (error) {
-    console.warn('[wallet API] Error paying booking with wallet, using offline success', error);
-    const localBooking = offlineBookings[bookingId];
-    if (localBooking) {
-      offlineBookings[bookingId] = {
-        ...localBooking,
-        status: BookingStatus.Completed,
-        updatedDate: new Date().toISOString(),
-      };
-      return {
-        bookingId,
-        method: PaymentMethod.Wallet,
-        status: 'paid-offline',
-      };
-    }
-    throw error;
-  }
+
+  return {
+    id: String(msg.id ?? msg.Id ?? msg.messageId ?? msg.MessageId ?? `msg-${Date.now()}`),
+    bookingId: msg.bookingId ?? msg.BookingId,
+    senderId: msg.senderId ?? msg.SenderId,
+    senderName: msg.senderName ?? msg.SenderName,
+    type: normalizedType,
+    content: msg.content ?? msg.Content ?? '',
+    mediaUrl: msg.mediaUrl ?? msg.MediaUrl ?? msg.fileUrl ?? msg.FileUrl,
+    createdDate: msg.createdDate ?? msg.CreatedDate ?? new Date().toISOString(),
+    isRead: msg.isRead !== undefined ? msg.isRead : msg.IsRead,
+  };
 }
 
 export async function getBookingChatMessages(bookingId: string): Promise<BookingChatMessage[]> {
   const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/chat/messages`);
   const data = unwrapData(response.data);
   const items = Array.isArray(data?.items) ? data.items : data;
-  return Array.isArray(items) ? items : [];
+  if (Array.isArray(items)) {
+    return items.map((item) => normalizeChatMessage(item));
+  }
+  return [];
 }
 
 export async function sendBookingChatMessage(
   bookingId: string,
   payload: { content?: string; type?: number; file?: unknown }
 ): Promise<BookingChatMessage> {
+  const formData = new FormData();
+  formData.append('Type', String(payload.type ?? 0));
+  
+  if (payload.content) {
+    formData.append('Content', payload.content);
+  }
+  
   if (payload.file) {
-    const formData = new FormData();
-    formData.append('Type', String(payload.type ?? 1));
-    if (payload.content) formData.append('Content', payload.content);
     formData.append('File', payload.file as any);
-
-    const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/chat/messages`, formData, {
-      headers: { 'Content-Type': 'multipart/form-data' },
-    });
-    return unwrapData(response.data);
   }
 
-  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/chat/messages`, {
-    type: payload.type ?? 0,
-    content: payload.content ?? '',
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/chat/messages`, formData, {
+    headers: { 'Content-Type': 'multipart/form-data' },
   });
-  return unwrapData(response.data);
+  return normalizeChatMessage(unwrapData(response.data));
 }
 
 export async function markBookingChatRead(bookingId: string): Promise<void> {

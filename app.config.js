@@ -33,9 +33,19 @@ module.exports = ({ config }) => {
     extra: {
       ...config.extra,
       apiUrl: process.env.API_URL || envLocal.API_URL,
+      fptProxyUrl:
+        process.env.FPT_PROXY_URL ||
+        envLocal.FPT_PROXY_URL ||
+        process.env.NEXT_PUBLIC_APP_URL ||
+        envLocal.NEXT_PUBLIC_APP_URL,
+      fptAiApiKey: process.env.FPT_AI_API_KEY || envLocal.FPT_AI_API_KEY,
+      chatHubUrl: process.env.CHAT_HUB_URL || envLocal.CHAT_HUB_URL,
       goongApiKey: process.env.GOONG_API_KEY || envLocal.GOONG_API_KEY,
       goongMaptilesApiKey: process.env.GOONG_MAPTILES_API_KEY || envLocal.GOONG_MAPTILES_API_KEY,
-      vietnamProvincesApiUrl: process.env.VIETNAM_PROVINCES_API_URL || envLocal.VIETNAM_PROVINCES_API_URL || 'https://provinces.open-api.vn/api/v2',
+      vietnamProvincesApiUrl:
+        process.env.VIETNAM_PROVINCES_API_URL ||
+        envLocal.VIETNAM_PROVINCES_API_URL ||
+        'https://provinces.open-api.vn/api/v2',
     },
   };
 };

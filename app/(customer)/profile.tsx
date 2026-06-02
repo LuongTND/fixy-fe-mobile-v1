@@ -113,8 +113,8 @@ export default function ProfileScreen() {
               <MaterialIcons name="edit" size={14} color="#FFFFFF" />
             </Pressable>
           </View>
-          <Text style={styles.profileName}>{profile?.fullName ?? 'Nguyễn An'}</Text>
-          <Text style={styles.profilePhone}>{profile?.phone ?? target ?? '+84 987 654 321'}</Text>
+          <Text style={styles.profileName}>{profile?.fullName ?? ''}</Text>
+          <Text style={styles.profilePhone}>{profile?.phone ?? target ?? ''}</Text>
         </View>
 
         {/* Section 1: Account */}

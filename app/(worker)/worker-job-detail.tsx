@@ -21,6 +21,7 @@ import * as ImagePicker from 'expo-image-picker';
 
 import {
   Booking,
+  BookingStatus,
   acceptBooking,
   declineBooking,
   proposeBooking,
@@ -32,63 +33,73 @@ import {
 } from '@/services/api/bookings';
 import { getMediaUrl, uploadMediaFiles, MediaCategory, MediaOwnerType } from '@/services/api/media';
 import { getApiErrorMessage } from '@/services/api/client';
+import { fetchCategories } from '@/services/api/categories';
+import { getBookingReview, replyToReview, Review } from '@/services/api/reviews';
 
 // Map status enum values to string keys and styles
 const STATUS_MAP: Record<
   number,
   { label: string; style: any; icon: React.ComponentProps<typeof MaterialIcons>['name'] }
 > = {
-  0: {
+  [BookingStatus.Pending]: {
     label: 'Khách đang chờ bạn phản hồi',
     style: { color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
     icon: 'hourglass-empty',
   },
-  1: {
+  [BookingStatus.Matching]: {
     label: 'Yêu cầu ghép cặp tự động',
     style: { color: '#EA580C', bg: '#FFEDD5', border: '#FED7AA' },
     icon: 'sync',
   },
-  2: {
+  [BookingStatus.Confirmed]: {
     label: 'Bạn đã nhận lịch',
     style: { color: '#059669', bg: '#D1FAE5', border: '#A7F3D0' },
     icon: 'assignment-turned-in',
   },
-  3: {
+  [BookingStatus.Traveling]: {
     label: 'Đang di chuyển tới địa chỉ',
     style: { color: '#2563EB', bg: '#DBEAFE', border: '#BFDBFE' },
     icon: 'directions-car',
   },
-  4: {
+  [BookingStatus.Arrived]: {
     label: 'Đã đến địa chỉ khách hàng',
     style: { color: '#4F46E5', bg: '#EEF2FF', border: '#E0E7FF' },
     icon: 'hail',
   },
-  5: {
+  [BookingStatus.InProgress]: {
     label: 'Đang tiến hành sửa chữa',
     style: { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
     icon: 'build',
   },
-  6: {
+  [BookingStatus.Completed]: {
     label: 'Công việc hoàn thành',
     style: { color: '#059669', bg: '#D1FAE5', border: '#A7F3D0' },
     icon: 'check-circle',
   },
-  7: {
+  [BookingStatus.Cancelled]: {
     label: 'Đã hủy',
     style: { color: '#475569', bg: '#F1F5F9', border: '#E2E8F0' },
     icon: 'cancel',
   },
-  8: {
+  [BookingStatus.Disputed]: {
     label: 'Đang tranh chấp',
     style: { color: '#DC2626', bg: '#FEE2E2', border: '#FCA5A5' },
     icon: 'report-problem',
   },
-  9: {
+  [BookingStatus.PendingPayment]: {
     label: 'Đang chờ khách thanh toán',
     style: { color: '#E11D48', bg: '#FFE4E6', border: '#FECDD3' },
     icon: 'payment',
   },
 };
+
+function resolveReviewImageUri(image: any): string {
+  const rawUri =
+    typeof image === 'string' ? image : (image?.fileUrl ?? image?.imageUrl ?? image?.url ?? '');
+
+  if (!rawUri) return '';
+  return rawUri.startsWith('http') ? rawUri : getMediaUrl(rawUri);
+}
 
 export default function WorkerJobDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -99,12 +110,14 @@ export default function WorkerJobDetailScreen() {
   const [declineModalOpen, setDeclineModalOpen] = React.useState(false);
   const [proposeModalOpen, setProposeModalOpen] = React.useState(false);
   const [completeModalOpen, setCompleteModalOpen] = React.useState(false);
+  const [replyModalOpen, setReplyModalOpen] = React.useState(false);
   const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
 
   // Form states for decline/proposal
   const [declineReason, setDeclineReason] = React.useState('');
   const [proposedPrice, setProposedPrice] = React.useState('');
   const [proposedNote, setProposedNote] = React.useState('');
+  const [replyText, setReplyText] = React.useState('');
 
   // Form states for completion report
   const [completionImages, setCompletionImages] = React.useState<string[]>([]);
@@ -116,6 +129,38 @@ export default function WorkerJobDetailScreen() {
     enabled: !!id,
   });
 
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
+  });
+
+  const { data: bookingReview = null, isLoading: reviewLoading } = useQuery<Review | null>({
+    queryKey: ['bookingReview', id],
+    queryFn: () => getBookingReview(id || ''),
+    enabled: !!id && job !== null && Number(job.status) === BookingStatus.Completed,
+  });
+
+  const category = categories.find((c) => c.id === job?.categoryId || c.code === job?.categoryId);
+  const categoryName =
+    category?.name ||
+    (job?.categoryId === 'dien'
+      ? 'Điện gia dụng'
+      : job?.categoryId === 'nuoc'
+        ? 'Sửa đường nước'
+        : job?.categoryId === 'dieuhoa'
+          ? 'Bảo dưỡng điều hòa'
+          : job?.categoryId === 'maygiat'
+            ? 'Sửa máy giặt'
+            : job?.categoryId === 'xemay'
+              ? 'Sửa xe máy/ô tô'
+              : job?.categoryId === 'moc'
+                ? 'Đồ gỗ & Nội thất'
+                : job?.categoryId === 'son'
+                  ? 'Sơn & Trát tường'
+                  : job?.categoryId === 'vesinh'
+                    ? 'Vệ sinh nhà cửa'
+                    : 'Dịch vụ sửa chữa');
+
   // Mutations
   const acceptMutation = useMutation({
     mutationFn: () => acceptBooking(id || ''),
@@ -125,7 +170,13 @@ export default function WorkerJobDetailScreen() {
       Alert.alert('Thành công', 'Bạn đã chấp nhận công việc này.');
     },
     onError: (err) => {
-      Alert.alert('Lỗi', 'Không thể chấp nhận công việc.');
+      queryClient.invalidateQueries({ queryKey: ['booking', id] });
+      queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
+      const errMsg = getApiErrorMessage(err);
+      if (errMsg.includes('Current status:')) {
+        return;
+      }
+      Alert.alert('Lỗi', errMsg || 'Không thể chấp nhận công việc.');
     },
   });
 
@@ -170,6 +221,15 @@ export default function WorkerJobDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
       Alert.alert('Bắt đầu di chuyển', 'Chúc bạn thượng lộ bình an!');
     },
+    onError: (err) => {
+      queryClient.invalidateQueries({ queryKey: ['booking', id] });
+      queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
+      const errMsg = getApiErrorMessage(err);
+      if (errMsg.includes('Current status:')) {
+        return;
+      }
+      Alert.alert('Lỗi', errMsg || 'Không thể bắt đầu di chuyển.');
+    },
   });
 
   const arriveMutation = useMutation({
@@ -179,6 +239,15 @@ export default function WorkerJobDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
       Alert.alert('Đã đến nơi', 'Vui lòng khảo sát hiện trạng và sửa chữa.');
     },
+    onError: (err) => {
+      queryClient.invalidateQueries({ queryKey: ['booking', id] });
+      queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
+      const errMsg = getApiErrorMessage(err);
+      if (errMsg.includes('Current status:')) {
+        return;
+      }
+      Alert.alert('Lỗi', errMsg || 'Không thể xác nhận đã đến nơi.');
+    },
   });
 
   const startWorkMutation = useMutation({
@@ -187,6 +256,15 @@ export default function WorkerJobDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
       Alert.alert('Bắt đầu sửa chữa', 'Bắt đầu bấm giờ thi công.');
+    },
+    onError: (err) => {
+      queryClient.invalidateQueries({ queryKey: ['booking', id] });
+      queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
+      const errMsg = getApiErrorMessage(err);
+      if (errMsg.includes('Current status:')) {
+        return;
+      }
+      Alert.alert('Lỗi', errMsg || 'Không thể bắt đầu sửa chữa.');
     },
   });
 
@@ -217,6 +295,25 @@ export default function WorkerJobDetailScreen() {
       console.error(err);
       const msg = getApiErrorMessage(err);
       Alert.alert('Lỗi', msg);
+    },
+  });
+
+  const replyReviewMutation = useMutation({
+    mutationFn: () => {
+      if (!bookingReview?.id) {
+        throw new Error('Không tìm thấy đánh giá để phản hồi.');
+      }
+      return replyToReview(bookingReview.id, replyText.trim());
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['bookingReview', id] });
+      queryClient.invalidateQueries({ queryKey: ['workerReviews'] });
+      setReplyModalOpen(false);
+      setReplyText('');
+      Alert.alert('Thành công', 'Phản hồi của bạn đã được gửi đến khách hàng.');
+    },
+    onError: (err) => {
+      Alert.alert('Lỗi', getApiErrorMessage(err) || 'Không thể gửi phản hồi đánh giá.');
     },
   });
 
@@ -254,7 +351,12 @@ export default function WorkerJobDetailScreen() {
     setCompletionImages((prev) => prev.filter((_, i) => i !== index));
   };
 
-  if (loading) {
+  const handleOpenReplyModal = () => {
+    setReplyText(bookingReview?.workerReply ?? '');
+    setReplyModalOpen(true);
+  };
+
+  if (loading || categoriesLoading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#FF8228" />
@@ -322,6 +424,32 @@ export default function WorkerJobDetailScreen() {
             </View>
           </View>
 
+          {job.status >= BookingStatus.Confirmed && job.status < BookingStatus.Completed && (
+            <View style={styles.actionButtonsRow}>
+              <Pressable
+                style={[styles.actionBtn, styles.actionBtnCall]}
+                onPress={() => {
+                  const phone = job.workerPhone || '';
+                  if (phone) {
+                    Linking.openURL(`tel:${phone}`).catch(() => {
+                      Alert.alert('Lỗi', 'Không thể khởi chạy ứng dụng gọi điện.');
+                    });
+                  } else {
+                    Alert.alert('Lỗi', 'Chưa có thông tin số điện thoại.');
+                  }
+                }}>
+                <MaterialIcons name="phone" size={18} color="#FF8228" />
+                <Text style={styles.actionBtnTextCall}>Gọi khách</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.actionBtn, styles.actionBtnChat]}
+                onPress={() => router.push(`/booking-chat?bookingId=${job.id}` as any)}>
+                <MaterialIcons name="chat" size={18} color="#ffffff" />
+                <Text style={styles.actionBtnTextChat}>Nhắn tin</Text>
+              </Pressable>
+            </View>
+          )}
+
           <View style={styles.divider} />
 
           <View style={styles.locationRow}>
@@ -344,16 +472,7 @@ export default function WorkerJobDetailScreen() {
           <Text style={styles.infoCardTitle}>Chi tiết yêu cầu</Text>
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Loại dịch vụ:</Text>
-            <Text style={styles.detailValue}>
-              {job.categoryId === 'dien' && 'Điện gia dụng'}
-              {job.categoryId === 'nuoc' && 'Sửa đường nước'}
-              {job.categoryId === 'dieuhoa' && 'Bảo dưỡng điều hòa'}
-              {job.categoryId === 'maygiat' && 'Sửa máy giặt'}
-              {job.categoryId === 'xemay' && 'Sửa xe máy/ô tô'}
-              {job.categoryId === 'moc' && 'Đồ gỗ & Nội thất'}
-              {job.categoryId === 'son' && 'Sơn & Trát tường'}
-              {job.categoryId === 'vesinh' && 'Vệ sinh nhà cửa'}
-            </Text>
+            <Text style={styles.detailValue}>{categoryName}</Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -402,7 +521,7 @@ export default function WorkerJobDetailScreen() {
         </View>
 
         {/* Financial Breakdown if completed */}
-        {job.status === 6 && (
+        {job.status === BookingStatus.Completed && (
           <View style={styles.infoCard}>
             <Text style={styles.infoCardTitle}>Hóa đơn nghiệm thu</Text>
             <View style={styles.invoiceRow}>
@@ -430,11 +549,117 @@ export default function WorkerJobDetailScreen() {
             )}
           </View>
         )}
+        {Number(job.status) === BookingStatus.Completed && (
+          <View style={styles.infoCard}>
+            <View style={styles.reviewCardHeader}>
+              <Text style={styles.infoCardTitle}>Đánh giá của khách hàng</Text>
+              {bookingReview ? (
+                <View style={styles.reviewStarsRow}>
+                  {[1, 2, 3, 4, 5].map((star) => (
+                    <MaterialIcons
+                      key={star}
+                      name="star"
+                      size={18}
+                      color={star <= bookingReview.rating ? '#FF8228' : '#dcd9d9'}
+                    />
+                  ))}
+                </View>
+              ) : null}
+            </View>
+
+            {reviewLoading ? (
+              <View style={styles.reviewLoadingRow}>
+                <ActivityIndicator size="small" color="#FF8228" />
+                <Text style={styles.reviewMutedText}>Đang tải đánh giá...</Text>
+              </View>
+            ) : bookingReview ? (
+              <>
+                <View style={styles.reviewerRow}>
+                  <View style={styles.reviewerAvatar}>
+                    {bookingReview.customer?.avatarUrl ? (
+                      <Image
+                        source={{ uri: bookingReview.customer.avatarUrl }}
+                        style={styles.reviewerAvatarImage}
+                      />
+                    ) : (
+                      <MaterialIcons name="person" size={20} color="#FF8228" />
+                    )}
+                  </View>
+                  <View style={styles.reviewerInfo}>
+                    <Text style={styles.reviewerName}>
+                      {bookingReview.customer?.fullName || 'Khách hàng Fixy'}
+                    </Text>
+                    {bookingReview.createdAt ? (
+                      <Text style={styles.reviewDateText}>
+                        {new Date(bookingReview.createdAt).toLocaleDateString('vi-VN')}
+                      </Text>
+                    ) : null}
+                  </View>
+                </View>
+
+                {bookingReview.comment ? (
+                  <Text style={styles.reviewComment}>{bookingReview.comment}</Text>
+                ) : (
+                  <Text style={styles.reviewMutedText}>Khách hàng chưa để lại bình luận.</Text>
+                )}
+
+                {bookingReview.images && bookingReview.images.length > 0 && (
+                  <ScrollView
+                    horizontal
+                    showsHorizontalScrollIndicator={false}
+                    style={styles.photoList}>
+                    {bookingReview.images.map((img, idx) => {
+                      const uri = resolveReviewImageUri(img);
+                      if (!uri) return null;
+                      return (
+                        <Pressable key={idx} onPress={() => setActivePreviewImage(uri)}>
+                          <Image source={{ uri }} style={styles.photoAttachment} />
+                        </Pressable>
+                      );
+                    })}
+                  </ScrollView>
+                )}
+
+                {bookingReview.workerReply ? (
+                  <View style={styles.workerReplyBox}>
+                    <View style={styles.workerReplyHeader}>
+                      <MaterialIcons
+                        name="reply"
+                        size={16}
+                        color="#FF8228"
+                        style={{ transform: [{ scaleX: -1 }] }}
+                      />
+                      <Text style={styles.workerReplyTitle}>Phản hồi của bạn</Text>
+                    </View>
+                    <Text style={styles.workerReplyText}>{bookingReview.workerReply}</Text>
+                  </View>
+                ) : null}
+
+                <Pressable
+                  style={[
+                    styles.replyReviewButton,
+                    replyReviewMutation.isPending && styles.modalSubmitBtnDisabled,
+                  ]}
+                  onPress={handleOpenReplyModal}
+                  disabled={replyReviewMutation.isPending}>
+                  <MaterialIcons name="reply" size={18} color="#ffffff" />
+                  <Text style={styles.replyReviewButtonText}>
+                    {bookingReview.workerReply ? 'Cập nhật phản hồi' : 'Phản hồi khách hàng'}
+                  </Text>
+                </Pressable>
+              </>
+            ) : (
+              <Text style={styles.reviewMutedText}>
+                Khách hàng chưa gửi đánh giá cho công việc này.
+              </Text>
+            )}
+          </View>
+        )}
       </ScrollView>
 
       {/* Floating Action footer based on Status */}
       <View style={[styles.footerBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
-        {(job.status === 0 || job.status === 1) && (
+        {(job.status === BookingStatus.Pending || job.status === BookingStatus.Matching) && (
           <View style={styles.incomingActions}>
             <Pressable style={styles.declineBtn} onPress={() => setDeclineModalOpen(true)}>
               <Text style={styles.declineBtnText}>Từ chối</Text>
@@ -455,7 +680,7 @@ export default function WorkerJobDetailScreen() {
           </View>
         )}
 
-        {job.status === 2 && (
+        {job.status === BookingStatus.Confirmed && (
           <Pressable
             style={styles.primaryActionBtn}
             onPress={() => travelMutation.mutate()}
@@ -468,7 +693,7 @@ export default function WorkerJobDetailScreen() {
           </Pressable>
         )}
 
-        {job.status === 3 && (
+        {job.status === BookingStatus.Traveling && (
           <Pressable
             style={styles.primaryActionBtn}
             onPress={() => arriveMutation.mutate()}
@@ -481,7 +706,7 @@ export default function WorkerJobDetailScreen() {
           </Pressable>
         )}
 
-        {job.status === 4 && (
+        {job.status === BookingStatus.Arrived && (
           <Pressable
             style={styles.primaryActionBtn}
             onPress={() => startWorkMutation.mutate()}
@@ -494,13 +719,16 @@ export default function WorkerJobDetailScreen() {
           </Pressable>
         )}
 
-        {job.status === 5 && (
+        {job.status === BookingStatus.InProgress && (
           <Pressable style={styles.primaryActionBtn} onPress={() => setCompleteModalOpen(true)}>
             <Text style={styles.primaryActionText}>Báo cáo hoàn thành & nghiệm thu</Text>
           </Pressable>
         )}
 
-        {(job.status === 9 || job.status === 6 || job.status === 7 || job.status === 8) && (
+        {(job.status === BookingStatus.PendingPayment ||
+          job.status === BookingStatus.Completed ||
+          job.status === BookingStatus.Cancelled ||
+          job.status === BookingStatus.Disputed) && (
           <Pressable style={styles.secondaryActionBtn} onPress={() => router.back()}>
             <Text style={styles.secondaryActionText}>Quay lại danh sách</Text>
           </Pressable>
@@ -546,10 +774,10 @@ export default function WorkerJobDetailScreen() {
       </Modal>
 
       {/* Proposal Bid Modal */}
-      <Modal visible={proposeModalOpen} transparent animationType="slide">
-        <View style={styles.modalOverlay}>
+      <Modal visible={proposeModalOpen} transparent animationType="fade">
+        <View style={styles.centeredModalOverlay}>
           <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
-          <View style={styles.modalContent}>
+          <View style={styles.centeredModalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Đề xuất giá & Ghi chú</Text>
               <Pressable onPress={() => setProposeModalOpen(false)}>
@@ -640,6 +868,50 @@ export default function WorkerJobDetailScreen() {
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
                 <Text style={styles.modalSubmitBtnText}>Xác nhận hoàn thành</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Review Reply Modal */}
+      <Modal visible={replyModalOpen} transparent animationType="fade">
+        <View style={styles.centeredModalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
+          <View style={styles.centeredModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Phản hồi đánh giá</Text>
+              <Pressable
+                onPress={() => {
+                  setReplyModalOpen(false);
+                  setReplyText('');
+                }}>
+                <MaterialIcons name="close" size={24} color="#383838" />
+              </Pressable>
+            </View>
+            <Text style={styles.modalLabel}>Nội dung phản hồi gửi khách hàng:</Text>
+            <TextInput
+              style={styles.modalInputText}
+              multiline
+              numberOfLines={4}
+              placeholder="Nhập lời cảm ơn hoặc phản hồi của bạn..."
+              placeholderTextColor="#9A9A9A"
+              value={replyText}
+              onChangeText={setReplyText}
+              editable={!replyReviewMutation.isPending}
+            />
+            <Pressable
+              style={[
+                styles.modalSubmitBtn,
+                (!replyText.trim() || replyReviewMutation.isPending) &&
+                  styles.modalSubmitBtnDisabled,
+              ]}
+              onPress={() => replyReviewMutation.mutate()}
+              disabled={!replyText.trim() || replyReviewMutation.isPending}>
+              {replyReviewMutation.isPending ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>Gửi phản hồi</Text>
               )}
             </Pressable>
           </View>
@@ -878,6 +1150,106 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
     color: '#FF8228',
+  },
+  reviewCardHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 12,
+  },
+  reviewStarsRow: {
+    flexDirection: 'row',
+    gap: 2,
+  },
+  reviewLoadingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  reviewMutedText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 13,
+    color: '#818A91',
+    lineHeight: 19,
+  },
+  reviewerRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    marginBottom: 12,
+  },
+  reviewerAvatar: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#FFE6D5',
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'hidden',
+  },
+  reviewerAvatarImage: {
+    width: '100%',
+    height: '100%',
+  },
+  reviewerInfo: {
+    flex: 1,
+  },
+  reviewerName: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#383838',
+  },
+  reviewDateText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#818A91',
+    marginTop: 2,
+  },
+  reviewComment: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 14,
+    color: '#383838',
+    lineHeight: 21,
+  },
+  workerReplyBox: {
+    marginTop: 14,
+    padding: 12,
+    backgroundColor: '#F9F9F9',
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#EEEEEE',
+  },
+  workerReplyHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 6,
+  },
+  workerReplyTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 12,
+    color: '#FF8228',
+  },
+  workerReplyText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 13,
+    color: '#574237',
+    lineHeight: 18,
+  },
+  replyReviewButton: {
+    marginTop: 14,
+    height: 44,
+    borderRadius: 8,
+    backgroundColor: '#FF8228',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  replyReviewButtonText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#ffffff',
   },
   footerBar: {
     position: 'absolute',
@@ -1169,5 +1541,59 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  actionButtonsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    marginTop: 14,
+    borderTopWidth: 1,
+    borderColor: '#f5f3f2',
+    paddingTop: 12,
+  },
+  actionBtn: {
+    flex: 1,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    height: 40,
+    borderRadius: 8,
+  },
+  actionBtnCall: {
+    borderWidth: 1,
+    borderColor: '#FF8228',
+    backgroundColor: '#ffffff',
+  },
+  actionBtnChat: {
+    backgroundColor: '#FF8228',
+  },
+  actionBtnTextCall: {
+    color: '#FF8228',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+  },
+  actionBtnTextChat: {
+    color: '#ffffff',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+  },
+  centeredModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 24,
+  },
+  centeredModalContent: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 20,
+    width: '100%',
+    maxWidth: 340,
+    shadowColor: '#000000',
+    shadowOpacity: 0.15,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 5,
   },
 });

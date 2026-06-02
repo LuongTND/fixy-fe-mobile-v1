@@ -54,8 +54,16 @@ function logApiResponse(status: number, url?: string) {
 function logApiResponseError(error: any) {
   const originalRequest = error.config;
   const status = error.response?.status ?? 'NETWORK_ERROR';
+
+  // Suppress error logs for expected/normal business states, e.g., checking for a review that hasn't been submitted yet.
+  if (originalRequest?.url?.includes('/reviews/booking/') && status === 400) {
+    console.log(`[API RESPONSE INFO] 400 ${originalRequest.url} - Review not yet submitted.`);
+    return;
+  }
+
   console.error(`[API RESPONSE ERROR] ${status} ${originalRequest?.url}`, {
     message: error.message,
+    data: error.response?.data,
   });
 }
 
