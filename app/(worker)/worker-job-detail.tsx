@@ -381,11 +381,23 @@ export default function WorkerJobDetailScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
+      <View style={[styles.header, { paddingTop: insets.top, justifyContent: 'space-between' }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Chi tiết công việc</Text>
+        </View>
+        <Pressable
+          style={{ padding: 8 }}
+          onPress={() =>
+            router.push({
+              pathname: '/(customer)/create-support-ticket',
+              params: { bookingId: job.id },
+            } as any)
+          }>
+          <MaterialIcons name="help-outline" size={24} color="#FF8228" />
         </Pressable>
-        <Text style={styles.headerTitle}>Chi tiết công việc</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>

@@ -2,18 +2,29 @@ import { apiClient } from './client';
 
 export interface Notification {
   id: string;
+  type: number; // 0: Booking, 1: Payment, 2: Review, 3: Promo, 4: System
+  code: string | null;
   title: string;
-  message: string;
+  body: string;
+  deepLink: string | null;
+  meta: {
+    bookingId?: string;
+    status?: string;
+  } | null;
   isRead: boolean;
+  readAt: string | null;
   createdDate: string;
-  type?: string;
-  referenceId?: string;
 }
 
 export interface NotificationSettings {
-  pushEnabled: boolean;
-  emailEnabled: boolean;
-  smsEnabled: boolean;
+  newBooking: boolean;
+  payment: boolean;
+  statusUpdate: boolean;
+  promotions: boolean;
+  viaPush: boolean;
+  viaSms: boolean;
+  viaEmail: boolean;
+  viaInApp: boolean;
 }
 
 function unwrapData<T = any>(responseData: any): T {

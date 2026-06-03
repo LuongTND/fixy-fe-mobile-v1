@@ -78,7 +78,7 @@ export default function ProfileScreen() {
         <Text style={styles.headerTitle}>Tài khoản</Text>
         <Pressable
           style={styles.headerButton}
-          onPress={() => Alert.alert('Trợ giúp', 'Fixy sẵn sàng hỗ trợ bạn.')}>
+          onPress={() => router.push('/(customer)/support-tickets' as any)}>
           <MaterialIcons name="help-outline" size={24} color="#9a4600" />
         </Pressable>
       </View>
@@ -211,7 +211,7 @@ export default function ProfileScreen() {
             <View style={styles.divider} />
             <Pressable
               style={styles.item}
-              onPress={() => Alert.alert('Trung tâm trợ giúp', 'Tính năng đang phát triển')}>
+              onPress={() => router.push('/(customer)/support-tickets' as any)}>
               <View style={styles.itemLeft}>
                 <MaterialIcons name="support-agent" size={22} color="#ff8228" />
                 <Text style={styles.itemText}>Trung tâm trợ giúp</Text>

@@ -739,6 +739,23 @@ export default function WorkerProfileScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* Section 3: Hỗ trợ */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Hỗ trợ</Text>
+          <View style={styles.cardContent}>
+            <Pressable
+              style={styles.item}
+              onPress={() => router.push('/(customer)/support-tickets' as any)}>
+              <View style={styles.itemLeft}>
+                <MaterialIcons name="support-agent" size={22} color="#ff8228" />
+                <Text style={styles.itemText}>Trung tâm trợ giúp & Khiếu nại</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#574237" />
+            </Pressable>
+          </View>
+        </View>
+
         <WeeklyScheduleCard
           weeklySchedule={weeklySchedule}
           onEditSlot={openScheduleEditor}

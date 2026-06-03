@@ -4,7 +4,6 @@ import {
   normalizeAvailabilityResponse,
   normalizeScheduleExceptions,
   normalizeWeeklySchedule,
-  upsertWeeklyScheduleSlot,
 } from './worker-schedules-utils';
 
 export type Review = {
@@ -26,6 +25,7 @@ export type WorkerProfile = {
   completedJobs: number;
   distance: string;
   basePrice: number;
+  isOnline?: boolean;
   isPro: boolean;
   specialties: string[];
   bio: string;
@@ -52,7 +52,33 @@ export type WorkerProfile = {
   }[];
 };
 
-function mapBackendWorkerToProfile(w: any): WorkerProfile {
+export type WorkerSearchParams = {
+  CategoryId?: string;
+  CustomerLat?: number;
+  CustomerLng?: number;
+  RadiusKm?: number;
+  City?: string;
+  District?: string;
+  Ward?: string;
+  MinPrice?: number;
+  MaxPrice?: number;
+  MinRating?: number;
+  IsOnline?: boolean;
+  PageNumber?: number;
+  PageSize?: number;
+  SearchTerm?: string;
+  SortBy?: string;
+  SortDescending?: boolean;
+};
+
+function getWorkerBasePrice(w: any, categoryId?: string) {
+  const matchingService = categoryId
+    ? w.services?.find((service: any) => service.categoryId === categoryId)
+    : undefined;
+  return matchingService?.basePrice || w.services?.[0]?.basePrice || w.basePrice || 150000;
+}
+
+function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
   return {
     id: w.userId || w.id,
     workerProfileId: w.id,
@@ -63,7 +89,8 @@ function mapBackendWorkerToProfile(w: any): WorkerProfile {
     reviewsCount: w.totalReviews || 0,
     completedJobs: w.totalOrders || 0,
     distance: '1.5 km',
-    basePrice: w.services?.[0]?.basePrice || w.basePrice || 150000,
+    basePrice: getWorkerBasePrice(w, categoryId),
+    isOnline: w.isOnline ?? w.online ?? w.isAvailableOnline,
     isPro: w.experienceYears >= 5 || w.isPro || false,
     specialties: w.services?.map((s: any) => getCategorySlug(s.categoryId)) || w.specialties || [],
     bio: w.bio || 'Kỹ thuật viên chuyên nghiệp đã được xác thực bởi Fixy.',
@@ -101,13 +128,24 @@ function mapBackendWorkerToProfile(w: any): WorkerProfile {
 }
 
 export async function getWorkersByService(serviceId: string): Promise<WorkerProfile[]> {
+  return searchWorkers({
+    CategoryId: getCategoryGuid(serviceId),
+    PageNumber: 1,
+    PageSize: 20,
+  });
+}
+
+export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerProfile[]> {
   try {
-    const categoryGuid = getCategoryGuid(serviceId);
-    const response = await apiClient.get(`/worker-profiles?categoryId=${categoryGuid}`);
+    const response = await apiClient.get('/worker-profiles/search', {
+      params: Object.fromEntries(
+        Object.entries(params).filter(([, value]) => value !== undefined && value !== '')
+      ),
+    });
     const resData = response.data;
     const items = resData?.data?.items ?? resData?.data ?? resData;
     if (items && Array.isArray(items)) {
-      return items.map((w: any) => mapBackendWorkerToProfile(w));
+      return items.map((w: any) => mapBackendWorkerToProfile(w, params.CategoryId));
     }
     return [];
   } catch (error) {
@@ -299,9 +337,9 @@ export async function updateWeeklySchedule(
   const resData = response.data;
   const data = resData?.data ?? resData;
   if (data && typeof data === 'object') {
-    return normalizeWeeklySchedule(workerProfileId, [
-      { ...payload, ...(data as object) },
-    ])[payload.dayOfWeek];
+    return normalizeWeeklySchedule(workerProfileId, [{ ...payload, ...(data as object) }])[
+      payload.dayOfWeek
+    ];
   }
   throw new Error('Invalid response');
 }
@@ -511,3 +549,58 @@ export async function updateCertificates(payload: {
   });
   return response.data;
 }
+
+export interface SearchWorkersParams {
+  CategoryId?: string;
+  CustomerLat?: number;
+  CustomerLng?: number;
+  RadiusKm?: number;
+  City?: string;
+  District?: string;
+  Ward?: string;
+  MinPrice?: number;
+  MaxPrice?: number;
+  MinRating?: number;
+  IsOnline?: boolean;
+  PageNumber?: number;
+  PageSize?: number;
+  SearchTerm?: string;
+  SortBy?: string;
+  SortDescending?: boolean;
+}
+
+export interface SearchWorkersResponse {
+  items: WorkerProfile[];
+  pageNumber: number;
+  pageSize: number;
+  totalCount: number;
+  totalPages: number;
+  hasPreviousPage: boolean;
+  hasNextPage: boolean;
+}
+
+/** GET /worker-profiles/search — Search worker profiles with query filters */
+export async function searchWorkerProfiles(
+  params: SearchWorkersParams
+): Promise<SearchWorkersResponse> {
+  const queryParams = { ...params };
+  if (params.CategoryId) {
+    queryParams.CategoryId = getCategoryGuid(params.CategoryId);
+  }
+
+  const response = await apiClient.get('/worker-profiles/search', { params: queryParams });
+  const resData = response.data;
+  const data = resData?.data ?? resData;
+  const items = data?.items ?? [];
+
+  return {
+    items: Array.isArray(items) ? items.map((w: any) => mapBackendWorkerToProfile(w)) : [],
+    pageNumber: data?.pageNumber ?? 1,
+    pageSize: data?.pageSize ?? 10,
+    totalCount: data?.totalCount ?? 0,
+    totalPages: data?.totalPages ?? 1,
+    hasPreviousPage: data?.hasPreviousPage ?? false,
+    hasNextPage: data?.hasNextPage ?? false,
+  };
+}
+

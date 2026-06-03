@@ -12,6 +12,7 @@ import { fetchCategories } from '@/services/api/categories';
 import { getWorkerProfileMe } from '@/services/api/workers';
 import { getWorkerCategoryIcon } from '@/utils/category-ui';
 import { formatCurrency } from '@/utils/format';
+import { getUnreadCount } from '@/services/api/notifications';
 
 export default function WorkerHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -38,6 +39,12 @@ export default function WorkerHomeScreen() {
     queryFn: () => fetchCategories(),
   });
 
+  const { data: unreadCount = 0 } = useQuery<number>({
+    queryKey: ['unreadNotificationCount'],
+    queryFn: getUnreadCount,
+    refetchInterval: 30000,
+  });
+
   // Filter Bookings (incoming jobs)
   const incomingJobs = bookings.filter((b) => b.status === 0 || b.status === 1);
 
@@ -62,8 +69,13 @@ export default function WorkerHomeScreen() {
 
         <Pressable
           style={styles.notificationButton}
-          onPress={() => Alert.alert('Thông báo', 'Bạn không có thông báo mới.')}>
+          onPress={() => router.push('/(customer)/notifications' as any)}>
           <MaterialIcons name="notifications-none" size={26} color="#383838" />
+          {unreadCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+            </View>
+          )}
         </Pressable>
       </View>
 
@@ -387,5 +399,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
     color: '#818A91',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#EA4335',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  notificationBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

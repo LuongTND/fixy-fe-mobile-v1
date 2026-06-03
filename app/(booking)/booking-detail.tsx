@@ -31,6 +31,7 @@ import {
   startBookingPayment,
   WalletOverview,
   respondBookingProposal,
+  cancelBooking,
 } from '@/services/api/bookings';
 import { verifyVnpayCallback } from '@/services/api/payment';
 import { applyVoucher, getEligibleVouchers } from '@/services/api/vouchers';
@@ -213,14 +214,19 @@ export default function BookingDetailScreen() {
   // Mutations
 
   const cancelMutation = useMutation({
-    mutationFn: async () => {
-      if (booking) {
-        const updatedBooking = { ...booking, status: 7 }; // Cancelled
+    mutationFn: async (reason: string) => {
+      return cancelBooking(bookingId || '', reason);
+    },
+    onSuccess: (updatedBooking) => {
+      if (updatedBooking && updatedBooking.id) {
         queryClient.setQueryData(['booking', bookingId], updatedBooking);
       }
+      queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+      Alert.alert('Đã hủy', 'Đơn đặt lịch của bạn đã được hủy thành công.');
     },
-    onSuccess: () => {
-      Alert.alert('Đã hủy', 'Đơn đặt lịch của bạn đã được hủy.');
+    onError: (error: any) => {
+      const msg = error?.response?.data?.message || 'Không thể hủy đơn đặt lịch. Vui lòng thử lại.';
+      Alert.alert('Lỗi', msg);
     },
   });
 
@@ -324,14 +330,17 @@ export default function BookingDetailScreen() {
 
 
   const handleCancelBooking = () => {
-    Alert.alert('Hủy đặt lịch', 'Bạn có chắc chắn muốn hủy yêu cầu đặt lịch này?', [
-      { text: 'Quay lại', style: 'cancel' },
-      {
-        text: 'Hủy đơn',
-        style: 'destructive',
-        onPress: () => cancelMutation.mutate(),
-      },
-    ]);
+    Alert.alert(
+      'Hủy đặt lịch',
+      'Vui lòng chọn lý do bạn muốn hủy đơn đặt lịch này:',
+      [
+        { text: 'Thay đổi kế hoạch', onPress: () => cancelMutation.mutate('Thay đổi kế hoạch') },
+        { text: 'Tìm được thợ khác', onPress: () => cancelMutation.mutate('Tìm được thợ khác') },
+        { text: 'Thời gian không phù hợp', onPress: () => cancelMutation.mutate('Thời gian không phù hợp') },
+        { text: 'Quay lại', style: 'cancel' },
+      ],
+      { cancelable: true }
+    );
   };
 
   const handleApplyVoucher = (codeToApply?: string) => {
@@ -418,11 +427,31 @@ export default function BookingDetailScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <Pressable style={styles.backButton} onPress={() => router.replace('/home' as any)}>
-          <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
+      <View style={[styles.header, { paddingTop: insets.top, justifyContent: 'space-between' }]}>
+        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() => {
+              if (router.canGoBack()) {
+                router.back();
+              } else {
+                router.replace('/home' as any);
+              }
+            }}>
+            <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Chi tiết đặt lịch</Text>
+        </View>
+        <Pressable
+          style={{ padding: 8 }}
+          onPress={() =>
+            router.push({
+              pathname: '/(customer)/create-support-ticket',
+              params: { bookingId: booking.id },
+            } as any)
+          }>
+          <MaterialIcons name="help-outline" size={24} color="#FF8228" />
         </Pressable>
-        <Text style={styles.headerTitle}>Chi tiết đặt lịch</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -478,7 +507,7 @@ export default function BookingDetailScreen() {
               {booking.workerProposedNote ? (
                 <View style={styles.proposalNoteContainer}>
                   <Text style={styles.proposalNoteLabel}>Ghi chú từ thợ:</Text>
-                  <Text style={styles.proposalNoteText}>"{booking.workerProposedNote}"</Text>
+                  <Text style={styles.proposalNoteText}>{`"${booking.workerProposedNote}"`}</Text>
                 </View>
               ) : null}
 
@@ -895,6 +924,20 @@ export default function BookingDetailScreen() {
           <Pressable style={styles.cancelBtn} onPress={handleCancelBooking}>
             <Text style={styles.cancelBtnText}>Hủy đặt lịch</Text>
           </Pressable>
+        ) : (Number(booking.status) === BookingStatus.Confirmed || Number(booking.status) === BookingStatus.Traveling || Number(booking.status) === BookingStatus.Arrived) ? (
+          // Side-by-side buttons for Confirmed/Traveling/Arrived: Cancel booking and Back to Home
+          <View style={{ flexDirection: 'row', gap: 12 }}>
+            <Pressable
+              style={styles.proposalDeclineBtn}
+              onPress={handleCancelBooking}>
+              <Text style={styles.proposalDeclineBtnText}>Hủy đặt lịch</Text>
+            </Pressable>
+            <Pressable
+              style={styles.proposalAcceptBtn}
+              onPress={() => router.replace('/home' as any)}>
+              <Text style={styles.proposalAcceptBtnText}>Trở về Trang chủ</Text>
+            </Pressable>
+          </View>
         ) : booking.status === BookingStatus.Completed && !bookingReview ? (
           // Two buttons side-by-side if Completed and not reviewed yet
           <View style={{ flexDirection: 'row', gap: 12 }}>

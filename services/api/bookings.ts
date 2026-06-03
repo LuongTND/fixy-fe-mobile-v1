@@ -490,23 +490,32 @@ export async function payBookingWithWallet(bookingId: string): Promise<BookingPa
 export function normalizeChatMessage(msg: any): BookingChatMessage {
   if (!msg) return msg;
 
+  let data = msg;
+  if (typeof msg === 'string') {
+    try {
+      data = JSON.parse(msg);
+    } catch {
+      // ignore
+    }
+  }
+
   // Normalize type: 0 = Text, 1 = Image
   let normalizedType = 0;
-  const rawType = msg.type !== undefined ? msg.type : msg.Type;
+  const rawType = data.type !== undefined ? data.type : data.Type;
   if (rawType === 1 || String(rawType).toLowerCase() === 'image') {
     normalizedType = 1;
   }
 
   return {
-    id: String(msg.id ?? msg.Id ?? msg.messageId ?? msg.MessageId ?? `msg-${Date.now()}`),
-    bookingId: msg.bookingId ?? msg.BookingId,
-    senderId: msg.senderId ?? msg.SenderId,
-    senderName: msg.senderName ?? msg.SenderName,
+    id: String(data.id ?? data.Id ?? data.messageId ?? data.MessageId ?? `msg-${Date.now()}`),
+    bookingId: data.bookingId ?? data.BookingId,
+    senderId: data.senderId ?? data.SenderId,
+    senderName: data.senderName ?? data.SenderName,
     type: normalizedType,
-    content: msg.content ?? msg.Content ?? '',
-    mediaUrl: msg.mediaUrl ?? msg.MediaUrl ?? msg.fileUrl ?? msg.FileUrl,
-    createdDate: msg.createdDate ?? msg.CreatedDate ?? new Date().toISOString(),
-    isRead: msg.isRead !== undefined ? msg.isRead : msg.IsRead,
+    content: data.content ?? data.Content ?? '',
+    mediaUrl: data.mediaUrl ?? data.MediaUrl ?? data.fileUrl ?? data.FileUrl,
+    createdDate: data.createdDate ?? data.CreatedDate ?? new Date().toISOString(),
+    isRead: data.isRead !== undefined ? data.isRead : data.IsRead,
   };
 }
 
@@ -543,4 +552,10 @@ export async function sendBookingChatMessage(
 
 export async function markBookingChatRead(bookingId: string): Promise<void> {
   await apiClient.post(`${BOOKING_PATH}/${bookingId}/chat/mark-read`);
+}
+
+/** POST /bookings/{id}/cancel — Cancel a booking with a reason */
+export async function cancelBooking(bookingId: string, reason: string): Promise<Booking> {
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/cancel`, { reason });
+  return normalizeBooking(unwrapData(response.data));
 }

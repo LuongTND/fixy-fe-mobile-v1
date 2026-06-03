@@ -9,14 +9,17 @@ import {
   Alert,
   FlatList,
   Image,
+  Keyboard,
   KeyboardAvoidingView,
   Linking,
+  Modal,
   Platform,
   Pressable,
   StyleSheet,
   Text,
   TextInput,
   View,
+  useWindowDimensions,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
@@ -31,7 +34,7 @@ import {
 } from '@/services/api/bookings';
 import { getApiErrorMessage } from '@/services/api/client';
 import { useAuthStore } from '@/store/store';
-import { formatDateTime } from '@/utils/date';
+import { formatTime } from '@/utils/date';
 
 function parseJwt(token: string) {
   try {
@@ -39,13 +42,14 @@ function parseJwt(token: string) {
     const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
     const decoded = atob(base64);
     return JSON.parse(decoded);
-  } catch (e) {
+  } catch {
     return null;
   }
 }
 
 export default function BookingChatScreen() {
   const insets = useSafeAreaInsets();
+  const { height: windowHeight } = useWindowDimensions();
   const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
   const flatListRef = React.useRef<FlatList>(null);
 
@@ -55,9 +59,69 @@ export default function BookingChatScreen() {
   const [isLoading, setIsLoading] = React.useState(true);
   const [isSending, setIsSending] = React.useState(false);
   const [isConnected, setIsConnected] = React.useState(false);
+  const [previewImage, setPreviewImage] = React.useState<string | null>(null);
+  const [keyboardHeight, setKeyboardHeight] = React.useState(0);
+  const [inputPanelHeight, setInputPanelHeight] = React.useState(72);
 
   const accessToken = useAuthStore((state) => state.accessToken);
   const chatHubUrl = Constants.expoConfig?.extra?.chatHubUrl;
+
+  const scrollToLatestMessage = React.useCallback((animated = true) => {
+    requestAnimationFrame(() => {
+      flatListRef.current?.scrollToEnd({ animated });
+    });
+  }, []);
+
+  const getEstimatedKeyboardHeight = React.useCallback(() => {
+    return Math.min(380, Math.max(300, windowHeight * 0.42));
+  }, [windowHeight]);
+
+  const normalizeKeyboardHeight = React.useCallback(
+    (height?: number, screenY?: number) => {
+      const rawHeight =
+        typeof screenY === 'number' && screenY > 0 ? windowHeight - screenY : (height ?? 0);
+      const maxKeyboardHeight = Math.min(420, windowHeight * 0.55);
+      return Math.max(0, Math.min(rawHeight, maxKeyboardHeight));
+    },
+    [windowHeight]
+  );
+
+  const handleInputFocus = React.useCallback(() => {
+    if (Platform.OS === 'ios') {
+      setKeyboardHeight((currentHeight) => {
+        if (currentHeight > 0) return currentHeight;
+        return normalizeKeyboardHeight(Keyboard.metrics()?.height) || getEstimatedKeyboardHeight();
+      });
+    }
+    scrollToLatestMessage();
+  }, [getEstimatedKeyboardHeight, normalizeKeyboardHeight, scrollToLatestMessage]);
+
+  React.useEffect(() => {
+    const keyboardShowEvent = Platform.OS === 'ios' ? 'keyboardWillShow' : 'keyboardDidShow';
+    const keyboardHideEvent = Platform.OS === 'ios' ? 'keyboardWillHide' : 'keyboardDidHide';
+    const keyboardShowSubscription = Keyboard.addListener(keyboardShowEvent, (event) => {
+      setKeyboardHeight(
+        normalizeKeyboardHeight(event.endCoordinates.height, event.endCoordinates.screenY)
+      );
+      setTimeout(() => {
+        scrollToLatestMessage();
+      }, 120);
+    });
+    const keyboardHideSubscription = Keyboard.addListener(keyboardHideEvent, () => {
+      setKeyboardHeight(0);
+    });
+
+    return () => {
+      keyboardShowSubscription.remove();
+      keyboardHideSubscription.remove();
+    };
+  }, [normalizeKeyboardHeight, scrollToLatestMessage]);
+
+  React.useEffect(() => {
+    setTimeout(() => {
+      scrollToLatestMessage(false);
+    }, 60);
+  }, [inputPanelHeight, keyboardHeight, scrollToLatestMessage]);
 
   // Extract current user ID from JWT
   const currentUserId = React.useMemo(() => {
@@ -114,11 +178,13 @@ export default function BookingChatScreen() {
         // Listeners for message reception
         const handleNewMessage = (msg: any) => {
           const normalized = normalizeChatMessage(msg);
-          if (normalized && normalized.bookingId === bookingId) {
+          if (normalized && normalized.bookingId?.toLowerCase() === bookingId?.toLowerCase()) {
             setMessages((prev) => {
-              if (prev.some((m) => m.id === normalized.id)) return prev;
+              if (prev.some((m) => m.id?.toLowerCase() === normalized.id?.toLowerCase()))
+                return prev;
               return [...prev, normalized];
             });
+            scrollToLatestMessage();
             // Mark read when receiving message if screen is active
             markBookingChatRead(bookingId!).catch(() => {});
           }
@@ -129,6 +195,7 @@ export default function BookingChatScreen() {
 
         await connection.start();
         setIsConnected(true);
+        await connection.invoke('JoinChatGroup', bookingId);
       } catch (err) {
         console.error('SignalR start failed:', err);
       }
@@ -137,12 +204,19 @@ export default function BookingChatScreen() {
     startSignalR();
 
     return () => {
-      if (connection) {
-        connection.stop().catch((err) => console.warn('SignalR stop error:', err));
+      const activeConnection = connection;
+      if (activeConnection) {
+        activeConnection
+          .invoke('LeaveChatGroup', bookingId)
+          .then(() => activeConnection.stop())
+          .catch((err) => {
+            console.warn('Error during SignalR cleanup:', err);
+            activeConnection.stop().catch(() => {});
+          });
       }
       setIsConnected(false);
     };
-  }, [bookingId, chatHubUrl, accessToken]);
+  }, [bookingId, chatHubUrl, accessToken, scrollToLatestMessage]);
 
   // Partner display name and details
   const partnerInfo = React.useMemo(() => {
@@ -240,7 +314,7 @@ export default function BookingChatScreen() {
   };
 
   const renderMessageItem = ({ item }: { item: BookingChatMessage }) => {
-    const isMe = item.senderId === currentUserId;
+    const isMe = item.senderId?.toLowerCase() === currentUserId?.toLowerCase();
     const isImage = item.type === 1 || !!item.mediaUrl;
 
     return (
@@ -257,19 +331,36 @@ export default function BookingChatScreen() {
           </View>
         )}
 
-        <View style={[styles.bubbleWrapper, isMe ? styles.bubbleWrapperRight : styles.bubbleWrapperLeft]}>
-          <View style={[styles.bubble, isMe ? styles.bubbleRight : styles.bubbleLeft, isImage && styles.bubbleImageFrame]}>
+        <View
+          style={[
+            styles.bubbleWrapper,
+            isMe ? styles.bubbleWrapperRight : styles.bubbleWrapperLeft,
+          ]}>
+          <View
+            style={[
+              styles.bubble,
+              isMe ? styles.bubbleRight : styles.bubbleLeft,
+              isImage && styles.bubbleImageFrame,
+            ]}>
             {isImage ? (
-              <Image source={{ uri: item.mediaUrl }} style={styles.messageImage} resizeMode="cover" />
+              <Pressable onPress={() => setPreviewImage(item.mediaUrl || null)}>
+                <Image
+                  source={{ uri: item.mediaUrl }}
+                  style={styles.messageImage}
+                  resizeMode="cover"
+                />
+              </Pressable>
             ) : (
-              <Text style={[styles.messageText, isMe ? styles.messageTextRight : styles.messageTextLeft]}>
+              <Text
+                style={[
+                  styles.messageText,
+                  isMe ? styles.messageTextRight : styles.messageTextLeft,
+                ]}>
                 {item.content}
               </Text>
             )}
           </View>
-          <Text style={styles.timestampText}>
-            {item.createdDate ? new Date(item.createdDate).toLocaleTimeString('vi-VN', { hour: '2-digit', minute: '2-digit' }) : ''}
-          </Text>
+          <Text style={styles.timestampText}>{formatTime(item.createdDate)}</Text>
         </View>
       </View>
     );
@@ -285,10 +376,7 @@ export default function BookingChatScreen() {
   }
 
   return (
-    <KeyboardAvoidingView
-      behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-      keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
-      style={styles.screen}>
+    <View style={styles.screen}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <Pressable style={styles.headerBtn} onPress={() => router.back()}>
@@ -313,51 +401,90 @@ export default function BookingChatScreen() {
       </View>
 
       {/* Messages */}
-      <FlatList
-        ref={flatListRef}
-        data={messages}
-        keyExtractor={(item) => item.id}
-        renderItem={renderMessageItem}
-        contentContainerStyle={styles.messagesList}
-        showsVerticalScrollIndicator={false}
-        onContentSizeChange={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        onLayout={() => flatListRef.current?.scrollToEnd({ animated: true })}
-        ListEmptyComponent={
-          <View style={styles.emptyContainer}>
-            <MaterialIcons name="forum" size={48} color="#DDDDDD" />
-            <Text style={styles.emptyText}>Chưa có tin nhắn nào. Bắt đầu trò chuyện ngay!</Text>
-          </View>
-        }
-      />
+      <View style={styles.chatArea}>
+        <FlatList
+          ref={flatListRef}
+          style={styles.chatList}
+          data={messages}
+          keyExtractor={(item) => item.id}
+          renderItem={renderMessageItem}
+          contentContainerStyle={[
+            styles.messagesList,
+            { paddingBottom: inputPanelHeight + keyboardHeight + 16 },
+          ]}
+          keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
+          onContentSizeChange={() => scrollToLatestMessage(false)}
+          onLayout={() => scrollToLatestMessage(false)}
+          ListEmptyComponent={
+            <View style={styles.emptyContainer}>
+              <MaterialIcons name="forum" size={48} color="#DDDDDD" />
+              <Text style={styles.emptyText}>Chưa có tin nhắn nào. Bắt đầu trò chuyện ngay!</Text>
+            </View>
+          }
+        />
+      </View>
 
       {/* Input panel */}
-      <View style={[styles.inputPanel, { paddingBottom: Math.max(insets.bottom, 12) }]}>
-        <Pressable style={styles.attachBtn} onPress={handleSendImage} disabled={isSending}>
-          <MaterialIcons name="image" size={24} color="#FF8228" />
-        </Pressable>
+      <KeyboardAvoidingView
+        pointerEvents="box-none"
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
+        style={styles.inputDock}>
+        <View
+          style={[styles.inputPanel, { paddingBottom: Math.max(insets.bottom, 12) }]}
+          onLayout={(event) => {
+            setInputPanelHeight(event.nativeEvent.layout.height);
+          }}>
+          <Pressable style={styles.attachBtn} onPress={handleSendImage} disabled={isSending}>
+            <MaterialIcons name="image" size={24} color="#FF8228" />
+          </Pressable>
 
-        <TextInput
-          style={styles.textInput}
-          placeholder="Nhập tin nhắn..."
-          placeholderTextColor="#9A9A9A"
-          value={inputText}
-          onChangeText={setInputText}
-          multiline
-          maxLength={1000}
-        />
+          <TextInput
+            style={styles.textInput}
+            placeholder="Nhập tin nhắn..."
+            placeholderTextColor="#9A9A9A"
+            value={inputText}
+            onChangeText={setInputText}
+            multiline
+            maxLength={1000}
+            onFocus={handleInputFocus}
+          />
 
-        <Pressable
-          style={[styles.sendBtn, (!inputText.trim() || isSending) && styles.sendBtnDisabled]}
-          onPress={handleSendText}
-          disabled={!inputText.trim() || isSending}>
-          {isSending ? (
-            <ActivityIndicator size="small" color="#ffffff" />
-          ) : (
-            <MaterialIcons name="send" size={20} color="#ffffff" />
+          <Pressable
+            style={[styles.sendBtn, (!inputText.trim() || isSending) && styles.sendBtnDisabled]}
+            onPress={handleSendText}
+            disabled={!inputText.trim() || isSending}>
+            {isSending ? (
+              <ActivityIndicator size="small" color="#ffffff" />
+            ) : (
+              <MaterialIcons name="send" size={20} color="#ffffff" />
+            )}
+          </Pressable>
+        </View>
+      </KeyboardAvoidingView>
+
+      {/* Image Preview Modal */}
+      <Modal
+        visible={!!previewImage}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setPreviewImage(null)}>
+        <View style={styles.previewOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setPreviewImage(null)} />
+          <Pressable style={styles.closePreviewBtn} onPress={() => setPreviewImage(null)}>
+            <MaterialIcons name="close" size={28} color="#ffffff" />
+          </Pressable>
+          {previewImage && (
+            <Image
+              source={{ uri: previewImage }}
+              style={styles.previewImage}
+              resizeMode="contain"
+            />
           )}
-        </Pressable>
-      </View>
-    </KeyboardAvoidingView>
+        </View>
+      </Modal>
+    </View>
   );
 }
 
@@ -429,6 +556,12 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_500Medium',
     fontSize: 11,
     color: '#818A91',
+  },
+  chatArea: {
+    flex: 1,
+  },
+  chatList: {
+    flex: 1,
   },
   messagesList: {
     padding: 16,
@@ -536,6 +669,16 @@ const styles = StyleSheet.create({
     paddingHorizontal: 40,
     lineHeight: 18,
   },
+  inputDock: {
+    position: 'absolute',
+    left: 0,
+    right: 0,
+    top: 0,
+    bottom: 0,
+    zIndex: 20,
+    elevation: 20,
+    justifyContent: 'flex-end',
+  },
   inputPanel: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -576,5 +719,22 @@ const styles = StyleSheet.create({
   },
   sendBtnDisabled: {
     backgroundColor: '#EAE5E3',
+  },
+  previewOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  closePreviewBtn: {
+    position: 'absolute',
+    top: Platform.OS === 'ios' ? 60 : 40,
+    right: 20,
+    zIndex: 10,
+    padding: 8,
+  },
+  previewImage: {
+    width: '100%',
+    height: '80%',
   },
 });
