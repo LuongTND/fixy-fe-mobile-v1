@@ -15,6 +15,11 @@ export default function CustomerLayout() {
       <Stack.Screen name="service-workers" options={{ animation: 'none' }} />
       <Stack.Screen name="user-wallet" />
       <Stack.Screen name="worker-detail" options={{ animation: 'none' }} />
+      <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="notifications-settings" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="support-tickets" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="create-support-ticket" options={{ animation: 'slide_from_right' }} />
+      <Stack.Screen name="support-ticket-detail" options={{ animation: 'slide_from_right' }} />
     </Stack>
   );
 }

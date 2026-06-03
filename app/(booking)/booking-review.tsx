@@ -16,29 +16,31 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { useQueryClient } from '@tanstack/react-query';
 
 import { submitReview } from '@/services/api/reviews';
 import { getApiErrorMessage } from '@/services/api/client';
 
 const SUGGESTION_CHIPS = [
-  'ÄÃºng giá»',
-  'ChuyÃªn nghiá»‡p',
-  'GiÃ¡ há»£p lÃ½',
-  'ThÃ¢n thiá»‡n',
-  'Sáº¡ch sáº½',
-  'Táº­n tÃ¢m',
+  'Đúng giờ',
+  'Chuyên nghiệp',
+  'Giá hợp lý',
+  'Thân thiện',
+  'Sạch sẽ',
+  'Tận tâm',
 ];
 
 function getRatingLabel(rating: number) {
-  if (rating === 5) return 'Tuy\u1ec7t v\u1eddi!';
-  if (rating === 4) return 'R\u1ea5t t\u1ed1t';
-  if (rating === 3) return 'T\u1ea1m \u0111\u01b0\u1ee3c';
-  if (rating === 2) return 'Ch\u01b0a h\u00e0i l\u00f2ng';
-  return 'R\u1ea5t t\u1ec7';
+  if (rating === 5) return 'Tuyệt vời!';
+  if (rating === 4) return 'Rất tốt';
+  if (rating === 3) return 'Tạm được';
+  if (rating === 2) return 'Chưa hài lòng';
+  return 'Rất tệ';
 }
 
 export default function BookingReviewScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const params = useLocalSearchParams<{
     bookingId: string;
     workerName?: string;
@@ -78,11 +80,11 @@ export default function BookingReviewScreen() {
 
   const handleSubmit = async () => {
     if (rating === 0) {
-      Alert.alert('Vui lÃ²ng Ä‘Ã¡nh giÃ¡', 'HÃ£y chá»n sá»‘ sao Ä‘á»ƒ Ä‘Ã¡nh giÃ¡ dá»‹ch vá»¥.');
+      Alert.alert('Vui lòng đánh giá', 'Hãy chọn số sao để đánh giá dịch vụ.');
       return;
     }
     if (!params.bookingId) {
-      Alert.alert('Lá»—i', 'KhÃ´ng tÃ¬m tháº¥y thÃ´ng tin Ä‘Æ¡n hÃ ng.');
+      Alert.alert('Lỗi', 'Không tìm thấy thông tin đơn hàng.');
       return;
     }
 
@@ -100,11 +102,16 @@ export default function BookingReviewScreen() {
 
       await submitReview(params.bookingId, {
         Rating: rating,
-        Comment: fullComment || `ÄÃ¡nh giÃ¡ ${rating} sao`,
+        Comment: fullComment || `Đánh giá ${rating} sao`,
         Images: imageFiles.length > 0 ? imageFiles : undefined,
       });
 
-      Alert.alert('ThÃ nh cÃ´ng', 'Cáº£m Æ¡n báº¡n Ä‘Ã£ Ä‘Ã¡nh giÃ¡ dá»‹ch vá»¥!', [
+      // Invalidate query caches to ensure the UI updates instantly
+      queryClient.invalidateQueries({ queryKey: ['bookingReview', params.bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['booking', params.bookingId] });
+      queryClient.invalidateQueries({ queryKey: ['myBookings'] });
+
+      Alert.alert('Thành công', 'Cảm ơn bạn đã đánh giá dịch vụ!', [
         {
           text: 'OK',
           onPress: () => {
@@ -117,7 +124,7 @@ export default function BookingReviewScreen() {
         },
       ]);
     } catch (error) {
-      Alert.alert('Lá»—i', getApiErrorMessage(error));
+      Alert.alert('Lỗi', getApiErrorMessage(error));
     } finally {
       setIsSubmitting(false);
     }
@@ -138,7 +145,7 @@ export default function BookingReviewScreen() {
         <Pressable style={styles.headerBtn} onPress={handleGoBack}>
           <MaterialIcons name="arrow-back" size={24} color="#FF8228" />
         </Pressable>
-        <Text style={styles.headerTitle}>ÄÃ¡nh giÃ¡ dá»‹ch vá»¥</Text>
+        <Text style={styles.headerTitle}>Đánh giá dịch vụ</Text>
         <View style={styles.headerBtn} />
       </View>
 
@@ -152,16 +159,16 @@ export default function BookingReviewScreen() {
             <MaterialIcons name="person" size={32} color="#818A91" />
           </View>
           <View>
-            <Text style={styles.workerName}>{params.workerName ?? 'Nguyá»…n VÄƒn Tháº¯ng'}</Text>
+            <Text style={styles.workerName}>{params.workerName ?? 'Nguyễn Văn Thắng'}</Text>
             <Text style={styles.workerSpecialty}>
-              {params.categoryName ?? 'ChuyÃªn gia Äiá»‡n nÆ°á»›c'}
+              {params.categoryName ?? 'Chuyên gia Điện nước'}
             </Text>
           </View>
         </View>
 
         {/* Star Rating */}
         <View style={styles.ratingSection}>
-          <Text style={styles.ratingQuestion}>Báº¡n tháº¥y tháº¿ nÃ o vá» dá»‹ch vá»¥?</Text>
+          <Text style={styles.ratingQuestion}>Bạn thấy thế nào về dịch vụ?</Text>
           <View style={styles.starsRow}>
             {[1, 2, 3, 4, 5].map((star) => (
               <Pressable key={star} onPress={() => setRating(star)} style={styles.starBtn}>
@@ -178,7 +185,7 @@ export default function BookingReviewScreen() {
 
         {/* Suggestion Chips */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Gá»£i Ã½ Ä‘Ã¡nh giÃ¡</Text>
+          <Text style={styles.sectionTitle}>Gợi ý đánh giá</Text>
           <View style={styles.chipsRow}>
             {SUGGESTION_CHIPS.map((chip) => {
               const isSelected = selectedChips.includes(chip);
@@ -198,10 +205,10 @@ export default function BookingReviewScreen() {
 
         {/* Comment Text Area */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>Nháº­n xÃ©t chi tiáº¿t</Text>
+          <Text style={styles.sectionTitle}>Nhận xét chi tiết</Text>
           <TextInput
             style={styles.textArea}
-            placeholder="Chia sáº» thÃªm vá» tráº£i nghiá»‡m cá»§a báº¡n..."
+            placeholder="Chia sẻ thêm về trải nghiệm của bạn..."
             placeholderTextColor="#818A91"
             value={comment}
             onChangeText={setComment}
@@ -213,7 +220,7 @@ export default function BookingReviewScreen() {
 
         {/* Add Images */}
         <View style={styles.section}>
-          <Text style={styles.sectionTitle}>ThÃªm hÃ¬nh áº£nh</Text>
+          <Text style={styles.sectionTitle}>Thêm hình ảnh</Text>
           <View style={styles.imagesRow}>
             {images.map((uri, index) => (
               <View key={uri} style={styles.imagePreview}>
@@ -228,7 +235,7 @@ export default function BookingReviewScreen() {
             {images.length < 5 && (
               <Pressable style={styles.addImageBtn} onPress={handlePickImage}>
                 <MaterialIcons name="photo-camera" size={24} color="#FF8228" />
-                <Text style={styles.addImageText}>+ ThÃªm áº£nh</Text>
+                <Text style={styles.addImageText}>+ Thêm ảnh</Text>
               </Pressable>
             )}
           </View>
@@ -249,7 +256,7 @@ export default function BookingReviewScreen() {
             {isSubmitting ? (
               <ActivityIndicator color="#ffffff" size="small" />
             ) : (
-              <Text style={styles.submitBtnText}>Gá»­i Ä‘Ã¡nh giÃ¡</Text>
+              <Text style={styles.submitBtnText}>Gửi đánh giá</Text>
             )}
           </LinearGradient>
         </Pressable>

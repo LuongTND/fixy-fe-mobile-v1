@@ -14,34 +14,18 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Address, deleteAddress, getMyAddresses, updateAddress } from '@/services/api/addresses';
 
-// Offline mock addresses fallback
-const DEFAULT_MOCK_ADDRESSES: Address[] = [
-  {
-    id: 'home-default',
-    label: 'Nhà riêng',
-    city: 'Hà Nội',
-    district: 'Thanh Xuân',
-    ward: 'Thanh Xuân Trung',
-    detail: '123 Nguyễn Trãi',
-    lat: 21.0028,
-    lng: 105.8056,
-    isDefault: true,
-  },
-];
-
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
 export default function SavedAddressesScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
-  const { data: addresses = DEFAULT_MOCK_ADDRESSES, isLoading } = useQuery<Address[]>({
+  const { data: addresses = [], isLoading } = useQuery<Address[]>({
     queryKey: ['addresses'],
     queryFn: async () => {
       const data = await getMyAddresses();
-      return data && data.length > 0 ? data : DEFAULT_MOCK_ADDRESSES;
+      return data || [];
     },
-    initialData: DEFAULT_MOCK_ADDRESSES,
   });
 
   const setDefaultMutation = useMutation({
@@ -50,13 +34,14 @@ export default function SavedAddressesScreen() {
       queryClient.invalidateQueries({ queryKey: ['addresses'] });
     },
     onError: (err, addr) => {
-      // Optimistic/Offline fallback
+      // Optimistic cache fallback
       queryClient.setQueryData<Address[]>(['addresses'], (old) =>
-        (old || DEFAULT_MOCK_ADDRESSES).map((a) => ({
+        (old || []).map((a) => ({
           ...a,
           isDefault: a.id === addr.id,
         }))
       );
+      Alert.alert('Lỗi', 'Không thể thiết lập địa chỉ mặc định.');
     },
   });
 
@@ -66,10 +51,11 @@ export default function SavedAddressesScreen() {
       queryClient.invalidateQueries({ queryKey: ['addresses'] });
     },
     onError: (err, id) => {
-      // Optimistic/Offline fallback
+      // Optimistic cache fallback
       queryClient.setQueryData<Address[]>(['addresses'], (old) =>
-        (old || DEFAULT_MOCK_ADDRESSES).filter((a) => a.id !== id)
+        (old || []).filter((a) => a.id !== id)
       );
+      Alert.alert('Lỗi', 'Không thể xóa địa chỉ.');
     },
   });
 

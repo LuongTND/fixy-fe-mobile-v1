@@ -1,5 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import * as React from 'react';
 import {
@@ -18,6 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '@/components/layout/bottom-tab-bar';
 import { fetchCategories } from '@/services/api/categories';
+import { getUnreadCount } from '@/services/api/notifications';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 const BANNER_WIDTH = SCREEN_WIDTH - 32;
@@ -44,10 +46,11 @@ const CATEGORY_IMAGES = {
 type HomeService = {
   id: string;
   name: string;
-  image: ImageSourcePropType;
+  image?: ImageSourcePropType;
+  imageUrl?: string | null;
 };
 
-const SERVICES = [
+const SERVICES: HomeService[] = [
   { id: 'dien', name: 'Điện', image: CATEGORY_IMAGES.electric },
   { id: 'nuoc', name: 'Nước', image: CATEGORY_IMAGES.water },
   { id: 'dieuhoa', name: 'Điều hòa', image: CATEGORY_IMAGES.ac },
@@ -57,7 +60,7 @@ const SERVICES = [
   { id: 'son', name: 'Sơn sửa nhà', image: CATEGORY_IMAGES.housePaintRenovate },
   { id: 'vesinh', name: 'Vệ sinh', image: CATEGORY_IMAGES.hygiene },
   { id: 'thongtac', name: 'Thông tắc bồn cầu', image: CATEGORY_IMAGES.toiletPump },
-] satisfies HomeService[];
+];
 
 const FEATURED_CRAFTSMEN = [
   {
@@ -99,15 +102,64 @@ const CATEGORIES_UI_MAP: Record<string, { slug: string; image: ImageSourcePropTy
   'Bồn cầu': { slug: 'thongtac', image: CATEGORY_IMAGES.toiletPump },
 };
 
+function normalizeSearchText(value: string) {
+  return value
+    .normalize('NFD')
+    .replace(/[\u0300-\u036f]/g, '')
+    .trim()
+    .toLowerCase();
+}
+
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
   const [searchQuery, setSearchQuery] = React.useState('');
   const [activeSlide, setActiveSlide] = React.useState(0);
+  const [currentCity, setCurrentCity] = React.useState('');
+  const [currentLocationLoading, setCurrentLocationLoading] = React.useState(false);
 
   const { data: apiCategories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => fetchCategories(),
   });
+
+  const { data: unreadCount = 0 } = useQuery<number>({
+    queryKey: ['unreadNotificationCount'],
+    queryFn: getUnreadCount,
+    refetchInterval: 30000,
+  });
+
+  const updateCurrentCity = React.useCallback(async () => {
+    setCurrentLocationLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        setCurrentCity('');
+        return;
+      }
+
+      const position = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const [place] = await Location.reverseGeocodeAsync({
+        latitude: position.coords.latitude,
+        longitude: position.coords.longitude,
+      });
+      setCurrentCity((place?.city || place?.subregion || place?.region || '').trim());
+    } catch (error) {
+      console.warn('[home] Unable to get current city', error);
+      setCurrentCity('');
+    } finally {
+      setCurrentLocationLoading(false);
+    }
+  }, []);
+
+  React.useEffect(() => {
+    updateCurrentCity();
+  }, [updateCurrentCity]);
+
+  const locationLabel = currentLocationLoading
+    ? 'Đang lấy vị trí...'
+    : currentCity || 'Chưa xác định vị trí';
 
   const categories = React.useMemo(() => {
     if (apiCategories.length === 0) {
@@ -126,19 +178,32 @@ export default function HomeScreen() {
         id: c.id,
         name: c.name,
         image: uiInfo.image,
+        imageUrl: c.imageUrl,
       };
     });
   }, [apiCategories]);
 
+  const displayedCategories = React.useMemo(() => {
+    const normalizedQuery = normalizeSearchText(searchQuery);
+    if (!normalizedQuery) return categories;
+
+    return categories.filter((service) =>
+      normalizeSearchText(service.name).includes(normalizedQuery)
+    );
+  }, [categories, searchQuery]);
+
   const handleServicePress = (serviceId: string, serviceName: string) => {
     router.push({
       pathname: '/service-workers',
-      params: { serviceId, serviceName },
+      params: {
+        serviceId,
+        serviceName,
+      },
     } as any);
   };
 
   const handleNotificationPress = () => {
-    Alert.alert('Thông báo', 'Bạn có 2 thông báo mới từ hệ thống.');
+    router.push('/(customer)/notifications' as any);
   };
 
   return (
@@ -147,17 +212,22 @@ export default function HomeScreen() {
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <Pressable
           style={styles.locationContainer}
-          onPress={() => Alert.alert('Chọn khu vực', 'Hiện tại Fixy hỗ trợ tại Hà Nội')}>
+          onPress={updateCurrentCity}
+          disabled={currentLocationLoading}>
           <MaterialIcons name="location-on" size={24} color="#FF8228" />
-          <Text style={styles.locationText}>Hà Nội</Text>
+          <Text style={styles.locationText} numberOfLines={1}>
+            {locationLabel}
+          </Text>
           <MaterialIcons name="keyboard-arrow-down" size={20} color="#1B1C1C" />
         </Pressable>
 
         <Pressable style={styles.notificationBtn} onPress={handleNotificationPress}>
           <MaterialIcons name="notifications-none" size={26} color="#1B1C1C" />
-          <View style={styles.notificationBadge}>
-            <Text style={styles.notificationBadgeText}>2</Text>
-          </View>
+          {unreadCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+            </View>
+          )}
         </Pressable>
       </View>
 
@@ -168,17 +238,12 @@ export default function HomeScreen() {
             <MaterialIcons name="search" size={22} color="#818A91" style={styles.searchIcon} />
             <TextInput
               style={styles.searchInput}
-              placeholder="Bạn cần thợ gì?"
+              placeholder="Tìm danh mục dịch vụ..."
               placeholderTextColor="#9A9A9A"
               value={searchQuery}
               onChangeText={setSearchQuery}
             />
           </View>
-          <Pressable
-            style={styles.filterBtn}
-            onPress={() => Alert.alert('Lọc', 'Bộ lọc tìm kiếm nâng cao.')}>
-            <MaterialIcons name="tune" size={22} color="#FF8228" />
-          </Pressable>
         </View>
 
         {/* Hero Promotional Banner */}
@@ -222,17 +287,25 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.serviceGrid}>
-          {categories.map((service) => (
+          {displayedCategories.map((service) => (
             <Pressable
               key={service.id}
               style={styles.serviceItem}
               onPress={() => handleServicePress(service.id, service.name)}>
               <View style={styles.serviceIconFrame}>
-                <Image
-                  source={service.image}
-                  style={styles.serviceIconImage}
-                  resizeMode="contain"
-                />
+                {service.imageUrl ? (
+                  <Image
+                    source={{ uri: service.imageUrl }}
+                    style={styles.serviceIconImage}
+                    resizeMode="contain"
+                  />
+                ) : (
+                  <Image
+                    source={service.image}
+                    style={styles.serviceIconImage}
+                    resizeMode="contain"
+                  />
+                )}
               </View>
               <Text style={styles.serviceLabel} numberOfLines={2}>
                 {service.name}
@@ -389,21 +462,6 @@ const styles = StyleSheet.create({
     color: '#383838',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-  },
-  filterBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 10,
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
   },
   bannerContainer: {
     marginBottom: 28,

@@ -43,7 +43,6 @@ export async function getMyAddresses(): Promise<Address[]> {
     return [];
   } catch (error) {
     console.error('[addresses API] Error getting saved addresses:', error);
-    // Return empty list so screen can fall back to offline/mock defaults
     throw error;
   }
 }

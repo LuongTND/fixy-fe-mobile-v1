@@ -23,6 +23,7 @@ import {
   WalletOverview,
 } from '@/services/api/bookings';
 import { getWorkerDetails, WorkerProfile } from '@/services/api/workers';
+import { fetchCategories } from '@/services/api/categories';
 
 export default function BookingCheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -34,6 +35,24 @@ export default function BookingCheckoutScreen() {
     queryFn: () => getDraftDetails(draftId),
     enabled: !!draftId,
   });
+
+  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
+  });
+
+  const category = categories.find((c) => c.id === draft?.categoryId || c.code === draft?.categoryId);
+  const categoryName = category?.name || (
+    draft?.categoryId === 'dien' ? 'Điện – Điện tử' :
+    draft?.categoryId === 'nuoc' ? 'Nước – Ống nước' :
+    draft?.categoryId === 'dieuhoa' ? 'Bảo dưỡng Điều hòa' :
+    draft?.categoryId === 'maygiat' ? 'Sửa Máy giặt' :
+    draft?.categoryId === 'xemay' ? 'Sửa Xe máy – Ô tô' :
+    draft?.categoryId === 'moc' ? 'Mộc – Nội thất' :
+    draft?.categoryId === 'son' ? 'Sơn – Trần nhà' :
+    draft?.categoryId === 'vesinh' ? 'Dọn dẹp Vệ sinh' :
+    'Dịch vụ sửa chữa'
+  );
 
   // Fetch worker details via dependent useQuery
   const { data: worker = null } = useQuery<WorkerProfile | null>({
@@ -70,7 +89,7 @@ export default function BookingCheckoutScreen() {
     confirmMutation.mutate();
   };
 
-  if (loading) {
+  if (loading || categoriesLoading) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#FF8228" />
@@ -121,14 +140,7 @@ export default function BookingCheckoutScreen() {
             <View style={styles.detailTextCol}>
               <Text style={styles.detailLabel}>Loại dịch vụ</Text>
               <Text style={styles.detailValue}>
-                {draft.categoryId === 'dien' && 'Điện – Điện tử'}
-                {draft.categoryId === 'nuoc' && 'Nước – Ống nước'}
-                {draft.categoryId === 'dieuhoa' && 'Bảo dưỡng Điều hòa'}
-                {draft.categoryId === 'maygiat' && 'Sửa Máy giặt'}
-                {draft.categoryId === 'xemay' && 'Sửa Xe máy – Ô tô'}
-                {draft.categoryId === 'moc' && 'Mộc – Nội thất'}
-                {draft.categoryId === 'son' && 'Sơn – Trần nhà'}
-                {draft.categoryId === 'vesinh' && 'Dọn dẹp Vệ sinh'}
+                {categoryName}
               </Text>
             </View>
           </View>

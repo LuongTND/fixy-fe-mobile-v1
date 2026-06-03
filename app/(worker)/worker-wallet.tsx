@@ -188,60 +188,6 @@ export default function WorkerWalletScreen() {
       if (!silent) {
         Alert.alert('Lỗi', getApiErrorMessage(error));
       }
-      // Set fallback mock data for dev
-      setWallet((currentWallet) =>
-        currentWallet ?? {
-          balance: 2500000,
-          lifetimeEarned: 8750000,
-          lifetimeSpent: 6250000,
-          recentTransactions: [
-            {
-              id: '1',
-              type: 'Earning',
-              direction: 'Credit',
-              amount: 150000,
-              balanceBefore: 2350000,
-              balanceAfter: 2500000,
-              status: 'Completed',
-              createdDate: new Date().toISOString(),
-              description: 'Sửa chữa điện',
-            },
-            {
-              id: '2',
-              type: 'Earning',
-              direction: 'Credit',
-              amount: 200000,
-              balanceBefore: 2150000,
-              balanceAfter: 2350000,
-              status: 'Completed',
-              createdDate: new Date(Date.now() - 86400000).toISOString(),
-              description: 'Lắp đặt quạt',
-            },
-            {
-              id: '3',
-              type: 'Withdrawal',
-              direction: 'Debit',
-              amount: 500000,
-              balanceBefore: 2650000,
-              balanceAfter: 2150000,
-              status: 'Completed',
-              createdDate: new Date(Date.now() - 172800000).toISOString(),
-              description: 'Rút tiền về ngân hàng',
-            },
-            {
-              id: '4',
-              type: 'Earning',
-              direction: 'Credit',
-              amount: 300000,
-              balanceBefore: 2350000,
-              balanceAfter: 2650000,
-              status: 'Completed',
-              createdDate: new Date(Date.now() - 345600000).toISOString(),
-              description: 'Sửa ống nước',
-            },
-          ],
-        }
-      );
     } finally {
       setIsLoading(false);
       setIsRefreshing(false);

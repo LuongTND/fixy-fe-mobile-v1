@@ -15,6 +15,7 @@ import * as React from 'react';
 import { ActivityIndicator, Keyboard, TouchableWithoutFeedback, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 
+import { NotificationPopupObserver } from '@/components/notifications/notification-popup-observer';
 import { useColorScheme } from '@/hooks/use-color-scheme';
 import { useAuthStore } from '@/store/store';
 import { NAV_THEME } from '@/theme';
@@ -60,6 +61,7 @@ export default function RootLayout() {
 
   return (
     <QueryClientProvider client={queryClient}>
+      <NotificationPopupObserver />
       <StatusBar style="dark" />
       <GestureHandlerRootView style={{ flex: 1 }}>
         <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>

@@ -38,6 +38,8 @@ import {
   WorkerScheduleException,
   WorkerScheduleWeekly,
 } from '@/services/api/workers';
+import { getApiErrorMessage } from '@/services/api/client';
+import { FptIdentityRecognitionResult, recognizeIdentityImage } from '@/services/api/fpt';
 import {
   dateToApiTime,
   dateToDateOnly,
@@ -72,15 +74,7 @@ function filterAddressOptions(options: AddressPickerOption[], searchQuery: strin
   return keyword ? options.filter((item) => matchesAddressKeyword(item.name, keyword)) : options;
 }
 
-const WEEKDAY_NAMES = [
-  'Chá»§ nháº­t',
-  'Thá»© 2',
-  'Thá»© 3',
-  'Thá»© 4',
-  'Thá»© 5',
-  'Thá»© 6',
-  'Thá»© 7',
-];
+const WEEKDAY_NAMES = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
 
 function formatScheduleSlotTime(slot: WorkerScheduleWeekly) {
   return slot.isActive ? `${slot.startTime.slice(0, 5)} - ${slot.endTime.slice(0, 5)}` : 'Nghá»‰';
@@ -95,7 +89,7 @@ type WeeklyScheduleCardProps = Readonly<{
 function WeeklyScheduleCard({ weeklySchedule, onEditSlot, onToggleSlot }: WeeklyScheduleCardProps) {
   return (
     <View style={styles.card}>
-      <Text style={styles.cardTitle}>Lá»‹ch lÃ m viá»‡c hÃ ng tuáº§n</Text>
+      <Text style={styles.cardTitle}>Lịch làm việc hàng tuần</Text>
       <View style={styles.cardContent}>
         {weeklySchedule.map((slot, index) => (
           <View
@@ -135,9 +129,9 @@ function DayOffExceptionsCard({
   return (
     <View style={styles.card}>
       <View style={styles.sectionHeaderRow}>
-        <Text style={styles.cardTitle}>ÄÄƒng kÃ½ nghá»‰ phÃ©p (Exception)</Text>
+        <Text style={styles.cardTitle}>Đăng ký nghỉ phép (Exception)</Text>
         <Pressable style={{ paddingRight: 12 }} onPress={onAddDayOff}>
-          <Text style={styles.viewAllText}>+ ThÃªm ngÃ y nghá»‰</Text>
+          <Text style={styles.viewAllText}>+ Thêm ngày nghỉ</Text>
         </Pressable>
       </View>
       <View style={styles.cardContent}>
@@ -146,7 +140,7 @@ function DayOffExceptionsCard({
             <View key={ex.id ?? ex.date} style={styles.exceptionItemRow}>
               <View style={styles.exceptionDetails}>
                 <Text style={styles.exceptionDateText}>{ex.date}</Text>
-                <Text style={styles.exceptionReasonText}>{ex.reason || 'Viá»‡c riÃªng'}</Text>
+                <Text style={styles.exceptionReasonText}>{ex.reason || 'Việc riêng'}</Text>
               </View>
               <Pressable onPress={() => onDeleteDayOff(ex.date)}>
                 <MaterialIcons name="delete" size={20} color="#BA1A1A" />
@@ -154,10 +148,31 @@ function DayOffExceptionsCard({
             </View>
           ))
         ) : (
-          <Text style={styles.mutedText}>ChÆ°a cÃ³ lá»‹ch Ä‘Äƒng kÃ½ nghá»‰ nÃ o.</Text>
+          <Text style={styles.mutedText}>Chưa có lịch đăng ký nghỉ nào.</Text>
         )}
       </View>
     </View>
+  );
+}
+
+function mergeIdentityRecognitionResults(results: FptIdentityRecognitionResult[]) {
+  return results.reduce(
+    (merged, item) => ({
+      citizenIdNumber: merged.citizenIdNumber || item.citizenIdNumber,
+      issueDate: merged.issueDate || item.issueDate,
+      issuePlace: merged.issuePlace || item.issuePlace,
+      fullName: merged.fullName || item.fullName,
+      dateOfBirth: merged.dateOfBirth || item.dateOfBirth,
+      address: merged.address || item.address,
+    }),
+    {
+      citizenIdNumber: '',
+      issueDate: '',
+      issuePlace: '',
+      fullName: '',
+      dateOfBirth: '',
+      address: '',
+    }
   );
 }
 
@@ -279,6 +294,7 @@ export default function WorkerProfileScreen() {
   const [idIssueDate, setIdIssueDate] = React.useState('');
   const [idIssuePlace, setIdIssuePlace] = React.useState('');
   const [idLocalUris, setIdLocalUris] = React.useState<string[]>([]);
+  const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
 
   // Certificates States
   const [certificatesModalOpen, setCertificatesModalOpen] = React.useState(false);
@@ -371,8 +387,34 @@ export default function WorkerProfileScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['workerProfileMe'] });
       setIdentificationModalOpen(false);
+      setActivePreviewImage(null);
       setIdLocalUris([]);
       Alert.alert('Thành công', 'Hồ sơ CCCD đã được gửi đi để duyệt xác minh.');
+    },
+  });
+
+  const recognizeCccdMutation = useMutation({
+    mutationFn: async (localUris: string[]) => {
+      const results = await Promise.all(localUris.map((uri) => recognizeIdentityImage(uri)));
+      return mergeIdentityRecognitionResults(results);
+    },
+    onSuccess: (result) => {
+      if (result.citizenIdNumber) setIdNumber(result.citizenIdNumber);
+      if (result.issueDate) setIdIssueDate(result.issueDate);
+      if (result.issuePlace) setIdIssuePlace(result.issuePlace);
+
+      if (!result.citizenIdNumber && !result.issueDate && !result.issuePlace) {
+        Alert.alert(
+          'Chưa nhận diện được thông tin',
+          'Vui lòng kiểm tra ảnh CCCD hoặc nhập thông tin thủ công.'
+        );
+      }
+    },
+    onError: (error) => {
+      Alert.alert(
+        'Không thể nhận diện CCCD',
+        getApiErrorMessage(error) || 'Vui lòng nhập thông tin thủ công.'
+      );
     },
   });
 
@@ -497,7 +539,20 @@ export default function WorkerProfileScreen() {
     if (!result.canceled) {
       const uris = result.assets.map((a) => a.uri);
       setIdLocalUris(uris);
+      if (uris.length > 0) {
+        recognizeCccdMutation.mutate(uris);
+      }
     }
+  };
+
+  const handleRecognizeCccdImages = () => {
+    if (idLocalUris.length === 0) return;
+    recognizeCccdMutation.mutate(idLocalUris);
+  };
+
+  const handleCloseIdentificationModal = () => {
+    setActivePreviewImage(null);
+    setIdentificationModalOpen(false);
   };
 
   const handlePickCertImage = async () => {
@@ -526,6 +581,15 @@ export default function WorkerProfileScreen() {
       setIsLoggingOut(false);
     }
   }
+
+  const cccdRecognitionLoading = recognizeCccdMutation.isPending;
+  const canSubmitIdentification =
+    idNumber.trim().length > 0 &&
+    idIssueDate.trim().length > 0 &&
+    idIssuePlace.trim().length > 0 &&
+    idLocalUris.length >= 2 &&
+    !updateCccdMutation.isPending &&
+    !cccdRecognitionLoading;
 
   return (
     <View style={styles.screen}>
@@ -675,6 +739,23 @@ export default function WorkerProfileScreen() {
             </Pressable>
           </View>
         </View>
+
+        {/* Section 3: Hỗ trợ */}
+        <View style={styles.card}>
+          <Text style={styles.cardTitle}>Hỗ trợ</Text>
+          <View style={styles.cardContent}>
+            <Pressable
+              style={styles.item}
+              onPress={() => router.push('/(customer)/support-tickets' as any)}>
+              <View style={styles.itemLeft}>
+                <MaterialIcons name="support-agent" size={22} color="#ff8228" />
+                <Text style={styles.itemText}>Trung tâm trợ giúp & Khiếu nại</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#574237" />
+            </Pressable>
+          </View>
+        </View>
+
         <WeeklyScheduleCard
           weeklySchedule={weeklySchedule}
           onEditSlot={openScheduleEditor}
@@ -938,14 +1019,11 @@ export default function WorkerProfileScreen() {
       {/* MODAL 3: Identification (CCCD) */}
       <Modal visible={identificationModalOpen} transparent animationType="fade">
         <View style={styles.centeredModalOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => setIdentificationModalOpen(false)}
-          />
+          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseIdentificationModal} />
           <View style={styles.dayOffModalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Xác minh danh tính (CCCD)</Text>
-              <Pressable onPress={() => setIdentificationModalOpen(false)}>
+              <Pressable onPress={handleCloseIdentificationModal}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
@@ -982,27 +1060,56 @@ export default function WorkerProfileScreen() {
               <Text style={styles.fieldLabel}>Ảnh mặt trước & mặt sau CCCD:</Text>
               <View style={styles.cccdImagesPreviewRow}>
                 {idLocalUris.map((uri) => (
-                  <Image key={uri} source={{ uri }} style={styles.cccdPreviewImg} />
+                  <Pressable key={uri} onPress={() => setActivePreviewImage(uri)}>
+                    <Image source={{ uri }} style={styles.cccdPreviewImg} />
+                  </Pressable>
                 ))}
                 {idLocalUris.length < 2 && (
-                  <Pressable style={styles.cccdUploadTrigger} onPress={handlePickCccdImages}>
+                  <Pressable
+                    style={styles.cccdUploadTrigger}
+                    onPress={handlePickCccdImages}
+                    disabled={cccdRecognitionLoading}>
                     <MaterialIcons name="add-a-photo" size={24} color="#FF8228" />
                     <Text style={styles.cccdUploadTriggerText}>Tải ảnh lên</Text>
                   </Pressable>
                 )}
               </View>
 
+              {idLocalUris.length > 0 && (
+                <View style={styles.cccdRecognitionBox}>
+                  {cccdRecognitionLoading ? (
+                    <>
+                      <ActivityIndicator size="small" color="#FF8228" />
+                      <Text style={styles.cccdRecognitionText}>
+                        Đang nhận diện thông tin CCCD...
+                      </Text>
+                    </>
+                  ) : (
+                    <>
+                      <MaterialIcons name="document-scanner" size={18} color="#FF8228" />
+                      <Text style={styles.cccdRecognitionText}>
+                        Thông tin đã nhận diện có thể chỉnh sửa trước khi gửi.
+                      </Text>
+                    </>
+                  )}
+                </View>
+              )}
+
+              {idLocalUris.length > 0 && !cccdRecognitionLoading && (
+                <Pressable style={styles.cccdRescanBtn} onPress={handleRecognizeCccdImages}>
+                  <MaterialIcons name="refresh" size={16} color="#FF8228" />
+                  <Text style={styles.cccdRescanBtnText}>Quét lại thông tin CCCD</Text>
+                </Pressable>
+              )}
+
               <Pressable
                 style={[
                   styles.modalSubmitBtn,
-                  (!idNumber.trim() || idLocalUris.length < 2 || updateCccdMutation.isPending) &&
-                    styles.modalSubmitBtnDisabled,
+                  !canSubmitIdentification && styles.modalSubmitBtnDisabled,
                   { marginTop: 16 },
                 ]}
                 onPress={() => updateCccdMutation.mutate()}
-                disabled={
-                  !idNumber.trim() || idLocalUris.length < 2 || updateCccdMutation.isPending
-                }>
+                disabled={!canSubmitIdentification}>
                 {updateCccdMutation.isPending ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
@@ -1011,6 +1118,22 @@ export default function WorkerProfileScreen() {
               </Pressable>
             </ScrollView>
           </View>
+          {activePreviewImage ? (
+            <Pressable
+              style={styles.imagePreviewOverlay}
+              onPress={() => setActivePreviewImage(null)}>
+              <Image
+                source={{ uri: activePreviewImage }}
+                style={styles.imagePreviewFull}
+                resizeMode="contain"
+              />
+              <Pressable
+                style={styles.imagePreviewCloseBtn}
+                onPress={() => setActivePreviewImage(null)}>
+                <MaterialIcons name="close" size={24} color="#ffffff" />
+              </Pressable>
+            </Pressable>
+          ) : null}
         </View>
       </Modal>
 
@@ -1801,6 +1924,71 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 10,
     color: '#FF8228',
+  },
+  cccdRecognitionBox: {
+    minHeight: 42,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FFE6D5',
+    backgroundColor: '#FFF8F4',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    marginBottom: 10,
+  },
+  cccdRecognitionText: {
+    flex: 1,
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#574237',
+    lineHeight: 17,
+  },
+  cccdRescanBtn: {
+    height: 38,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#FF8228',
+    backgroundColor: '#ffffff',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginBottom: 12,
+  },
+  cccdRescanBtnText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
+    color: '#FF8228',
+  },
+  imagePreviewOverlay: {
+    position: 'absolute',
+    top: 0,
+    right: 0,
+    bottom: 0,
+    left: 0,
+    backgroundColor: 'rgba(0, 0, 0, 0.9)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 50,
+    elevation: 50,
+  },
+  imagePreviewFull: {
+    width: '90%',
+    height: '80%',
+  },
+  imagePreviewCloseBtn: {
+    position: 'absolute',
+    top: 44,
+    right: 20,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: 'rgba(255, 255, 255, 0.25)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10,
   },
   certListItem: {
     flexDirection: 'row',

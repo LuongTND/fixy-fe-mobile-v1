@@ -8,9 +8,11 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
 import { Booking, getWorkerBookings, getWallet } from '@/services/api/bookings';
+import { fetchCategories } from '@/services/api/categories';
 import { getWorkerProfileMe } from '@/services/api/workers';
 import { getWorkerCategoryIcon } from '@/utils/category-ui';
 import { formatCurrency } from '@/utils/format';
+import { getUnreadCount } from '@/services/api/notifications';
 
 export default function WorkerHomeScreen() {
   const insets = useSafeAreaInsets();
@@ -30,6 +32,17 @@ export default function WorkerHomeScreen() {
   const { data: bookings = [] } = useQuery<Booking[]>({
     queryKey: ['workerBookings'],
     queryFn: () => getWorkerBookings(),
+  });
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
+  });
+
+  const { data: unreadCount = 0 } = useQuery<number>({
+    queryKey: ['unreadNotificationCount'],
+    queryFn: getUnreadCount,
+    refetchInterval: 30000,
   });
 
   // Filter Bookings (incoming jobs)
@@ -56,8 +69,13 @@ export default function WorkerHomeScreen() {
 
         <Pressable
           style={styles.notificationButton}
-          onPress={() => Alert.alert('Thông báo', 'Bạn không có thông báo mới.')}>
+          onPress={() => router.push('/(customer)/notifications' as any)}>
           <MaterialIcons name="notifications-none" size={26} color="#383838" />
+          {unreadCount > 0 && (
+            <View style={styles.notificationBadge}>
+              <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+            </View>
+          )}
         </Pressable>
       </View>
 
@@ -99,45 +117,58 @@ export default function WorkerHomeScreen() {
 
           <View style={styles.jobsList}>
             {incomingJobs.length > 0 ? (
-              incomingJobs.map((job) => (
-                <View key={job.id} style={styles.jobCard}>
-                  <View style={styles.jobRow}>
-                    <View style={[styles.jobIconBox, { backgroundColor: '#FFE6D5' }]}>
-                      <MaterialIcons
-                        name={getWorkerCategoryIcon(job.categoryId) as any}
-                        size={24}
-                        color="#FF8228"
-                      />
-                    </View>
-                    <View style={styles.jobDetails}>
-                      <View style={styles.jobTitleRow}>
-                        <Text style={styles.jobTitle} numberOfLines={1}>
-                          {job.description || 'Yêu cầu sửa chữa'}
-                        </Text>
-                        <Text style={styles.jobPrice}>
-                          {formatCurrency(job.estimatedAmount || job.estimatedPrice || 150000)}
-                        </Text>
-                      </View>
-                      <View style={styles.jobMetaRow}>
-                        <View style={styles.metaItem}>
-                          <MaterialIcons name="location-on" size={14} color="#818A91" />
-                          <Text style={styles.metaText} numberOfLines={1}>
-                            {job.address}
+              incomingJobs.map((job) => {
+                const category = categories.find((c) => c.id === job.categoryId || c.code === job.categoryId);
+                return (
+                  <View key={job.id} style={styles.jobCard}>
+                    <View style={styles.jobRow}>
+                      {category?.imageUrl ? (
+                        <View style={styles.jobIconBox}>
+                          <Image
+                            source={{ uri: category.imageUrl }}
+                            style={{ width: 48, height: 48, borderRadius: 10 }}
+                            resizeMode="contain"
+                          />
+                        </View>
+                      ) : (
+                        <View style={[styles.jobIconBox, { backgroundColor: '#FFE6D5' }]}>
+                          <MaterialIcons
+                            name={getWorkerCategoryIcon(job.categoryId) as any}
+                            size={24}
+                            color="#FF8228"
+                          />
+                        </View>
+                      )}
+                      <View style={styles.jobDetails}>
+                        <View style={styles.jobTitleRow}>
+                          <Text style={styles.jobTitle} numberOfLines={1}>
+                            {job.description || 'Yêu cầu sửa chữa'}
                           </Text>
+                          <Text style={styles.jobPrice}>
+                            {formatCurrency(job.estimatedAmount || job.estimatedPrice || 150000)}
+                          </Text>
+                        </View>
+                        <View style={styles.jobMetaRow}>
+                          <View style={styles.metaItem}>
+                            <MaterialIcons name="location-on" size={14} color="#818A91" />
+                            <Text style={styles.metaText} numberOfLines={1}>
+                              {job.address}
+                            </Text>
+                          </View>
                         </View>
                       </View>
                     </View>
-                  </View>
 
-                  <View style={styles.jobActions}>
-                    <Pressable
-                      style={styles.detailsButton}
-                      onPress={() => router.push(`/worker-job-detail?id=${job.id}` as any)}>
-                      <Text style={styles.detailsButtonText}>Xem chi tiết</Text>
-                    </Pressable>
+                    <View style={styles.jobActions}>
+                      <Pressable
+                        style={styles.detailsButton}
+                        onPress={() => router.push(`/worker-job-detail?id=${job.id}` as any)}>
+                        <Text style={styles.detailsButtonText}>Xem chi tiết</Text>
+                      </Pressable>
+                    </View>
                   </View>
-                </View>
-              ))
+                );
+              })
             ) : (
               <View style={styles.emptyContainer}>
                 <MaterialIcons name="hourglass-empty" size={36} color="#818A91" />
@@ -368,5 +399,22 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
     color: '#818A91',
+  },
+  notificationBadge: {
+    position: 'absolute',
+    top: 4,
+    right: 4,
+    backgroundColor: '#EA4335',
+    minWidth: 16,
+    height: 16,
+    borderRadius: 8,
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 3,
+  },
+  notificationBadgeText: {
+    color: '#ffffff',
+    fontSize: 10,
+    fontWeight: '700',
   },
 });

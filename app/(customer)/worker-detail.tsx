@@ -15,6 +15,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getWorkerDetails, getWeeklySchedule, WorkerProfile } from '@/services/api/workers';
 import { getWorkerReviews } from '@/services/api/reviews';
+import { fetchCategories } from '@/services/api/categories';
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -31,7 +32,7 @@ function formatScheduleTime(timeStr: string): string {
 }
 
 function formatScheduleRange(item: { isActive: boolean; startTime: string; endTime: string }) {
-  if (!item.isActive) return 'Nghá»‰';
+  if (!item.isActive) return 'Nghỉ';
   return `${formatScheduleTime(item.startTime)} - ${formatScheduleTime(item.endTime)}`;
 }
 
@@ -58,6 +59,11 @@ export default function WorkerDetailScreen() {
     enabled: !!worker?.workerProfileId,
   });
 
+  const { data: categories = [], isLoading: loadingCategories } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
+  });
+
   const reviewsList = React.useMemo(() => {
     const rawList = reviewsData?.items || worker?.reviews || [];
     return rawList.map((rev: any, index: number) => {
@@ -82,7 +88,7 @@ export default function WorkerDetailScreen() {
 
   const reviewsCount = reviewsData?.totalCount || reviewsList.length;
 
-  if (loading) {
+  if (loading || loadingCategories) {
     return (
       <View style={styles.centerContainer}>
         <ActivityIndicator size="large" color="#FF8228" />
@@ -99,13 +105,14 @@ export default function WorkerDetailScreen() {
   }
 
   const handleBookNow = () => {
+    const defaultCategory = categories.find((c) => c.code === 'dien');
     router.push({
       pathname: '/booking-setup',
       params: {
         workerProfileId: worker.workerProfileId || worker.id,
         workerUserId: worker.id,
         autoMatch: 'false',
-        categoryId: worker.specialties[0] || 'dien',
+        categoryId: worker.specialties[0] || defaultCategory?.id || 'dien',
       },
     } as any);
   };
@@ -169,20 +176,25 @@ export default function WorkerDetailScreen() {
 
           <Text style={[styles.sectionTitle, { marginTop: 16 }]}>Kỹ năng chuyên môn</Text>
           <View style={styles.skillsContainer}>
-            {worker.specialties.map((spec) => (
-              <View key={spec} style={styles.skillBadge}>
-                <Text style={styles.skillBadgeText}>
-                  {spec === 'dien' && 'Điện gia dụng'}
-                  {spec === 'nuoc' && 'Sửa đường nước'}
-                  {spec === 'dieuhoa' && 'Điện lạnh - Điều hòa'}
-                  {spec === 'maygiat' && 'Sửa máy giặt'}
-                  {spec === 'xemay' && 'Sửa xe máy/ô tô'}
-                  {spec === 'moc' && 'Mộc & Nội thất'}
-                  {spec === 'son' && 'Sơn & Xây trát'}
-                  {spec === 'vesinh' && 'Vệ sinh công nghiệp'}
-                </Text>
-              </View>
-            ))}
+            {worker.specialties.map((spec) => {
+              const category = categories.find((c) => c.id === spec || c.code === spec);
+              const name = category?.name || (
+                spec === 'dien' ? 'Điện gia dụng' :
+                spec === 'nuoc' ? 'Sửa đường nước' :
+                spec === 'dieuhoa' ? 'Điện lạnh - Điều hòa' :
+                spec === 'maygiat' ? 'Sửa máy giặt' :
+                spec === 'xemay' ? 'Sửa xe máy/ô tô' :
+                spec === 'moc' ? 'Mộc & Nội thất' :
+                spec === 'son' ? 'Sơn & Xây trát' :
+                spec === 'vesinh' ? 'Vệ sinh công nghiệp' :
+                spec
+              );
+              return (
+                <View key={spec} style={styles.skillBadge}>
+                  <Text style={styles.skillBadgeText}>{name}</Text>
+                </View>
+              );
+            })}
           </View>
         </View>
 
