@@ -5,7 +5,6 @@ import {
   ActivityIndicator,
   Alert,
   Image,
-  Linking,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -16,18 +15,16 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useQuery, useMutation } from '@tanstack/react-query';
 
-import {
-  BookingDraft,
-  confirmDraft,
-  getDraftDetails,
-  WalletOverview,
-} from '@/services/api/bookings';
+import { BookingDraft, confirmDraft, getDraftDetails } from '@/services/api/bookings';
 import { getWorkerDetails, WorkerProfile } from '@/services/api/workers';
 import { fetchCategories } from '@/services/api/categories';
 
 export default function BookingCheckoutScreen() {
   const insets = useSafeAreaInsets();
-  const { draftId, workerUserId } = useLocalSearchParams<{ draftId: string; workerUserId?: string }>();
+  const { draftId, workerUserId } = useLocalSearchParams<{
+    draftId: string;
+    workerUserId?: string;
+  }>();
 
   // Fetch draft details via useQuery
   const { data: draft = null, isLoading: loading } = useQuery<BookingDraft | null>({
@@ -41,18 +38,28 @@ export default function BookingCheckoutScreen() {
     queryFn: () => fetchCategories(),
   });
 
-  const category = categories.find((c) => c.id === draft?.categoryId || c.code === draft?.categoryId);
-  const categoryName = category?.name || (
-    draft?.categoryId === 'dien' ? 'Điện – Điện tử' :
-    draft?.categoryId === 'nuoc' ? 'Nước – Ống nước' :
-    draft?.categoryId === 'dieuhoa' ? 'Bảo dưỡng Điều hòa' :
-    draft?.categoryId === 'maygiat' ? 'Sửa Máy giặt' :
-    draft?.categoryId === 'xemay' ? 'Sửa Xe máy – Ô tô' :
-    draft?.categoryId === 'moc' ? 'Mộc – Nội thất' :
-    draft?.categoryId === 'son' ? 'Sơn – Trần nhà' :
-    draft?.categoryId === 'vesinh' ? 'Dọn dẹp Vệ sinh' :
-    'Dịch vụ sửa chữa'
+  const category = categories.find(
+    (c) => c.id === draft?.categoryId || c.code === draft?.categoryId
   );
+  const categoryName =
+    category?.name ||
+    (draft?.categoryId === 'dien'
+      ? 'Điện – Điện tử'
+      : draft?.categoryId === 'nuoc'
+        ? 'Nước – Ống nước'
+        : draft?.categoryId === 'dieuhoa'
+          ? 'Bảo dưỡng Điều hòa'
+          : draft?.categoryId === 'maygiat'
+            ? 'Sửa Máy giặt'
+            : draft?.categoryId === 'xemay'
+              ? 'Sửa Xe máy – Ô tô'
+              : draft?.categoryId === 'moc'
+                ? 'Mộc – Nội thất'
+                : draft?.categoryId === 'son'
+                  ? 'Sơn – Trần nhà'
+                  : draft?.categoryId === 'vesinh'
+                    ? 'Dọn dẹp Vệ sinh'
+                    : 'Dịch vụ sửa chữa');
 
   // Fetch worker details via dependent useQuery
   const { data: worker = null } = useQuery<WorkerProfile | null>({
@@ -139,9 +146,7 @@ export default function BookingCheckoutScreen() {
             <MaterialIcons name="work-outline" size={20} color="#818A91" />
             <View style={styles.detailTextCol}>
               <Text style={styles.detailLabel}>Loại dịch vụ</Text>
-              <Text style={styles.detailValue}>
-                {categoryName}
-              </Text>
+              <Text style={styles.detailValue}>{categoryName}</Text>
             </View>
           </View>
 

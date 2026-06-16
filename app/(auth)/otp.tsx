@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { Alert, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 
@@ -18,15 +18,31 @@ export default function OtpScreen() {
   const pendingOtpTarget = useAuthStore((state) => state.pendingOtpTarget);
   const pendingOtpPurpose = useAuthStore((state) => state.pendingOtpPurpose);
   const saveAuth = useAuthStore((state) => state.saveAuth);
+  const { selectedRole } = useLocalSearchParams<{ selectedRole: string }>();
   const [digits, setDigits] = React.useState(Array.from({ length: OTP_LENGTH }, () => ''));
   const [error, setError] = React.useState('');
   const [loading, setLoading] = React.useState(false);
   const [resending, setResending] = React.useState(false);
+  const [timerSeconds, setTimerSeconds] = React.useState(60);
   const inputs = React.useRef<(TextInput | null)[]>([]);
 
   React.useEffect(() => {
     if (!pendingOtpTarget) router.replace('/register');
   }, [pendingOtpTarget]);
+
+  React.useEffect(() => {
+    if (timerSeconds <= 0) return;
+    const interval = setInterval(() => {
+      setTimerSeconds((prev) => prev - 1);
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [timerSeconds]);
+
+  const formatTime = (seconds: number) => {
+    const mins = Math.floor(seconds / 60);
+    const secs = seconds % 60;
+    return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`;
+  };
 
   function setDigit(index: number, value: string) {
     const digit = value.replace(/\D/g, '').slice(-1);
@@ -34,11 +50,19 @@ export default function OtpScreen() {
     nextDigits[index] = digit;
     setDigits(nextDigits);
 
-    if (digit && index < OTP_LENGTH - 1) inputs.current[index + 1]?.focus();
+    if (digit && index < OTP_LENGTH - 1) {
+      inputs.current[index + 1]?.focus();
+    }
+
+    const otpCode = nextDigits.join('');
+    if (otpCode.length === OTP_LENGTH && !nextDigits.some((d) => !d)) {
+      onVerify(nextDigits);
+    }
   }
 
-  async function onVerify() {
-    const validation = validateOtpForm(digits);
+  async function onVerify(codeDigits?: string[]) {
+    const activeDigits = Array.isArray(codeDigits) ? codeDigits : digits;
+    const validation = validateOtpForm(activeDigits);
     setError(validation.valid ? '' : (validation.errors.otpCode ?? ''));
 
     if (!pendingOtpTarget || !validation.valid) return;
@@ -47,18 +71,24 @@ export default function OtpScreen() {
     try {
       const response = await verifyOtp(pendingOtpTarget, validation.values.otpCode);
 
-      if (pendingOtpPurpose === FORGOT_PASSWORD_OTP_PURPOSE) {
-        Alert.alert('Thành công', 'Xác thực OTP thành công. Vui lòng thiết lập mật khẩu mới.', [
-          {
-            text: 'OK',
-            onPress: () => {
-              router.push({
-                pathname: '/reset-password' as any,
-                params: { target: pendingOtpTarget },
-              });
-            },
+      if (pendingOtpPurpose === REGISTRATION_OTP_PURPOSE) {
+        router.replace({
+          pathname: '/register' as any,
+          params: {
+            target: pendingOtpTarget,
+            selectedRole: selectedRole || '',
+            isOtpVerified: 'true',
+            step: '3',
           },
-        ]);
+        });
+        return;
+      }
+
+      if (pendingOtpPurpose === FORGOT_PASSWORD_OTP_PURPOSE) {
+        router.replace({
+          pathname: '/reset-password' as any,
+          params: { target: pendingOtpTarget },
+        });
         return;
       }
 
@@ -66,13 +96,9 @@ export default function OtpScreen() {
 
       if (tokens) {
         await saveAuth(tokens, pendingOtpTarget);
-        Alert.alert('Thành công', 'Tài khoản đã được xác thực.', [
-          { text: 'OK', onPress: () => router.replace('/location-setup' as any) },
-        ]);
+        router.replace('/location-setup' as any);
       } else {
-        Alert.alert('Thành công', 'Tài khoản đã được xác thực. Vui lòng đăng nhập.', [
-          { text: 'OK', onPress: () => router.replace('/login' as any) },
-        ]);
+        router.replace('/login' as any);
       }
     } catch (apiError) {
       setError(getApiErrorMessage(apiError));
@@ -82,15 +108,21 @@ export default function OtpScreen() {
   }
 
   async function onResend() {
-    if (!pendingOtpTarget) return;
+    if (!pendingOtpTarget || timerSeconds > 0) return;
 
     setResending(true);
     setError('');
     try {
       await sendOtp(pendingOtpTarget, pendingOtpPurpose ?? REGISTRATION_OTP_PURPOSE);
+      setDigits(Array.from({ length: OTP_LENGTH }, () => ''));
+      setTimerSeconds(60);
       Alert.alert('Đã gửi mã', 'Vui lòng kiểm tra tin nhắn OTP mới.');
+      setTimeout(() => {
+        inputs.current[0]?.focus();
+      }, 200);
     } catch (apiError) {
-      setError(getApiErrorMessage(apiError));
+      const errMsg = getApiErrorMessage(apiError);
+      setError(errMsg);
     } finally {
       setResending(false);
     }
@@ -103,7 +135,7 @@ export default function OtpScreen() {
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
           </Pressable>
-          <Text style={styles.brand}>Fixy (VUA THỢ)</Text>
+          <Text style={styles.brand}>Fixy</Text>
         </View>
 
         <View style={styles.hero}>
@@ -132,6 +164,8 @@ export default function OtpScreen() {
               maxLength={1}
               selectTextOnFocus
               style={styles.otpInput}
+              textContentType="oneTimeCode"
+              autoComplete="one-time-code"
             />
           ))}
         </View>
@@ -139,7 +173,13 @@ export default function OtpScreen() {
         {error ? <Text style={styles.error}>{error}</Text> : null}
 
         <Text style={styles.timer}>
-          Mã sẽ hết hạn sau <Text style={styles.highlight}>00:45</Text>
+          {timerSeconds > 0 ? (
+            <>
+              Mã sẽ hết hạn sau <Text style={styles.highlight}>{formatTime(timerSeconds)}</Text>
+            </>
+          ) : (
+            'Mã OTP đã hết hạn'
+          )}
         </Text>
 
         <View style={styles.actions}>
@@ -147,15 +187,15 @@ export default function OtpScreen() {
             label="Xác nhận"
             loading={loading}
             disabled={digits.some((digit) => !digit)}
-            onPress={onVerify}
+            onPress={() => onVerify()}
           />
-          <Pressable disabled={resending} onPress={onResend}>
+          <Pressable disabled={resending || timerSeconds > 0} onPress={onResend}>
             <Text
               style={{
                 ...styles.resend,
-                ...(resending ? styles.disabledText : {}),
+                ...((resending || timerSeconds > 0) ? styles.disabledText : {}),
               }}>
-              {resending ? 'Đang gửi lại...' : 'Gửi lại mã'}
+              {resending ? 'Đang gửi lại...' : timerSeconds > 0 ? `Gửi lại mã (${timerSeconds}s)` : 'Gửi lại mã'}
             </Text>
           </Pressable>
         </View>
@@ -184,7 +224,7 @@ const styles = StyleSheet.create({
     marginLeft: 6,
     color: '#8F3F00',
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 22,
+    fontSize: 20,
   },
   hero: {
     alignItems: 'center',
@@ -193,16 +233,16 @@ const styles = StyleSheet.create({
   headline: {
     color: '#1B1C1C',
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 36,
-    lineHeight: 44,
+    fontSize: 26,
+    lineHeight: 34,
     textAlign: 'center',
   },
   subtitle: {
-    marginTop: 18,
+    marginTop: 14,
     color: '#818A91',
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 20,
-    lineHeight: 28,
+    fontSize: 15,
+    lineHeight: 22,
     textAlign: 'center',
   },
   highlight: {
@@ -211,20 +251,20 @@ const styles = StyleSheet.create({
   },
   otpRow: {
     flexDirection: 'row',
-    gap: 12,
-    justifyContent: 'space-between',
+    gap: 8,
+    justifyContent: 'center',
     marginTop: 24,
   },
   otpInput: {
-    height: 70,
-    width: 60,
-    borderRadius: 12,
+    height: 58,
+    width: 46,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#FF8228',
     backgroundColor: '#FFFFFF',
     color: '#1B1C1C',
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 22,
+    fontSize: 20,
     textAlign: 'center',
   },
   error: {
@@ -235,22 +275,22 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   timer: {
-    marginTop: 34,
+    marginTop: 24,
     color: '#818A91',
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 20,
+    fontSize: 14,
     textAlign: 'center',
   },
   actions: {
-    gap: 28,
-    marginTop: 32,
+    gap: 24,
+    marginTop: 28,
     paddingTop: 16,
     paddingBottom: 20,
   },
   resend: {
     color: '#818A91',
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 20,
+    fontSize: 15,
     textAlign: 'center',
   },
   disabledText: {

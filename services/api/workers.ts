@@ -1,5 +1,7 @@
 import { apiClient } from './client';
+import { prepareUploadFile } from './media';
 import { getCategoryGuid, getCategorySlug } from './categories';
+import { formatToIsoDateTime } from '@/utils/format';
 import {
   normalizeAvailabilityResponse,
   normalizeScheduleExceptions,
@@ -29,6 +31,8 @@ export type WorkerProfile = {
   isPro: boolean;
   specialties: string[];
   bio: string;
+  status?: number;
+  rejectReason?: string;
   reviews?: Review[];
   address?: {
     label: string;
@@ -49,6 +53,20 @@ export type WorkerProfile = {
   portfolioImages?: {
     id: string;
     url: string;
+  }[];
+  experienceYears?: number;
+  maxDistanceKm?: number;
+  citizenIdNumber?: string;
+  citizenIdIssueDate?: string;
+  citizenIdIssuePlace?: string;
+  identificationImages?: {
+    id: string;
+    url: string;
+  }[];
+  services?: {
+    categoryId: string;
+    basePrice: number;
+    isPrimary?: boolean;
   }[];
 };
 
@@ -79,6 +97,43 @@ function getWorkerBasePrice(w: any, categoryId?: string) {
 }
 
 function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
+  let status: number | undefined;
+  if (w.status !== undefined && w.status !== null) {
+    if (typeof w.status === 'number') {
+      status = w.status;
+    } else {
+      const parsed = parseInt(String(w.status), 10);
+      if (!isNaN(parsed)) {
+        status = parsed;
+      } else {
+        const statusMap: Record<string, number> = {
+          pending: 0,
+          approved: 1,
+          rejected: 2,
+          suspended: 3,
+        };
+        status = statusMap[String(w.status).toLowerCase().trim()] ?? 0;
+      }
+    }
+  } else if (w.approvalStatus !== undefined && w.approvalStatus !== null) {
+    if (typeof w.approvalStatus === 'number') {
+      status = w.approvalStatus;
+    } else {
+      const parsed = parseInt(String(w.approvalStatus), 10);
+      if (!isNaN(parsed)) {
+        status = parsed;
+      } else {
+        const statusMap: Record<string, number> = {
+          pending: 0,
+          approved: 1,
+          rejected: 2,
+          suspended: 3,
+        };
+        status = statusMap[String(w.approvalStatus).toLowerCase().trim()] ?? 0;
+      }
+    }
+  }
+
   return {
     id: w.userId || w.id,
     workerProfileId: w.id,
@@ -94,6 +149,8 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
     isPro: w.experienceYears >= 5 || w.isPro || false,
     specialties: w.services?.map((s: any) => getCategorySlug(s.categoryId)) || w.specialties || [],
     bio: w.bio || 'Kỹ thuật viên chuyên nghiệp đã được xác thực bởi Fixy.',
+    status,
+    rejectReason: w.rejectReason || w.reject_reason || '',
     address: w.address
       ? {
           label: w.address.label || 'Địa chỉ làm việc',
@@ -124,6 +181,24 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
             })
           )
         : [],
+    experienceYears: w.experienceYears || 0,
+    maxDistanceKm: w.maxDistanceKm || 15,
+    citizenIdNumber: w.citizenIdNumber || '',
+    citizenIdIssueDate: w.citizenIdIssueDate || '',
+    citizenIdIssuePlace: w.citizenIdIssuePlace || '',
+    identificationImages:
+      (w.identificationImages || w.identificationMedia || []).map(
+        (img: any, index: number) => ({
+          id: img.id || `id-${w.id ?? w.userId ?? 'worker'}-${index}`,
+          url: img.fileUrl || img.url || img || '',
+        })
+      ),
+    services:
+      w.services?.map((s: any) => ({
+        categoryId: s.categoryId,
+        basePrice: s.basePrice,
+        isPrimary: s.isPrimary,
+      })) || [],
   };
 }
 
@@ -271,6 +346,18 @@ function mapBackendPayoutRequest(raw: any): PayoutRequest {
   };
 }
 
+export async function registerWorkerProfile(formData: FormData): Promise<WorkerProfile> {
+  const response = await apiClient.post('/worker-profiles/register', formData, {
+    headers: {
+      'Content-Type': 'multipart/form-data',
+    },
+    transformRequest: (data) => data,
+    timeout: 60000,
+  });
+  const data = response.data?.data ?? response.data;
+  return mapBackendWorkerToProfile(data);
+}
+
 export async function getWorkerProfileMe(): Promise<WorkerProfile | null> {
   const response = await apiClient.get('/worker-profiles/me');
   const data = response.data?.data ?? response.data;
@@ -288,9 +375,17 @@ export async function updateWorkerProfile(profile: Partial<WorkerProfile>): Prom
   if (profile.bio !== undefined) {
     formData.append('Bio', profile.bio);
   }
-  formData.append('MaxDistanceKm', '15');
-  const exp = profile.completedJobs ? Math.round(profile.completedJobs / 30) : 5;
-  formData.append('ExperienceYears', String(exp));
+  if (profile.maxDistanceKm !== undefined) {
+    formData.append('MaxDistanceKm', String(profile.maxDistanceKm));
+  } else {
+    formData.append('MaxDistanceKm', '15');
+  }
+  if (profile.experienceYears !== undefined) {
+    formData.append('ExperienceYears', String(profile.experienceYears));
+  } else {
+    const exp = profile.completedJobs ? Math.round(profile.completedJobs / 30) : 5;
+    formData.append('ExperienceYears', String(exp));
+  }
 
   if (profile.address) {
     formData.append('Address.Label', profile.address.label || 'Địa chỉ làm việc');
@@ -303,11 +398,20 @@ export async function updateWorkerProfile(profile: Partial<WorkerProfile>): Prom
     formData.append('Address.IsDefault', 'true');
   }
 
-  const response = await apiClient.put('/worker-profiles/me', formData, {
+  if (profile.services) {
+    profile.services.forEach((s, index) => {
+      formData.append(`Services[${index}].CategoryId`, s.categoryId);
+      formData.append(`Services[${index}].BasePrice`, String(s.basePrice));
+      formData.append(`Services[${index}].IsPrimary`, s.isPrimary ? 'true' : 'false');
+    });
+  }
+
+  const response = await apiClient.patch('/worker-profiles/me', formData, {
     headers: {
       'Content-Type': 'multipart/form-data',
     },
     transformRequest: (data) => data,
+    timeout: 60000,
   });
   const data = response.data?.data ?? response.data;
   return mapBackendWorkerToProfile(data);
@@ -458,15 +562,13 @@ export async function uploadPortfolioImages(
   localUris: string[]
 ): Promise<any> {
   const formData = new FormData();
-  localUris.forEach((uri, index) => {
-    const filename = uri.split('/').pop() || `portfolio_${Date.now()}_${index}.jpg`;
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-    formData.append('images', {
-      uri,
-      name: filename,
-      type,
-    } as any);
+  const fileObjs = await Promise.all(
+    localUris.map((uri, index) => prepareUploadFile(uri, `portfolio_${Date.now()}_${index}.jpg`))
+  );
+  fileObjs.forEach((fileObj) => {
+    if (fileObj) {
+      formData.append('images', fileObj);
+    }
   });
 
   const response = await apiClient.post('/worker-profiles/me/portfolio-images', formData, {
@@ -474,6 +576,7 @@ export async function uploadPortfolioImages(
       'Content-Type': 'multipart/form-data',
     },
     transformRequest: (data) => data,
+    timeout: 60000,
   });
   return response.data;
 }
@@ -492,17 +595,17 @@ export async function updateIdentificationImages(payload: {
 }): Promise<any> {
   const formData = new FormData();
   formData.append('CitizenIdNumber', payload.citizenIdNumber);
-  formData.append('CitizenIdIssueDate', payload.citizenIdIssueDate);
+  formData.append('CitizenIdIssueDate', formatToIsoDateTime(payload.citizenIdIssueDate));
   formData.append('CitizenIdIssuePlace', payload.citizenIdIssuePlace);
-  payload.localUris.forEach((uri, index) => {
-    const filename = uri.split('/').pop() || `id_${Date.now()}_${index}.jpg`;
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-    formData.append('Images', {
-      uri,
-      name: filename,
-      type,
-    } as any);
+  const fileObjs = await Promise.all(
+    payload.localUris.map((uri, index) =>
+      prepareUploadFile(uri, `id_${Date.now()}_${index}.jpg`, { compress: true, resizeWidth: 1600, quality: 0.7 })
+    )
+  );
+  fileObjs.forEach((fileObj) => {
+    if (fileObj) {
+      formData.append('Images', fileObj);
+    }
   });
 
   const response = await apiClient.put('/worker-profiles/me/identification-images', formData, {
@@ -510,6 +613,7 @@ export async function updateIdentificationImages(payload: {
       'Content-Type': 'multipart/form-data',
     },
     transformRequest: (data) => data,
+    timeout: 60000,
   });
   return response.data;
 }
@@ -524,21 +628,22 @@ export async function updateCertificates(payload: {
   }[];
 }): Promise<any> {
   const formData = new FormData();
-  payload.dtos.forEach((dto, index) => {
+  for (let index = 0; index < payload.dtos.length; index++) {
+    const dto = payload.dtos[index];
     formData.append(`dtos[${index}].title`, dto.title);
     formData.append(`dtos[${index}].issuedBy`, dto.issuedBy);
     formData.append(`dtos[${index}].issuedAt`, dto.issuedAt);
-    dto.localUris.forEach((uri, fIndex) => {
-      const filename = uri.split('/').pop() || `cert_${Date.now()}_${index}_${fIndex}.jpg`;
-      const match = /\.(\w+)$/.exec(filename);
-      const type = match ? `image/${match[1]}` : 'image/jpeg';
-      formData.append(`dtos[${index}].mediaUploads`, {
-        uri,
-        name: filename,
-        type,
-      } as any);
+    const fileObjs = await Promise.all(
+      dto.localUris.map((uri, fIndex) =>
+        prepareUploadFile(uri, `cert_${Date.now()}_${index}_${fIndex}.jpg`)
+      )
+    );
+    fileObjs.forEach((fileObj) => {
+      if (fileObj) {
+        formData.append(`dtos[${index}].mediaUploads`, fileObj);
+      }
     });
-  });
+  }
 
   // preservation of C# API typo: centificates
   const response = await apiClient.put('/worker-profiles/me/centificates', formData, {
@@ -546,6 +651,7 @@ export async function updateCertificates(payload: {
       'Content-Type': 'multipart/form-data',
     },
     transformRequest: (data) => data,
+    timeout: 60000,
   });
   return response.data;
 }
@@ -603,4 +709,3 @@ export async function searchWorkerProfiles(
     hasNextPage: data?.hasNextPage ?? false,
   };
 }
-

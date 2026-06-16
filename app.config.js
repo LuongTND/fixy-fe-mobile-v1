@@ -27,9 +27,13 @@ function readEnvLocal() {
 
 module.exports = ({ config }) => {
   const envLocal = readEnvLocal();
+  const googleIosRedirectScheme =
+    process.env.GOOGLE_IOS_REDIRECT_SCHEME || envLocal.GOOGLE_IOS_REDIRECT_SCHEME;
+  const scheme = googleIosRedirectScheme ? ['fixy-app', googleIosRedirectScheme] : config.scheme;
 
   return {
     ...config,
+    scheme,
     extra: {
       ...config.extra,
       apiUrl: process.env.API_URL || envLocal.API_URL,
@@ -40,12 +44,18 @@ module.exports = ({ config }) => {
         envLocal.NEXT_PUBLIC_APP_URL,
       fptAiApiKey: process.env.FPT_AI_API_KEY || envLocal.FPT_AI_API_KEY,
       chatHubUrl: process.env.CHAT_HUB_URL || envLocal.CHAT_HUB_URL,
+      notificationHubUrl: process.env.NOTIFICATION_HUB_URL || envLocal.NOTIFICATION_HUB_URL,
       goongApiKey: process.env.GOONG_API_KEY || envLocal.GOONG_API_KEY,
       goongMaptilesApiKey: process.env.GOONG_MAPTILES_API_KEY || envLocal.GOONG_MAPTILES_API_KEY,
       vietnamProvincesApiUrl:
         process.env.VIETNAM_PROVINCES_API_URL ||
         envLocal.VIETNAM_PROVINCES_API_URL ||
         'https://provinces.open-api.vn/api/v2',
+      googleClientId: process.env.GOOGLE_CLIENT_ID || envLocal.GOOGLE_CLIENT_ID,
+      googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID || envLocal.GOOGLE_IOS_CLIENT_ID,
+      googleAndroidClientId:
+        process.env.GOOGLE_ANDROID_CLIENT_ID || envLocal.GOOGLE_ANDROID_CLIENT_ID,
+      googleIosRedirectScheme,
     },
   };
 };

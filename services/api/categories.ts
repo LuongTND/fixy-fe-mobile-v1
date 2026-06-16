@@ -25,10 +25,7 @@ export async function fetchCategories(): Promise<ServiceCategory[]> {
     }
     return [];
   } catch (error) {
-    console.warn(
-      '[categories API] Error fetching service categories',
-      error
-    );
+    console.warn('[categories API] Error fetching service categories', error);
     return [];
   }
 }

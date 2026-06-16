@@ -1,5 +1,4 @@
-import { Platform } from 'react-native';
-
+// date utility functions
 /**
  * Parses a date string robustly.
  * If the string lacks a timezone offset (doesn't end with 'Z' and doesn't contain a sign offset),
@@ -10,7 +9,7 @@ export function parseDate(dateStr: string | Date | undefined): Date {
   if (dateStr instanceof Date) return dateStr;
 
   let parsed = new Date(dateStr);
-  
+
   if (typeof dateStr === 'string' && dateStr.trim()) {
     // If it lacks timezone information, force parse as UTC
     if (!dateStr.endsWith('Z') && !/[+-]\d{2}(:?\d{2})?$/.test(dateStr)) {
@@ -29,7 +28,7 @@ export function parseDate(dateStr: string | Date | undefined): Date {
  */
 export function formatDateTime(dateStr: string | Date | undefined): string {
   if (!dateStr) return 'Không rõ thời gian';
-  
+
   const date = parseDate(dateStr);
   if (isNaN(date.getTime())) return 'Không rõ thời gian';
 
@@ -48,7 +47,7 @@ export function formatDateTime(dateStr: string | Date | undefined): string {
  */
 export function formatDateOnly(dateStr: string | Date | undefined): string {
   if (!dateStr) return 'Không rõ thời gian';
-  
+
   const date = parseDate(dateStr);
   if (isNaN(date.getTime())) return 'Không rõ thời gian';
 
@@ -85,7 +84,7 @@ export function formatDateFriendly(dateStr: string | Date | undefined): string {
       month: '2-digit',
       year: 'numeric',
     });
-  } catch (e) {
+  } catch {
     return typeof dateStr === 'string' ? dateStr : '';
   }
 }
@@ -100,4 +99,3 @@ export function formatTime(dateStr: string | Date | undefined): string {
   const pad = (num: number) => num.toString().padStart(2, '0');
   return `${pad(date.getHours())}:${pad(date.getMinutes())}`;
 }
-

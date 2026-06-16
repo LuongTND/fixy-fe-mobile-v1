@@ -14,11 +14,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  createSupportTicket,
-  SupportCategory,
-  SupportPriority,
-} from '@/services/api/support';
+import { createSupportTicket, SupportCategory, SupportPriority } from '@/services/api/support';
 
 export default function CreateSupportTicketScreen() {
   const insets = useSafeAreaInsets();
@@ -89,11 +85,7 @@ export default function CreateSupportTicketScreen() {
               key={item.value}
               style={[styles.optionCard, category === item.value && styles.activeOptionCard]}
               onPress={() => setCategory(item.value)}>
-              <Text
-                style={[
-                  styles.optionText,
-                  category === item.value && styles.activeOptionText,
-                ]}>
+              <Text style={[styles.optionText, category === item.value && styles.activeOptionText]}>
                 {item.text}
               </Text>
             </Pressable>

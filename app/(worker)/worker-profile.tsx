@@ -11,13 +11,13 @@ import {
   Modal,
   Pressable,
   ScrollView,
-  StyleSheet,
   Switch,
   Text,
   TextInput,
   View,
   Image,
 } from 'react-native';
+import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { vietnamProvincesApi, matchAddressOption, cleanSearchText } from '@/services/api/provinces';
 
@@ -88,18 +88,24 @@ type WeeklyScheduleCardProps = Readonly<{
 
 function WeeklyScheduleCard({ weeklySchedule, onEditSlot, onToggleSlot }: WeeklyScheduleCardProps) {
   return (
-    <View style={styles.card}>
-      <Text style={styles.cardTitle}>Lịch làm việc hàng tuần</Text>
-      <View style={styles.cardContent}>
+    <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
+      <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">
+        Lịch làm việc hàng tuần
+      </Text>
+      <View className="rounded-lg overflow-hidden">
         {weeklySchedule.map((slot, index) => (
           <View
             key={slot.id ?? `${slot.workerProfileId}-${slot.dayOfWeek}`}
-            style={styles.scheduleSlotRow}>
-            <Pressable style={styles.scheduleSlotLeft} onPress={() => onEditSlot(slot)}>
-              <Text style={styles.scheduleSlotName}>{WEEKDAY_NAMES[slot.dayOfWeek]}</Text>
-              <Text style={styles.scheduleSlotTime}>{formatScheduleSlotTime(slot)}</Text>
+            className="flex-row items-center justify-between gap-3 py-3 px-3 border-b border-gray-100">
+            <Pressable className="flex-1" onPress={() => onEditSlot(slot)}>
+              <Text className="font-montserrat-bold text-sm text-gray-800">
+                {WEEKDAY_NAMES[slot.dayOfWeek]}
+              </Text>
+              <Text className="font-montserrat text-xs text-gray-500 mt-0.5">
+                {formatScheduleSlotTime(slot)}
+              </Text>
             </Pressable>
-            <Pressable style={styles.scheduleEditButton} onPress={() => onEditSlot(slot)}>
+            <Pressable className="w-8 h-8 items-center justify-center" onPress={() => onEditSlot(slot)}>
               <MaterialIcons name="edit" size={18} color="#818A91" />
             </Pressable>
             <Switch
@@ -127,20 +133,28 @@ function DayOffExceptionsCard({
   onDeleteDayOff,
 }: DayOffExceptionsCardProps) {
   return (
-    <View style={styles.card}>
-      <View style={styles.sectionHeaderRow}>
-        <Text style={styles.cardTitle}>Đăng ký nghỉ phép (Exception)</Text>
-        <Pressable style={{ paddingRight: 12 }} onPress={onAddDayOff}>
-          <Text style={styles.viewAllText}>+ Thêm ngày nghỉ</Text>
+    <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
+      <View className="flex-row justify-between items-center mb-1.5 gap-3">
+        <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">
+          Đăng ký nghỉ phép (Exception)
+        </Text>
+        <Pressable className="pr-3" onPress={onAddDayOff}>
+          <Text className="font-montserrat-semibold text-xs text-[#FF8228] flex-shrink-0">
+            + Thêm ngày nghỉ
+          </Text>
         </Pressable>
       </View>
-      <View style={styles.cardContent}>
+      <View className="rounded-lg overflow-hidden">
         {exceptions.length > 0 ? (
           exceptions.map((ex) => (
-            <View key={ex.id ?? ex.date} style={styles.exceptionItemRow}>
-              <View style={styles.exceptionDetails}>
-                <Text style={styles.exceptionDateText}>{ex.date}</Text>
-                <Text style={styles.exceptionReasonText}>{ex.reason || 'Việc riêng'}</Text>
+            <View key={ex.id ?? ex.date} className="flex-row items-center justify-between py-2.5 px-3 border-b border-gray-100">
+              <View className="flex-1">
+                <Text className="font-montserrat-bold text-sm text-gray-800">
+                  {ex.date}
+                </Text>
+                <Text className="font-montserrat text-xs text-gray-500 mt-0.5">
+                  {ex.reason || 'Việc riêng'}
+                </Text>
               </View>
               <Pressable onPress={() => onDeleteDayOff(ex.date)}>
                 <MaterialIcons name="delete" size={20} color="#BA1A1A" />
@@ -148,7 +162,9 @@ function DayOffExceptionsCard({
             </View>
           ))
         ) : (
-          <Text style={styles.mutedText}>Chưa có lịch đăng ký nghỉ nào.</Text>
+          <Text className="font-montserrat text-sm text-gray-400 text-center py-2.5">
+            Chưa có lịch đăng ký nghỉ nào.
+          </Text>
         )}
       </View>
     </View>
@@ -182,10 +198,19 @@ export default function WorkerProfileScreen() {
   const logout = useAuthStore((state) => state.logout);
 
   // Queries
-  const { data: profile = null } = useQuery({
+  const { data: profile = null, isLoading: isLoadingProfile } = useQuery({
     queryKey: ['workerProfileMe'],
     queryFn: getWorkerProfileMe,
+    retry: false,
   });
+
+  React.useEffect(() => {
+    if (!isLoadingProfile) {
+      if (profile === null) {
+        router.replace('/(worker)/worker-setup' as any);
+      }
+    }
+  }, [profile, isLoadingProfile]);
 
   const workerProfileId = profile?.workerProfileId || profile?.id || '';
 
@@ -295,6 +320,16 @@ export default function WorkerProfileScreen() {
   const [idIssuePlace, setIdIssuePlace] = React.useState('');
   const [idLocalUris, setIdLocalUris] = React.useState<string[]>([]);
   const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
+
+  // Load identification CCCD details when modal opens
+  React.useEffect(() => {
+    if (profile && identificationModalOpen) {
+      setIdNumber(profile.citizenIdNumber || '');
+      setIdIssueDate(profile.citizenIdIssueDate ? profile.citizenIdIssueDate.split('T')[0] : '');
+      setIdIssuePlace(profile.citizenIdIssuePlace || '');
+      setIdLocalUris(profile.identificationImages?.map((img: any) => img.url) || []);
+    }
+  }, [profile, identificationModalOpen]);
 
   // Certificates States
   const [certificatesModalOpen, setCertificatesModalOpen] = React.useState(false);
@@ -518,6 +553,11 @@ export default function WorkerProfileScreen() {
 
   // Pick Images Handlers
   const handlePickPortfolioImages = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Quyền truy cập', 'Vui lòng cho phép quyền truy cập thư viện ảnh.');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: true,
@@ -529,19 +569,54 @@ export default function WorkerProfileScreen() {
     }
   };
 
-  const handlePickCccdImages = async () => {
-    const result = await ImagePicker.launchImageLibraryAsync({
+  const handleSelectCccdSource = () => {
+    handlePickCccdImages();
+  };
+
+  const handleCameraCccdImages = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Quyền truy cập', 'Vui lòng cho phép quyền truy cập camera để chụp ảnh CCCD.');
+      return;
+    }
+
+    const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ['images'],
-      allowsMultipleSelection: true,
-      selectionLimit: 2,
       quality: 0.8,
     });
-    if (!result.canceled) {
-      const uris = result.assets.map((a) => a.uri);
-      setIdLocalUris(uris);
-      if (uris.length > 0) {
-        recognizeCccdMutation.mutate(uris);
-      }
+
+    if (!result.canceled && result.assets[0]?.uri) {
+      const newUri = result.assets[0].uri;
+      setIdLocalUris((prev) => {
+        const next = [...prev, newUri];
+        recognizeCccdMutation.mutate(next);
+        return next;
+      });
+    }
+  };
+
+  const handlePickCccdImages = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Quyền truy cập', 'Vui lòng cho phép quyền truy cập thư viện ảnh.');
+      return;
+    }
+    const remainingLimit = 2 - idLocalUris.length;
+    if (remainingLimit <= 0) return;
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ['images'],
+      allowsMultipleSelection: remainingLimit > 1,
+      selectionLimit: remainingLimit,
+      quality: 0.8,
+    });
+    if (!result.canceled && result.assets.length > 0) {
+      const newUris = result.assets.map((a) => a.uri);
+      setIdLocalUris((prev) => {
+        const next = [...prev, ...newUris].slice(0, 2);
+        recognizeCccdMutation.mutate(next);
+        return next;
+      });
     }
   };
 
@@ -552,10 +627,16 @@ export default function WorkerProfileScreen() {
 
   const handleCloseIdentificationModal = () => {
     setActivePreviewImage(null);
+    setIdLocalUris([]);
     setIdentificationModalOpen(false);
   };
 
   const handlePickCertImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Alert.alert('Quyền truy cập', 'Vui lòng cho phép quyền truy cập thư viện ảnh.');
+      return;
+    }
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
       allowsMultipleSelection: false,
@@ -591,78 +672,97 @@ export default function WorkerProfileScreen() {
     !updateCccdMutation.isPending &&
     !cccdRecognitionLoading;
 
+  if (isLoadingProfile) {
+    return (
+      <View className="flex-1 items-center justify-center bg-[#fbf9f8]">
+        <ActivityIndicator size="large" color="#FF8228" />
+      </View>
+    );
+  }
+
   return (
-    <View style={styles.screen}>
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <View style={styles.headerBtn} />
-        <Text style={styles.headerTitle}>Tài khoản</Text>
-        <View style={styles.headerBtn} />
+    <View className="flex-1 bg-[#fbf9f8]">
+      <View className="h-24 flex-row items-center justify-between px-4 bg-white border-b border-gray-200" style={{ paddingTop: insets.top }}>
+        <View className="w-10 h-10 items-center justify-center" />
+        <Text className="font-montserrat-bold text-base text-[#1b1c1c]">Tài khoản</Text>
+        <View className="w-10 h-10 items-center justify-center" />
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Profile Card */}
-        <View style={styles.profileHeaderCard}>
+      <KeyboardAwareScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false} bottomOffset={44}>
+        {/* Profile Card (styled using NativeWind) */}
+        <View className="bg-white border border-gray-300 rounded-2xl p-5 items-center mb-5 shadow-sm">
           <Image
             source={{
               uri:
                 profile?.avatarUrl ||
                 'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
             }}
-            style={styles.profileAvatar}
+            className="w-20 h-20 rounded-full border-2 border-orange-500 mb-3"
           />
-          <Text style={styles.profileName}>{profile?.fullName || 'Kỹ thuật viên'}</Text>
-          <Text style={styles.profileRole}>Đối tác kỹ thuật viên</Text>
+          <Text className="text-lg text-gray-800 font-montserrat-bold">
+            {profile?.fullName || 'Kỹ thuật viên'}
+          </Text>
+          <Text className="text-xs text-gray-500 mt-0.5 mb-4 font-montserrat">
+            Đối tác kỹ thuật viên
+          </Text>
 
-          <View style={styles.statsRow}>
-            <View style={styles.statItem}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+          <View className="flex-row items-center w-full border-t border-gray-200 pt-4">
+            <View className="flex-1 items-center">
+              <View className="flex-row items-center gap-1">
                 <MaterialIcons name="star" size={18} color="#FFB000" />
-                <Text style={styles.statValue}>
+                <Text className="text-base text-gray-800 font-montserrat-bold">
                   {profile?.rating ? Number(profile.rating).toFixed(1) : '4.8'}
                 </Text>
               </View>
-              <Text style={styles.statLabel}>({profile?.reviewsCount ?? 0} đánh giá)</Text>
+              <Text className="text-[11px] text-gray-500 mt-0.5 font-montserrat">
+                ({profile?.reviewsCount ?? 0} đánh giá)
+              </Text>
             </View>
-            <View style={styles.statDivider} />
-            <View style={styles.statItem}>
-              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+            <View className="w-px h-7 bg-gray-200" />
+            <View className="flex-1 items-center">
+              <View className="flex-row items-center gap-1">
                 <MaterialIcons name="done-all" size={18} color="#FF8228" />
-                <Text style={styles.statValue}>{profile?.completedJobs ?? 0}</Text>
+                <Text className="text-base text-gray-800 font-montserrat-bold">
+                  {profile?.completedJobs ?? 0}
+                </Text>
               </View>
-              <Text style={styles.statLabel}>Đơn hoàn thành</Text>
+              <Text className="text-[11px] text-gray-500 mt-0.5 font-montserrat">
+                Đơn hoàn thành
+              </Text>
             </View>
           </View>
         </View>
 
         {/* Section 1: Thông tin cá nhân */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Thông tin cá nhân</Text>
-          <View style={styles.cardContent}>
+        <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
+          <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">Thông tin cá nhân</Text>
+          <View className="rounded-lg overflow-hidden">
             {isEditingProfile ? (
-              <View style={[styles.formContainer, { padding: 12 }]}>
-                <Text style={styles.fieldLabel}>Số điện thoại:</Text>
+              <View className="gap-2 p-3">
+                <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Số điện thoại:</Text>
                 <TextInput
-                  style={styles.formInput}
+                  className="border border-gray-200 rounded-md h-10 px-2.5 font-montserrat text-sm text-[#383838] mb-2.5"
                   value={editPhone}
                   onChangeText={setEditPhone}
                   keyboardType="phone-pad"
                 />
-                <Text style={styles.fieldLabel}>Giới thiệu bản thân:</Text>
+                <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Giới thiệu bản thân:</Text>
                 <TextInput
-                  style={styles.formInputText}
+                  className="border border-gray-200 rounded-md px-2.5 py-2 font-montserrat text-sm text-[#383838] mb-3"
                   value={editBio}
                   onChangeText={setEditBio}
                   multiline
                   numberOfLines={3}
+                  style={{ textAlignVertical: 'top' }}
                 />
-                <View style={styles.formActionsRow}>
+                <View className="flex-row justify-end gap-3">
                   <Pressable
-                    style={styles.cancelFormBtn}
+                    className="py-2 px-4 rounded-md border border-gray-500"
                     onPress={() => setIsEditingProfile(false)}>
-                    <Text style={styles.cancelFormText}>Hủy</Text>
+                    <Text className="text-gray-500 font-montserrat-semibold text-xs">Hủy</Text>
                   </Pressable>
                   <Pressable
-                    style={styles.saveFormBtn}
+                    className="py-2 px-4 rounded-md bg-[#FF8228]"
                     onPress={() =>
                       updateProfileMutation.mutate({
                         bio: editBio,
@@ -670,22 +770,22 @@ export default function WorkerProfileScreen() {
                         address: profile?.address || undefined,
                       })
                     }>
-                    <Text style={styles.saveFormText}>Lưu</Text>
+                    <Text className="text-white font-montserrat-semibold text-xs">Lưu</Text>
                   </Pressable>
                 </View>
               </View>
             ) : (
-              <View style={{ paddingHorizontal: 12, paddingVertical: 8 }}>
-                <Text style={styles.profileBioText}>
-                  <Text style={{ fontWeight: 'bold' }}>SĐT liên hệ: </Text>
+              <View className="px-3 py-2">
+                <Text className="font-montserrat text-sm text-[#383838] leading-5 mb-2">
+                  <Text className="font-montserrat-bold">SĐT liên hệ: </Text>
                   {profile?.phone}
                 </Text>
-                <Text style={styles.profileBioText}>
-                  <Text style={{ fontWeight: 'bold' }}>Giới thiệu: </Text>
+                <Text className="font-montserrat text-sm text-[#383838] leading-5 mb-2">
+                  <Text className="font-montserrat-bold">Giới thiệu: </Text>
                   {profile?.bio || 'Kỹ thuật viên chưa cập nhật giới thiệu.'}
                 </Text>
-                <Pressable style={styles.editProfileBtn} onPress={() => setIsEditingProfile(true)}>
-                  <Text style={styles.editProfileBtnText}>Chỉnh sửa thông tin</Text>
+                <Pressable className="self-start py-1.5 px-3 rounded-md border border-[#FF8228] mt-1.5" onPress={() => setIsEditingProfile(true)}>
+                  <Text className="text-[#FF8228] font-montserrat-semibold text-xs">Chỉnh sửa thông tin</Text>
                 </Pressable>
               </View>
             )}
@@ -693,47 +793,47 @@ export default function WorkerProfileScreen() {
         </View>
 
         {/* Section 2: Hồ sơ đối tác & Xác minh */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Xác minh & Hồ sơ đối tác</Text>
-          <View style={styles.cardContent}>
+        <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
+          <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">Xác minh & Hồ sơ đối tác</Text>
+          <View className="rounded-lg overflow-hidden">
             {/* Địa điểm hoạt động */}
-            <Pressable style={styles.item} onPress={() => setAddressModalOpen(true)}>
-              <View style={styles.itemLeft}>
+            <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setAddressModalOpen(true)}>
+              <View className="flex-row items-center gap-3">
                 <MaterialIcons name="my-location" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Địa điểm hoạt động</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Địa điểm hoạt động</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
 
-            <View style={styles.divider} />
+            <View className="h-px bg-gray-200 mx-3" />
 
             {/* Hình ảnh hoạt động (Portfolio) */}
-            <Pressable style={styles.item} onPress={() => setPortfolioModalOpen(true)}>
-              <View style={styles.itemLeft}>
+            <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setPortfolioModalOpen(true)}>
+              <View className="flex-row items-center gap-3">
                 <MaterialIcons name="photo-library" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Hình ảnh hoạt động (Portfolio)</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Hình ảnh hoạt động (Portfolio)</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
 
-            <View style={styles.divider} />
+            <View className="h-px bg-gray-200 mx-3" />
 
             {/* Xác minh danh tính */}
-            <Pressable style={styles.item} onPress={() => setIdentificationModalOpen(true)}>
-              <View style={styles.itemLeft}>
+            <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setIdentificationModalOpen(true)}>
+              <View className="flex-row items-center gap-3">
                 <MaterialIcons name="badge" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Xác minh danh tính (CCCD)</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Xác minh danh tính (CCCD)</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
 
-            <View style={styles.divider} />
+            <View className="h-px bg-gray-200 mx-3" />
 
             {/* Chứng chỉ & Bằng cấp */}
-            <Pressable style={styles.item} onPress={() => setCertificatesModalOpen(true)}>
-              <View style={styles.itemLeft}>
+            <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setCertificatesModalOpen(true)}>
+              <View className="flex-row items-center gap-3">
                 <MaterialIcons name="workspace-premium" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Chứng chỉ & Bằng cấp</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Chứng chỉ & Bằng cấp</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
@@ -741,15 +841,15 @@ export default function WorkerProfileScreen() {
         </View>
 
         {/* Section 3: Hỗ trợ */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Hỗ trợ</Text>
-          <View style={styles.cardContent}>
+        <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
+          <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">Hỗ trợ</Text>
+          <View className="rounded-lg overflow-hidden">
             <Pressable
-              style={styles.item}
+              className="flex-row items-center justify-between py-3 px-3"
               onPress={() => router.push('/(customer)/support-tickets' as any)}>
-              <View style={styles.itemLeft}>
+              <View className="flex-row items-center gap-3">
                 <MaterialIcons name="support-agent" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Trung tâm trợ giúp & Khiếu nại</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Trung tâm trợ giúp & Khiếu nại</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
@@ -769,42 +869,42 @@ export default function WorkerProfileScreen() {
         />
 
         {/* Logout Button */}
-        <View style={styles.logoutContainer}>
-          <Pressable style={styles.logoutButton} onPress={handleLogout}>
+        <View className="items-center justify-center my-6">
+          <Pressable className="flex-row items-center gap-2 border border-[#ba1a1a] bg-transparent py-3 px-8 rounded-lg min-h-[44px]" onPress={handleLogout}>
             <MaterialIcons name="logout" size={20} color="#ba1a1a" />
-            <Text style={styles.logoutText}>Đăng xuất</Text>
+            <Text className="font-montserrat-semibold text-sm text-[#ba1a1a]">Đăng xuất</Text>
           </Pressable>
         </View>
-      </ScrollView>
+      </KeyboardAwareScrollView>
 
       <WorkerTabBar activeTab="profile" />
 
       <Modal visible={logoutConfirmOpen} transparent animationType="fade">
-        <View style={styles.centeredModalOverlay}>
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
           <Pressable
-            style={StyleSheet.absoluteFill}
+            className="absolute inset-0"
             onPress={() => {
               if (!isLoggingOut) setLogoutConfirmOpen(false);
             }}
           />
-          <View style={styles.logoutConfirmContent}>
-            <Text style={styles.logoutConfirmTitle}>Đăng xuất</Text>
-            <Text style={styles.logoutConfirmText}>Bạn có chắc chắn muốn đăng xuất?</Text>
-            <View style={styles.logoutConfirmActions}>
+          <View className="w-full max-w-[360px] bg-white rounded-2xl p-5">
+            <Text className="font-montserrat-bold text-lg text-[#1b1c1c] mb-2">Đăng xuất</Text>
+            <Text className="font-montserrat text-sm text-[#574237] leading-5 mb-5">Bạn có chắc chắn muốn đăng xuất?</Text>
+            <View className="flex-row justify-end gap-3">
               <Pressable
-                style={styles.logoutCancelButton}
+                className="min-h-[44px] px-[18px] rounded-lg border border-gray-200 items-center justify-center"
                 onPress={() => setLogoutConfirmOpen(false)}
                 disabled={isLoggingOut}>
-                <Text style={styles.logoutCancelText}>Hủy</Text>
+                <Text className="font-montserrat-semibold text-sm text-[#574237]">Hủy</Text>
               </Pressable>
               <Pressable
-                style={[styles.logoutConfirmButton, isLoggingOut && styles.modalSubmitBtnDisabled]}
+                className={`min-h-[44px] min-w-[120px] px-[18px] rounded-lg bg-[#ba1a1a] items-center justify-center ${isLoggingOut ? 'bg-[#EAE5E3]' : ''}`}
                 onPress={confirmLogout}
                 disabled={isLoggingOut}>
                 {isLoggingOut ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.logoutConfirmButtonText}>Đăng xuất</Text>
+                  <Text className="font-montserrat-bold text-sm text-white">Đăng xuất</Text>
                 )}
               </Pressable>
             </View>
@@ -814,9 +914,9 @@ export default function WorkerProfileScreen() {
 
       {/* MODAL 1: Working Address */}
       <Modal visible={addressModalOpen} transparent animationType="fade">
-        <View style={styles.centeredModalOverlay}>
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
           <Pressable
-            style={StyleSheet.absoluteFill}
+            className="absolute inset-0"
             onPress={() => {
               if (optionPickerOpen) {
                 setOptionPickerOpen(false);
@@ -825,15 +925,15 @@ export default function WorkerProfileScreen() {
               }
             }}
           />
-          <View style={styles.dayOffModalContent}>
+          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
             {optionPickerOpen ? (
-              <View style={{ width: '100%' }}>
-                <View style={styles.modalHeader}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                    <Pressable onPress={() => setOptionPickerOpen(false)} style={{ padding: 4 }}>
+              <View className="w-full">
+                <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
+                  <View className="flex-row items-center gap-2">
+                    <Pressable onPress={() => setOptionPickerOpen(false)} className="p-1">
                       <MaterialIcons name="arrow-back" size={24} color="#383838" />
                     </Pressable>
-                    <Text style={styles.modalTitle}>
+                    <Text className="font-montserrat-bold text-base text-[#383838]">
                       {pickerType === 'province' && 'Chọn Tỉnh / Thành phố'}
                       {pickerType === 'ward' && 'Chọn Phường / Xã'}
                     </Text>
@@ -847,10 +947,10 @@ export default function WorkerProfileScreen() {
                   </Pressable>
                 </View>
 
-                <View style={styles.bankSearchBox}>
+                <View className="h-11 border border-gray-200 rounded-lg px-3 mb-3 flex-row items-center gap-2">
                   <MaterialIcons name="search" size={20} color="#818A91" />
                   <TextInput
-                    style={styles.bankSearchInput}
+                    className="flex-1 font-montserrat text-sm text-[#383838]"
                     placeholder="Tìm kiếm..."
                     placeholderTextColor="#9A9A9A"
                     value={pickerSearchQuery}
@@ -859,63 +959,60 @@ export default function WorkerProfileScreen() {
                 </View>
 
                 <ScrollView
-                  style={{ maxHeight: 300, width: '100%' }}
+                  className="max-h-[300px] w-full"
                   keyboardShouldPersistTaps="handled">
                   {filteredPickerList.map((item: any) => (
                     <Pressable
                       key={item.code}
-                      style={styles.optionPickerItem}
+                      className="py-3.5 px-3 border-b border-[#efedec]"
                       onPress={() => handleSelectOption(item)}>
-                      <Text style={styles.optionPickerItemText}>{item.name}</Text>
+                      <Text className="font-montserrat-semibold text-sm text-[#383838]">{item.name}</Text>
                     </Pressable>
                   ))}
                   {filteredPickerList.length === 0 && (
-                    <Text style={styles.mutedText}>Không tìm thấy kết quả.</Text>
+                    <Text className="font-montserrat text-sm text-gray-500 text-center py-2.5">Không tìm thấy kết quả.</Text>
                   )}
                 </ScrollView>
               </View>
             ) : (
-              <View style={{ width: '100%' }}>
-                <View style={styles.modalHeader}>
-                  <Text style={styles.modalTitle}>Địa điểm hoạt động</Text>
+              <View className="w-full">
+                <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
+                  <Text className="font-montserrat-bold text-base text-[#383838]">Địa điểm hoạt động</Text>
                   <Pressable onPress={() => setAddressModalOpen(false)}>
                     <MaterialIcons name="close" size={24} color="#383838" />
                   </Pressable>
                 </View>
 
                 <ScrollView
-                  style={{ maxHeight: 420, width: '100%' }}
+                  className="max-h-[420px] w-full"
                   keyboardShouldPersistTaps="handled">
-                  <Text style={styles.fieldLabel}>Địa chỉ chi tiết (Số nhà, Tên đường):</Text>
+                  <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Địa chỉ chi tiết (Số nhà, Tên đường):</Text>
                   <TextInput
-                    style={styles.modalInput}
+                    className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
                     placeholder="Ví dụ: 305 Trần Hưng Đạo"
                     placeholderTextColor="#9A9A9A"
                     value={addrDetail}
                     onChangeText={setAddrDetail}
                   />
 
-                  <Text style={styles.fieldLabel}>Tỉnh / Thành phố:</Text>
+                  <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Tỉnh / Thành phố:</Text>
                   <Pressable
-                    style={styles.pickerSelector}
+                    className="h-12 border border-gray-200 rounded-lg px-3 flex-row items-center justify-between bg-white mb-4"
                     onPress={() => {
                       setPickerType('province');
                       setPickerSearchQuery('');
                       setOptionPickerOpen(true);
                     }}>
                     <Text
-                      style={addrCity ? styles.pickerSelectorText : styles.pickerPlaceholderText}>
+                      className={addrCity ? 'font-montserrat-semibold text-sm text-[#1b1c1c]' : 'font-montserrat text-sm text-[#9A9A9A]'}>
                       {addrCity || 'Chọn Tỉnh / Thành phố'}
                     </Text>
                     <MaterialIcons name="keyboard-arrow-down" size={20} color="#818A91" />
                   </Pressable>
 
-                  <Text style={styles.fieldLabel}>Phường / Xã:</Text>
+                  <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Phường / Xã:</Text>
                   <Pressable
-                    style={[
-                      styles.pickerSelector,
-                      !selectedProvinceCode && styles.pickerSelectorDisabled,
-                    ]}
+                    className={`h-12 border border-gray-200 rounded-lg px-3 flex-row items-center justify-between bg-white mb-4 ${!selectedProvinceCode ? 'bg-[#f5f3f2] border-[#EAE5E3]' : ''}`}
                     onPress={() => {
                       if (!selectedProvinceCode) {
                         Alert.alert('Thông báo', 'Vui lòng chọn Tỉnh / Thành phố trước.');
@@ -927,21 +1024,14 @@ export default function WorkerProfileScreen() {
                     }}
                     disabled={!selectedProvinceCode}>
                     <Text
-                      style={addrWard ? styles.pickerSelectorText : styles.pickerPlaceholderText}>
+                      className={addrWard ? 'font-montserrat-semibold text-sm text-[#1b1c1c]' : 'font-montserrat text-sm text-[#9A9A9A]'}>
                       {addrWard || 'Chọn Phường / Xã'}
                     </Text>
                     <MaterialIcons name="keyboard-arrow-down" size={20} color="#818A91" />
                   </Pressable>
 
                   <Pressable
-                    style={[
-                      styles.modalSubmitBtn,
-                      (!addrCity ||
-                        !addrWard ||
-                        !addrDetail.trim() ||
-                        updateAddressMutation.isPending) &&
-                        styles.modalSubmitBtnDisabled,
-                    ]}
+                    className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center ${(!addrCity || !addrWard || !addrDetail.trim() || updateAddressMutation.isPending) ? 'bg-[#EAE5E3]' : ''}`}
                     onPress={() => updateAddressMutation.mutate()}
                     disabled={
                       !addrCity ||
@@ -952,7 +1042,7 @@ export default function WorkerProfileScreen() {
                     {updateAddressMutation.isPending ? (
                       <ActivityIndicator size="small" color="#ffffff" />
                     ) : (
-                      <Text style={styles.modalSubmitBtnText}>Lưu địa chỉ hoạt động</Text>
+                      <Text className="text-white font-montserrat-bold text-sm">Lưu địa chỉ hoạt động</Text>
                     )}
                   </Pressable>
                 </ScrollView>
@@ -964,23 +1054,23 @@ export default function WorkerProfileScreen() {
 
       {/* MODAL 2: Portfolio Images */}
       <Modal visible={portfolioModalOpen} transparent animationType="slide">
-        <View style={styles.bottomSheetOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setPortfolioModalOpen(false)} />
-          <View style={styles.bottomSheetContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Hình ảnh hoạt động (Portfolio)</Text>
+        <View className="flex-1 bg-black/50 justify-end">
+          <Pressable className="absolute inset-0" onPress={() => setPortfolioModalOpen(false)} />
+          <View className="bg-white rounded-t-[20px] p-5 pb-[34px]">
+            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
+              <Text className="font-montserrat-bold text-base text-[#383838]">Hình ảnh hoạt động (Portfolio)</Text>
               <Pressable onPress={() => setPortfolioModalOpen(false)}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
-            <ScrollView style={{ maxHeight: 400 }}>
-              <View style={styles.portfolioGrid}>
+            <ScrollView className="max-h-[400px]">
+              <View className="flex-row flex-wrap gap-3 py-2">
                 {profile?.portfolioImages?.map((img: any) => (
-                  <View key={img.id} style={styles.portfolioItemWrap}>
-                    <Image source={{ uri: img.url }} style={styles.portfolioImg} />
+                  <View key={img.id} className="relative w-[30%] aspect-square rounded-lg overflow-hidden">
+                    <Image source={{ uri: img.url }} className="w-full h-full" />
                     <Pressable
-                      style={styles.portfolioDeleteBtn}
+                      className="absolute top-1 right-1 bg-black/60 w-[22px] h-[22px] rounded-full items-center justify-center"
                       onPress={() => {
                         Alert.alert('Xóa ảnh', 'Bạn muốn xóa hình ảnh này khỏi portfolio?', [
                           { text: 'Hủy', style: 'cancel' },
@@ -999,17 +1089,13 @@ export default function WorkerProfileScreen() {
             </ScrollView>
 
             <Pressable
-              style={[
-                styles.modalSubmitBtn,
-                addPortfolioImageMutation.isPending && styles.modalSubmitBtnDisabled,
-                { marginTop: 16 },
-              ]}
+              className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center mt-4 ${addPortfolioImageMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
               onPress={handlePickPortfolioImages}
               disabled={addPortfolioImageMutation.isPending}>
               {addPortfolioImageMutation.isPending ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.modalSubmitBtnText}>+ Thêm hình ảnh</Text>
+                <Text className="text-white font-montserrat-bold text-sm">+ Thêm hình ảnh</Text>
               )}
             </Pressable>
           </View>
@@ -1018,20 +1104,20 @@ export default function WorkerProfileScreen() {
 
       {/* MODAL 3: Identification (CCCD) */}
       <Modal visible={identificationModalOpen} transparent animationType="fade">
-        <View style={styles.centeredModalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={handleCloseIdentificationModal} />
-          <View style={styles.dayOffModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Xác minh danh tính (CCCD)</Text>
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+          <Pressable className="absolute inset-0" onPress={handleCloseIdentificationModal} />
+          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
+            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
+              <Text className="font-montserrat-bold text-base text-[#383838]">Xác minh danh tính (CCCD)</Text>
               <Pressable onPress={handleCloseIdentificationModal}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
-            <ScrollView style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled">
-              <Text style={styles.fieldLabel}>Số căn cước công dân (CCCD):</Text>
+            <KeyboardAwareScrollView className="max-h-[420px]" keyboardShouldPersistTaps="handled" bottomOffset={24}>
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Số căn cước công dân (CCCD):</Text>
               <TextInput
-                style={styles.modalInput}
+                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
                 placeholder="Nhập 12 số CCCD..."
                 placeholderTextColor="#9A9A9A"
                 value={idNumber}
@@ -1039,55 +1125,78 @@ export default function WorkerProfileScreen() {
                 keyboardType="number-pad"
               />
 
-              <Text style={styles.fieldLabel}>Ngày cấp:</Text>
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Ngày cấp:</Text>
               <TextInput
-                style={styles.modalInput}
+                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
                 placeholder="Ví dụ: 2024-02-12"
                 placeholderTextColor="#9A9A9A"
                 value={idIssueDate}
                 onChangeText={setIdIssueDate}
               />
 
-              <Text style={styles.fieldLabel}>Nơi cấp:</Text>
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Nơi cấp:</Text>
               <TextInput
-                style={styles.modalInput}
+                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
                 placeholder="Ví dụ: Cục Cảnh sát QLHC về TTXH"
                 placeholderTextColor="#9A9A9A"
                 value={idIssuePlace}
                 onChangeText={setIdIssuePlace}
               />
 
-              <Text style={styles.fieldLabel}>Ảnh mặt trước & mặt sau CCCD:</Text>
-              <View style={styles.cccdImagesPreviewRow}>
-                {idLocalUris.map((uri) => (
-                  <Pressable key={uri} onPress={() => setActivePreviewImage(uri)}>
-                    <Image source={{ uri }} style={styles.cccdPreviewImg} />
-                  </Pressable>
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Ảnh mặt trước & mặt sau CCCD:</Text>
+              <View className="flex-row gap-3 w-full mb-4">
+                {idLocalUris.map((uri, idx) => (
+                  <View key={uri} className="flex-1 h-[100px] relative rounded-lg overflow-hidden">
+                    <Pressable
+                      className="w-full h-full"
+                      onPress={() => setActivePreviewImage(uri)}>
+                      <Image source={{ uri }} className="w-full h-full resize-cover" />
+                    </Pressable>
+                    <Pressable
+                      className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 z-10 shadow-sm"
+                      onPress={() => setIdLocalUris((prev) => prev.filter((_, i) => i !== idx))}>
+                      <MaterialIcons name="cancel" size={20} color="#BA1A1A" />
+                    </Pressable>
+                  </View>
                 ))}
+
                 {idLocalUris.length < 2 && (
                   <Pressable
-                    style={styles.cccdUploadTrigger}
-                    onPress={handlePickCccdImages}
+                    className={idLocalUris.length === 0 ? "flex-1 h-[100px] border border-dashed border-[#FF8228] rounded-lg items-center justify-center bg-[#FFF2EA]" : "flex-1 h-[100px] border border-dashed border-[#FF8228] rounded-lg items-center justify-center bg-[#FFF2EA]"}
+                    onPress={handleSelectCccdSource}
                     disabled={cccdRecognitionLoading}>
-                    <MaterialIcons name="add-a-photo" size={24} color="#FF8228" />
-                    <Text style={styles.cccdUploadTriggerText}>Tải ảnh lên</Text>
+                    <MaterialIcons
+                      name="add-a-photo"
+                      size={idLocalUris.length === 0 ? 32 : 24}
+                      color="#FF8228"
+                    />
+                    <Text
+                      className={
+                        idLocalUris.length === 0
+                          ? 'font-montserrat-bold text-xs text-[#FF8228]'
+                          : 'font-montserrat-semibold text-[11px] text-[#FF8228]'
+                      }>
+                      {idLocalUris.length === 0
+                        ? 'Tải ảnh CCCD (Mặt trước & Mặt sau)'
+                        : 'Tải ảnh mặt thứ hai'}
+                    </Text>
                   </Pressable>
                 )}
               </View>
 
               {idLocalUris.length > 0 && (
-                <View style={styles.cccdRecognitionBox}>
+                <View className="min-h-[42px] rounded-lg border border-[#FFE6D5] bg-[#FFF8F4] flex-row items-center gap-2 px-3 py-2 mb-2.5">
                   {cccdRecognitionLoading ? (
                     <>
                       <ActivityIndicator size="small" color="#FF8228" />
-                      <Text style={styles.cccdRecognitionText}>
+                      <Text className="flex-1 font-montserrat text-xs text-[#574237] leading-4">
                         Đang nhận diện thông tin CCCD...
                       </Text>
                     </>
                   ) : (
                     <>
                       <MaterialIcons name="document-scanner" size={18} color="#FF8228" />
-                      <Text style={styles.cccdRecognitionText}>
+                      <Text className="flex-1 font-montserrat text-xs text-[#574237] leading-4">
                         Thông tin đã nhận diện có thể chỉnh sửa trước khi gửi.
                       </Text>
                     </>
@@ -1096,130 +1205,110 @@ export default function WorkerProfileScreen() {
               )}
 
               {idLocalUris.length > 0 && !cccdRecognitionLoading && (
-                <Pressable style={styles.cccdRescanBtn} onPress={handleRecognizeCccdImages}>
+                <Pressable className="h-[38px] rounded-lg border border-[#FF8228] bg-white flex-row items-center justify-center gap-1.5 mb-3" onPress={handleRecognizeCccdImages}>
                   <MaterialIcons name="refresh" size={16} color="#FF8228" />
-                  <Text style={styles.cccdRescanBtnText}>Quét lại thông tin CCCD</Text>
+                  <Text className="font-montserrat-semibold text-xs text-[#FF8228]">Quét lại thông tin CCCD</Text>
                 </Pressable>
               )}
 
               <Pressable
-                style={[
-                  styles.modalSubmitBtn,
-                  !canSubmitIdentification && styles.modalSubmitBtnDisabled,
-                  { marginTop: 16 },
-                ]}
+                className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center mt-4 ${!canSubmitIdentification ? 'bg-[#EAE5E3]' : ''}`}
                 onPress={() => updateCccdMutation.mutate()}
                 disabled={!canSubmitIdentification}>
                 {updateCccdMutation.isPending ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.modalSubmitBtnText}>Gửi yêu cầu xác minh</Text>
+                  <Text className="text-white font-montserrat-bold text-sm">Gửi yêu cầu xác minh</Text>
                 )}
               </Pressable>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </View>
-          {activePreviewImage ? (
-            <Pressable
-              style={styles.imagePreviewOverlay}
-              onPress={() => setActivePreviewImage(null)}>
-              <Image
-                source={{ uri: activePreviewImage }}
-                style={styles.imagePreviewFull}
-                resizeMode="contain"
-              />
-              <Pressable
-                style={styles.imagePreviewCloseBtn}
-                onPress={() => setActivePreviewImage(null)}>
-                <MaterialIcons name="close" size={24} color="#ffffff" />
-              </Pressable>
-            </Pressable>
-          ) : null}
         </View>
       </Modal>
 
       {/* MODAL 4: Certificates */}
       <Modal visible={certificatesModalOpen} transparent animationType="fade">
-        <View style={styles.centeredModalOverlay}>
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
           <Pressable
-            style={StyleSheet.absoluteFill}
+            className="absolute inset-0"
             onPress={() => setCertificatesModalOpen(false)}
           />
-          <View style={styles.dayOffModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Chứng chỉ & Bằng cấp</Text>
+          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
+            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
+              <Text className="font-montserrat-bold text-base text-[#383838]">Chứng chỉ & Bằng cấp</Text>
               <Pressable onPress={() => setCertificatesModalOpen(false)}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
-            <ScrollView style={{ maxHeight: 420 }} keyboardShouldPersistTaps="handled">
+            <KeyboardAwareScrollView className="max-h-[420px]" keyboardShouldPersistTaps="handled" bottomOffset={24}>
               {/* Render current certificates */}
-              <Text style={[styles.fieldLabel, { marginBottom: 8 }]}>Danh sách hiện tại:</Text>
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-2">Danh sách hiện tại:</Text>
               {profile?.certificates?.map((c: any) => (
-                <View key={c.id} style={styles.certListItem}>
-                  <MaterialIcons name="workspace-premium" size={28} color="#FF8228" />
+                <View key={c.id} className="flex-row items-center gap-3 py-2.5 border-b border-[#efedec]">
+                  {c.imageUrl ? (
+                    <Pressable onPress={() => setActivePreviewImage(c.imageUrl)}>
+                      <Image source={{ uri: c.imageUrl }} className="w-11 h-11 rounded bg-gray-100" />
+                    </Pressable>
+                  ) : (
+                    <MaterialIcons name="workspace-premium" size={28} color="#FF8228" />
+                  )}
                   <View style={{ flex: 1 }}>
-                    <Text style={styles.certListItemTitle}>{c.title}</Text>
-                    <Text style={styles.certListItemMeta}>Cấp bởi: {c.issuedBy}</Text>
+                    <Text className="font-montserrat-bold text-sm text-[#1b1c1c]">{c.title}</Text>
+                    <Text className="font-montserrat text-xs text-gray-500 mt-0.5">Cấp bởi: {c.issuedBy}</Text>
                   </View>
                 </View>
               ))}
 
-              <View style={[styles.divider, { marginVertical: 16 }]} />
+              <View className="h-px bg-gray-200 mx-3 my-4" />
 
               {/* Add New Certificate Form */}
-              <Text style={[styles.fieldLabel, { fontWeight: 'bold', color: '#1b1c1c' }]}>
+              <Text className="font-montserrat-bold text-xs text-[#1b1c1c] mb-0.5">
                 Thêm chứng chỉ mới
               </Text>
 
-              <Text style={[styles.fieldLabel, { marginTop: 8 }]}>Tên chứng chỉ:</Text>
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5 mt-2">Tên chứng chỉ:</Text>
               <TextInput
-                style={styles.modalInput}
+                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
                 placeholder="Ví dụ: Chứng chỉ kỹ thuật viên điện"
                 placeholderTextColor="#9A9A9A"
                 value={newCertTitle}
                 onChangeText={setNewCertTitle}
               />
 
-              <Text style={styles.fieldLabel}>Nơi cấp chứng chỉ:</Text>
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Nơi cấp chứng chỉ:</Text>
               <TextInput
-                style={styles.modalInput}
+                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
                 placeholder="Ví dụ: Trường Cao đẳng nghề Đà Nẵng"
                 placeholderTextColor="#9A9A9A"
                 value={newCertIssuedBy}
                 onChangeText={setNewCertIssuedBy}
               />
 
-              <Text style={styles.fieldLabel}>Tài liệu chứng chỉ (Hình ảnh):</Text>
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Tài liệu chứng chỉ (Hình ảnh):</Text>
               {newCertLocalUris.length > 0 ? (
-                <View style={styles.cccdImagesPreviewRow}>
-                  <Image source={{ uri: newCertLocalUris[0] }} style={styles.cccdPreviewImg} />
+                <View className="flex-row gap-3 my-3">
+                  <Pressable onPress={() => setActivePreviewImage(newCertLocalUris[0])}>
+                    <Image source={{ uri: newCertLocalUris[0] }} className="w-[100px] h-[100px] rounded-lg bg-[#efedec]" />
+                  </Pressable>
                   <Pressable
-                    style={[styles.certUploadTrigger, { flex: 1, marginVertical: 0 }]}
+                    className="h-13 rounded-lg border border-dashed border-[#FF8228] flex-row items-center justify-center bg-[#FFF2EA] gap-2 px-4 flex-1"
                     onPress={() => setNewCertLocalUris([])}>
                     <MaterialIcons name="delete" size={20} color="#BA1A1A" />
-                    <Text style={[styles.certUploadTriggerText, { color: '#BA1A1A' }]}>
+                    <Text className="font-montserrat-semibold text-sm text-[#BA1A1A]">
                       Xóa ảnh
                     </Text>
                   </Pressable>
                 </View>
               ) : (
-                <Pressable style={styles.certUploadTrigger} onPress={handlePickCertImage}>
+                <Pressable className="h-13 rounded-lg border border-dashed border-[#FF8228] flex-row items-center justify-center bg-[#FFF2EA] gap-2 px-4 my-2" onPress={handlePickCertImage}>
                   <MaterialIcons name="add-photo-alternate" size={24} color="#FF8228" />
-                  <Text style={styles.certUploadTriggerText}>Chọn ảnh chứng chỉ</Text>
+                  <Text className="font-montserrat-semibold text-sm text-[#FF8228]">Chọn ảnh chứng chỉ</Text>
                 </Pressable>
               )}
 
               <Pressable
-                style={[
-                  styles.modalSubmitBtn,
-                  (!newCertTitle.trim() ||
-                    !newCertIssuedBy.trim() ||
-                    newCertLocalUris.length === 0 ||
-                    addCertificateMutation.isPending) &&
-                    styles.modalSubmitBtnDisabled,
-                  { marginTop: 16 },
-                ]}
+                className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center mt-4 ${(!newCertTitle.trim() || !newCertIssuedBy.trim() || newCertLocalUris.length === 0 || addCertificateMutation.isPending) ? 'bg-[#EAE5E3]' : ''}`}
                 onPress={() => addCertificateMutation.mutate()}
                 disabled={
                   !newCertTitle.trim() ||
@@ -1230,48 +1319,48 @@ export default function WorkerProfileScreen() {
                 {addCertificateMutation.isPending ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text style={styles.modalSubmitBtnText}>Thêm chứng chỉ</Text>
+                  <Text className="text-white font-montserrat-bold text-sm">Thêm chứng chỉ</Text>
                 )}
               </Pressable>
-            </ScrollView>
+            </KeyboardAwareScrollView>
           </View>
         </View>
       </Modal>
 
       {/* Modal Add Day Off Exception */}
       <Modal visible={addDayOffModalOpen} transparent animationType="fade">
-        <View style={styles.centeredModalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={() => setAddDayOffModalOpen(false)} />
-          <View style={styles.dayOffModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Đăng ký nghỉ phép</Text>
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+          <Pressable className="absolute inset-0" onPress={() => setAddDayOffModalOpen(false)} />
+          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
+            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
+              <Text className="font-montserrat-bold text-base text-[#383838]">Đăng ký nghỉ phép</Text>
               <Pressable onPress={() => setAddDayOffModalOpen(false)}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
-            <Text style={styles.fieldLabel}>Chọn ngày nghỉ:</Text>
-            <View style={styles.dayOffDateSummary}>
+            <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Chọn ngày nghỉ:</Text>
+            <View className="min-h-[48px] border border-[#FF8228] rounded-lg px-3 mb-2.5 flex-row items-center gap-2.5 bg-[#FFF2EA]">
               <MaterialIcons name="event" size={20} color="#FF8228" />
-              <Text style={styles.dayOffDateText}>{dateToDateOnly(dayOffDate)}</Text>
+              <Text className="font-montserrat-bold text-base text-[#383838]">{dateToDateOnly(dayOffDate)}</Text>
             </View>
-            <View style={styles.nativeDatePickerWrap}>
+            <View className="items-center min-h-[180px] mb-3">
               <DateTimePicker
                 value={dayOffDate}
                 mode="date"
                 display="spinner"
                 textColor="#383838"
                 themeVariant="light"
-                style={styles.nativeDatePicker}
+                style={{ width: '100%', height: 180 }}
                 onChange={(_, selectedDate) => {
                   if (selectedDate) setDayOffDate(selectedDate);
                 }}
               />
             </View>
 
-            <Text style={styles.dayOffReasonLabel}>Lý do nghỉ:</Text>
+            <Text className="font-montserrat-semibold text-xs text-gray-500 mt-2 mb-2">Lý do nghỉ:</Text>
             <TextInput
-              style={styles.dayOffReasonInput}
+              className="border border-gray-200 rounded-lg h-13 px-3.5 font-montserrat text-base text-[#383838] mb-4"
               placeholder="Nhập lý do xin nghỉ..."
               placeholderTextColor="#9A9A9A"
               value={dayOffReason}
@@ -1279,10 +1368,7 @@ export default function WorkerProfileScreen() {
             />
 
             <Pressable
-              style={[
-                styles.modalSubmitBtn,
-                addDayOffMutation.isPending && styles.modalSubmitBtnDisabled,
-              ]}
+              className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center ${addDayOffMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
               onPress={() => {
                 addDayOffMutation.mutate({
                   workerProfileId,
@@ -1295,7 +1381,7 @@ export default function WorkerProfileScreen() {
               {addDayOffMutation.isPending ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.modalSubmitBtnText}>Xác nhận ngày nghỉ</Text>
+                <Text className="text-white font-montserrat-bold text-sm">Xác nhận ngày nghỉ</Text>
               )}
             </Pressable>
           </View>
@@ -1304,50 +1390,38 @@ export default function WorkerProfileScreen() {
 
       {/* Modal Edit Weekly Schedule */}
       <Modal visible={!!editingScheduleSlot} transparent animationType="fade">
-        <View style={styles.centeredModalOverlay}>
-          <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
-          <View style={styles.scheduleTimeModalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Cập nhật giờ làm việc</Text>
+        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+          <Pressable className="absolute inset-0" onPress={Keyboard.dismiss} />
+          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
+            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
+              <Text className="font-montserrat-bold text-base text-[#383838]">Cập nhật giờ làm việc</Text>
               <Pressable onPress={closeScheduleEditor}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
-            <View style={styles.timePickerTabs}>
+            <View className="flex-row gap-2.5 mb-3.5">
               <Pressable
-                style={[
-                  styles.timePickerTab,
-                  schedulePickerTarget === 'start' && styles.timePickerTabActive,
-                ]}
+                className={`flex-1 min-h-[68px] border border-gray-200 rounded-lg px-3 py-2.5 justify-center bg-white ${schedulePickerTarget === 'start' ? 'border-[#FF8228] bg-[#FFF2EA]' : ''}`}
                 onPress={() => setSchedulePickerTarget('start')}>
-                <Text style={styles.timePickerTabLabel}>Bắt đầu</Text>
+                <Text className="font-montserrat-semibold text-[11px] text-gray-500">Bắt đầu</Text>
                 <Text
-                  style={[
-                    styles.timePickerTabValue,
-                    schedulePickerTarget === 'start' && styles.timePickerTabValueActive,
-                  ]}>
+                  className={`font-montserrat-bold text-lg text-[#383838] mt-1 ${schedulePickerTarget === 'start' ? 'text-[#FF8228]' : ''}`}>
                   {dateToTimeString(scheduleStartTime)}
                 </Text>
               </Pressable>
               <Pressable
-                style={[
-                  styles.timePickerTab,
-                  schedulePickerTarget === 'end' && styles.timePickerTabActive,
-                ]}
+                className={`flex-1 min-h-[68px] border border-gray-200 rounded-lg px-3 py-2.5 justify-center bg-white ${schedulePickerTarget === 'end' ? 'border-[#FF8228] bg-[#FFF2EA]' : ''}`}
                 onPress={() => setSchedulePickerTarget('end')}>
-                <Text style={styles.timePickerTabLabel}>Kết thúc</Text>
+                <Text className="font-montserrat-semibold text-[11px] text-gray-500">Kết thúc</Text>
                 <Text
-                  style={[
-                    styles.timePickerTabValue,
-                    schedulePickerTarget === 'end' && styles.timePickerTabValueActive,
-                  ]}>
+                  className={`font-montserrat-bold text-lg text-[#383838] mt-1 ${schedulePickerTarget === 'end' ? 'text-[#FF8228]' : ''}`}>
                   {dateToTimeString(scheduleEndTime)}
                 </Text>
               </Pressable>
             </View>
 
-            <View style={styles.nativeTimePickerWrap}>
+            <View className="items-center min-h-[190px] mb-4">
               <DateTimePicker
                 value={schedulePickerTarget === 'start' ? scheduleStartTime : scheduleEndTime}
                 mode="time"
@@ -1355,7 +1429,7 @@ export default function WorkerProfileScreen() {
                 minuteInterval={5}
                 textColor="#383838"
                 themeVariant="light"
-                style={styles.nativeTimePicker}
+                style={{ width: '100%', height: 190 }}
                 onChange={(_, selectedDate) => {
                   if (!selectedDate) return;
                   if (schedulePickerTarget === 'start') {
@@ -1366,720 +1440,38 @@ export default function WorkerProfileScreen() {
                 }}
               />
             </View>
-
             <Pressable
-              style={[
-                styles.modalSubmitBtn,
-                updateWeeklyScheduleMutation.isPending && styles.modalSubmitBtnDisabled,
-              ]}
+              className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center ${updateWeeklyScheduleMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
               onPress={submitScheduleEditor}
               disabled={updateWeeklyScheduleMutation.isPending}>
               {updateWeeklyScheduleMutation.isPending ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.modalSubmitBtnText}>Lưu giờ làm việc</Text>
+                <Text className="text-white font-montserrat-bold text-sm">Lưu giờ làm việc</Text>
               )}
             </Pressable>
           </View>
         </View>
       </Modal>
+
+      {activePreviewImage ? (
+        <Modal visible={activePreviewImage !== null} transparent animationType="fade">
+          <Pressable
+            className="absolute inset-0 bg-black/90 justify-center items-center z-50"
+            onPress={() => setActivePreviewImage(null)}>
+            <Image
+              source={{ uri: activePreviewImage }}
+              className="w-[90%] h-[80%]"
+              resizeMode="contain"
+            />
+            <Pressable
+              className="absolute top-11 right-5 w-11 h-11 rounded-full bg-white/25 justify-center items-center z-10"
+              onPress={() => setActivePreviewImage(null)}>
+              <MaterialIcons name="close" size={24} color="#ffffff" />
+            </Pressable>
+          </Pressable>
+        </Modal>
+      ) : null}
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: { flex: 1, backgroundColor: '#fbf9f8' },
-  header: {
-    height: 96,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
-  },
-  headerBtn: { width: 40, height: 40, alignItems: 'center', justifyContent: 'center' },
-  headerTitle: { fontFamily: 'Montserrat_700Bold', fontSize: 16, color: '#1b1c1c' },
-  scrollContent: { padding: 16, paddingBottom: 110 },
-  card: {
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 8,
-    marginVertical: 8,
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
-  },
-  cardTitle: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
-    color: '#1b1c1c',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    flexShrink: 1,
-  },
-  cardContent: {
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  item: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-  },
-  itemLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-  },
-  itemText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 15,
-    color: '#1b1c1c',
-  },
-  divider: {
-    height: 1,
-    backgroundColor: '#DDDDDD',
-    marginHorizontal: 12,
-  },
-  logoutContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 24,
-  },
-  logoutButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#ba1a1a',
-    backgroundColor: 'transparent',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    minHeight: 44,
-  },
-  logoutText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#ba1a1a',
-  },
-  logoutConfirmContent: {
-    width: '100%',
-    maxWidth: 360,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-  },
-  logoutConfirmTitle: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 18,
-    color: '#1b1c1c',
-    marginBottom: 8,
-  },
-  logoutConfirmText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 14,
-    lineHeight: 20,
-    color: '#574237',
-    marginBottom: 20,
-  },
-  logoutConfirmActions: {
-    flexDirection: 'row',
-    justifyContent: 'flex-end',
-    gap: 12,
-  },
-  logoutCancelButton: {
-    minHeight: 44,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoutCancelText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#574237',
-  },
-  logoutConfirmButton: {
-    minHeight: 44,
-    minWidth: 120,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    backgroundColor: '#ba1a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  logoutConfirmButtonText: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-    color: '#ffffff',
-  },
-  fieldLabel: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 12,
-    color: '#818A91',
-    marginBottom: 2,
-  },
-  formContainer: { gap: 8 },
-  formInput: {
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 6,
-    height: 40,
-    paddingHorizontal: 10,
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
-    color: '#383838',
-    marginBottom: 10,
-  },
-  formInputText: {
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 6,
-    paddingHorizontal: 10,
-    paddingVertical: 8,
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
-    color: '#383838',
-    marginBottom: 12,
-    textAlignVertical: 'top',
-  },
-  formActionsRow: { flexDirection: 'row', justifyContent: 'flex-end', gap: 12 },
-  cancelFormBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#818A91',
-  },
-  cancelFormText: { color: '#818A91', fontFamily: 'Montserrat_600SemiBold', fontSize: 12 },
-  saveFormBtn: {
-    paddingVertical: 8,
-    paddingHorizontal: 16,
-    borderRadius: 6,
-    backgroundColor: '#FF8228',
-  },
-  saveFormText: { color: '#ffffff', fontFamily: 'Montserrat_600SemiBold', fontSize: 12 },
-  profileBioText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
-    color: '#383838',
-    lineHeight: 18,
-    marginBottom: 8,
-  },
-  editProfileBtn: {
-    alignSelf: 'flex-start',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#FF8228',
-    marginTop: 6,
-  },
-  editProfileBtnText: { color: '#FF8228', fontFamily: 'Montserrat_600SemiBold', fontSize: 12 },
-  scheduleSlotRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    gap: 12,
-    paddingVertical: 12,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderColor: '#efedec',
-  },
-  scheduleSlotLeft: { flex: 1 },
-  scheduleSlotName: { fontFamily: 'Montserrat_700Bold', fontSize: 13, color: '#383838' },
-  scheduleSlotTime: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: '#818A91',
-    marginTop: 2,
-  },
-  sectionHeaderRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 6,
-    gap: 12,
-  },
-  viewAllText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 13,
-    color: '#FF8228',
-    flexShrink: 0,
-  },
-  exceptionItemRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderColor: '#efedec',
-  },
-  exceptionDetails: { flex: 1 },
-  exceptionDateText: { fontFamily: 'Montserrat_700Bold', fontSize: 13, color: '#383838' },
-  exceptionReasonText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: '#818A91',
-    marginTop: 2,
-  },
-  mutedText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
-    color: '#818A91',
-    textAlign: 'center',
-    paddingVertical: 10,
-  },
-  scheduleEditButton: {
-    width: 32,
-    height: 32,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  dayOffReasonLabel: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 12,
-    color: '#818A91',
-    marginTop: 8,
-    marginBottom: 8,
-  },
-  dayOffReasonInput: {
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    height: 52,
-    paddingHorizontal: 14,
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 16,
-    color: '#383838',
-    marginBottom: 18,
-  },
-  centeredModalOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingHorizontal: 20,
-  },
-  scheduleTimeModalContent: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-  },
-  dayOffModalContent: {
-    width: '100%',
-    maxWidth: 420,
-    backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 20,
-  },
-  modalHeader: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    borderBottomWidth: 1,
-    borderColor: '#f5f3f2',
-    paddingBottom: 12,
-    marginBottom: 16,
-  },
-  modalTitle: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
-    color: '#383838',
-  },
-  timePickerTabs: {
-    flexDirection: 'row',
-    gap: 10,
-    marginBottom: 14,
-  },
-  timePickerTab: {
-    flex: 1,
-    minHeight: 68,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 10,
-    justifyContent: 'center',
-    backgroundColor: '#ffffff',
-  },
-  timePickerTabActive: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF2EA',
-  },
-  timePickerTabLabel: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 11,
-    color: '#818A91',
-  },
-  timePickerTabValue: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 20,
-    color: '#383838',
-    marginTop: 4,
-  },
-  timePickerTabValueActive: {
-    color: '#FF8228',
-  },
-  nativeTimePickerWrap: {
-    alignItems: 'center',
-    minHeight: 190,
-    marginBottom: 16,
-  },
-  nativeTimePicker: {
-    width: '100%',
-    height: 190,
-  },
-  dayOffDateSummary: {
-    minHeight: 48,
-    borderWidth: 1,
-    borderColor: '#FF8228',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 10,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 10,
-    backgroundColor: '#FFF2EA',
-  },
-  dayOffDateText: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
-    color: '#383838',
-  },
-  nativeDatePickerWrap: {
-    alignItems: 'center',
-    minHeight: 180,
-    marginBottom: 12,
-  },
-  nativeDatePicker: {
-    width: '100%',
-    height: 180,
-  },
-  modalSubmitBtn: {
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#FF8228',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  modalSubmitBtnDisabled: {
-    backgroundColor: '#EAE5E3',
-  },
-  modalSubmitBtnText: {
-    color: '#ffffff',
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-  },
-  profileHeaderCard: {
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 16,
-    padding: 20,
-    alignItems: 'center',
-    marginBottom: 20,
-    shadowColor: '#000000',
-    shadowOpacity: 0.02,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 3 },
-    elevation: 2,
-  },
-  profileAvatar: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    borderWidth: 2,
-    borderColor: '#FF8228',
-    marginBottom: 12,
-  },
-  profileName: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 18,
-    color: '#1b1c1c',
-  },
-  profileRole: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: '#818A91',
-    marginTop: 2,
-    marginBottom: 16,
-  },
-  statsRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    width: '100%',
-    borderTopWidth: 1,
-    borderTopColor: '#efedec',
-    paddingTop: 16,
-  },
-  statItem: {
-    flex: 1,
-    alignItems: 'center',
-  },
-  statValue: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
-    color: '#1b1c1c',
-  },
-  statLabel: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    color: '#818A91',
-    marginTop: 2,
-  },
-  statDivider: {
-    width: 1,
-    height: 30,
-    backgroundColor: '#efedec',
-  },
-  bottomSheetOverlay: {
-    flex: 1,
-    backgroundColor: 'rgba(0, 0, 0, 0.5)',
-    justifyContent: 'flex-end',
-  },
-  bottomSheetContent: {
-    backgroundColor: '#ffffff',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    padding: 20,
-    paddingBottom: 34,
-  },
-  modalInput: {
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    height: 48,
-    paddingHorizontal: 12,
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 14,
-    color: '#383838',
-    marginBottom: 16,
-  },
-  portfolioGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 12,
-    paddingVertical: 8,
-  },
-  portfolioItemWrap: {
-    position: 'relative',
-    width: '30%',
-    aspectRatio: 1,
-    borderRadius: 8,
-    overflow: 'hidden',
-  },
-  portfolioImg: {
-    width: '100%',
-    height: '100%',
-  },
-  portfolioDeleteBtn: {
-    position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: 'rgba(0, 0, 0, 0.6)',
-    width: 22,
-    height: 22,
-    borderRadius: 11,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  cccdImagesPreviewRow: {
-    flexDirection: 'row',
-    gap: 12,
-    marginVertical: 12,
-  },
-  cccdPreviewImg: {
-    width: 100,
-    height: 70,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-  },
-  cccdUploadTrigger: {
-    width: 100,
-    height: 70,
-    borderRadius: 6,
-    borderWidth: 1,
-    borderColor: '#FF8228',
-    borderStyle: 'dashed',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF2EA',
-    gap: 4,
-  },
-  cccdUploadTriggerText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 10,
-    color: '#FF8228',
-  },
-  cccdRecognitionBox: {
-    minHeight: 42,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FFE6D5',
-    backgroundColor: '#FFF8F4',
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-    paddingHorizontal: 12,
-    paddingVertical: 8,
-    marginBottom: 10,
-  },
-  cccdRecognitionText: {
-    flex: 1,
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: '#574237',
-    lineHeight: 17,
-  },
-  cccdRescanBtn: {
-    height: 38,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FF8228',
-    backgroundColor: '#ffffff',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    marginBottom: 12,
-  },
-  cccdRescanBtnText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 12,
-    color: '#FF8228',
-  },
-  imagePreviewOverlay: {
-    position: 'absolute',
-    top: 0,
-    right: 0,
-    bottom: 0,
-    left: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.9)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 50,
-    elevation: 50,
-  },
-  imagePreviewFull: {
-    width: '90%',
-    height: '80%',
-  },
-  imagePreviewCloseBtn: {
-    position: 'absolute',
-    top: 44,
-    right: 20,
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    justifyContent: 'center',
-    alignItems: 'center',
-    zIndex: 10,
-  },
-  certListItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    paddingVertical: 10,
-    borderBottomWidth: 1,
-    borderColor: '#efedec',
-  },
-  certListItemTitle: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-    color: '#1b1c1c',
-  },
-  certListItemMeta: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: '#818A91',
-    marginTop: 2,
-  },
-  pickerSelector: {
-    height: 48,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#ffffff',
-    marginBottom: 16,
-  },
-  pickerSelectorDisabled: {
-    backgroundColor: '#f5f3f2',
-    borderColor: '#EAE5E3',
-  },
-  pickerSelectorText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#1b1c1c',
-  },
-  pickerPlaceholderText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 14,
-    color: '#9A9A9A',
-  },
-  optionPickerItem: {
-    paddingVertical: 14,
-    paddingHorizontal: 12,
-    borderBottomWidth: 1,
-    borderColor: '#efedec',
-  },
-  optionPickerItemText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#383838',
-  },
-  certUploadTrigger: {
-    height: 52,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#FF8228',
-    borderStyle: 'dashed',
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    backgroundColor: '#FFF2EA',
-    gap: 8,
-    paddingHorizontal: 16,
-    marginVertical: 8,
-  },
-  certUploadTriggerText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#FF8228',
-  },
-  bankSearchBox: {
-    height: 44,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
-    paddingHorizontal: 12,
-    marginBottom: 12,
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 8,
-  },
-  bankSearchInput: {
-    flex: 1,
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 15,
-    color: '#383838',
-  },
-});

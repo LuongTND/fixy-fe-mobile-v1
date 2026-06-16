@@ -42,7 +42,7 @@ export default function ProfileScreen() {
         if (response.isSuccess) {
           setProfile(response.data);
         }
-      } catch (error) {
+      } catch {
         // Fallback to offline defaults
       } finally {
         setLoading(false);
@@ -51,8 +51,6 @@ export default function ProfileScreen() {
 
     fetchProfile();
   }, [isAuthenticated]);
-
-
 
   function handleLogout() {
     setLogoutConfirmOpen(true);
@@ -95,149 +93,149 @@ export default function ProfileScreen() {
             { paddingBottom: insets.bottom + 90 }, // Extra padding to avoid overlaying BottomNavBar
           ]}
           showsVerticalScrollIndicator={false}>
-        {/* Profile Header */}
-        <View style={styles.profileHeader}>
-          <View style={styles.avatarContainer}>
-            <Image
-              source={{
-                uri:
-                  profile?.avatarUrl ??
-                  'https://lh3.googleusercontent.com/aida-public/AB6AXuDopKrdEjn_YIPe8wWQUvOUP7Fg0rVJLe61nRSrAXfNowRvy_vcW1xwzyluNv_w-T1BTrTrQv9d3gFxIzlmfjybmiS8bZWbKxlqYHDKTC2SPQOOjLcvHtIdVtd-l4DkJ7HY4XyrGOQrl-a_WsMGYAQvdiNvcQ49Dz1ARPV3zT-thTZ012QOjHR9VSqie_b_W18k6NN0JhSH8SALrpDcA8xe0OI5Jxat8pY80opLG5-Ues6SaX4L53e-JIZkZdDu5L8Vb7bBrPhZ__g',
-              }}
-              style={styles.avatar}
-              resizeMode="cover"
-            />
-            <Pressable
-              style={styles.editAvatarButton}
-              onPress={() => Alert.alert('Đổi ảnh đại diện', 'Tính năng đang được phát triển.')}>
-              <MaterialIcons name="edit" size={14} color="#FFFFFF" />
+          {/* Profile Header */}
+          <View style={styles.profileHeader}>
+            <View style={styles.avatarContainer}>
+              <Image
+                source={{
+                  uri:
+                    profile?.avatarUrl ??
+                    'https://lh3.googleusercontent.com/aida-public/AB6AXuDopKrdEjn_YIPe8wWQUvOUP7Fg0rVJLe61nRSrAXfNowRvy_vcW1xwzyluNv_w-T1BTrTrQv9d3gFxIzlmfjybmiS8bZWbKxlqYHDKTC2SPQOOjLcvHtIdVtd-l4DkJ7HY4XyrGOQrl-a_WsMGYAQvdiNvcQ49Dz1ARPV3zT-thTZ012QOjHR9VSqie_b_W18k6NN0JhSH8SALrpDcA8xe0OI5Jxat8pY80opLG5-Ues6SaX4L53e-JIZkZdDu5L8Vb7bBrPhZ__g',
+                }}
+                style={styles.avatar}
+                resizeMode="cover"
+              />
+              <Pressable
+                style={styles.editAvatarButton}
+                onPress={() => Alert.alert('Đổi ảnh đại diện', 'Tính năng đang được phát triển.')}>
+                <MaterialIcons name="edit" size={14} color="#FFFFFF" />
+              </Pressable>
+            </View>
+            <Text style={styles.profileName}>{profile?.fullName ?? ''}</Text>
+            <Text style={styles.profilePhone}>{profile?.phone ?? target ?? ''}</Text>
+          </View>
+
+          {/* Section 1: Account */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Tài khoản</Text>
+            <View style={styles.cardContent}>
+              <Pressable
+                style={styles.item}
+                onPress={() => Alert.alert('Thông tin cá nhân', 'Tính năng đang phát triển')}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="person" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Thông tin cá nhân</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+              <View style={styles.divider} />
+              <Pressable style={styles.item} onPress={() => router.push('/saved-addresses' as any)}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="location-on" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Địa chỉ đã lưu</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+              <View style={styles.divider} />
+              <Pressable style={styles.item} onPress={() => router.push('/user-wallet' as any)}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="account-balance-wallet" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Ví của tôi</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+              <View style={styles.divider} />
+              <Pressable
+                style={styles.item}
+                onPress={() => Alert.alert('Phương thức thanh toán', 'Tính năng đang phát triển')}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="payment" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Phương thức thanh toán</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Section 2: Activity */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Hoạt động</Text>
+            <View style={styles.cardContent}>
+              <Pressable
+                style={styles.item}
+                onPress={() => router.push('/(customer)/orders' as any)}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="history" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Lịch sử đặt chỗ</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+              <View style={styles.divider} />
+              <Pressable
+                style={styles.item}
+                onPress={() => Alert.alert('Voucher của tôi', 'Tính năng đang phát triển')}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="local-offer" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Voucher của tôi</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+              <View style={styles.divider} />
+              <Pressable
+                style={styles.item}
+                onPress={() => Alert.alert('Đánh giá của tôi', 'Tính năng đang phát triển')}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="star-rate" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Đánh giá của tôi</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Section 3: General */}
+          <View style={styles.card}>
+            <Text style={styles.cardTitle}>Chung</Text>
+            <View style={styles.cardContent}>
+              <Pressable
+                style={styles.item}
+                onPress={() => Alert.alert('Cài đặt', 'Tính năng đang phát triển')}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="settings" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Cài đặt</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+              <View style={styles.divider} />
+              <Pressable
+                style={styles.item}
+                onPress={() => router.push('/(customer)/support-tickets' as any)}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="support-agent" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Trung tâm trợ giúp</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+              <View style={styles.divider} />
+              <Pressable
+                style={styles.item}
+                onPress={() => Alert.alert('Về Fixy', 'Phiên bản 1.0.0')}>
+                <View style={styles.itemLeft}>
+                  <MaterialIcons name="info" size={22} color="#ff8228" />
+                  <Text style={styles.itemText}>Về Fixy</Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={22} color="#574237" />
+              </Pressable>
+            </View>
+          </View>
+
+          {/* Logout Button */}
+          <View style={styles.logoutContainer}>
+            <Pressable style={styles.logoutButton} onPress={handleLogout}>
+              <MaterialIcons name="logout" size={20} color="#ba1a1a" />
+              <Text style={styles.logoutText}>Đăng xuất</Text>
             </Pressable>
           </View>
-          <Text style={styles.profileName}>{profile?.fullName ?? ''}</Text>
-          <Text style={styles.profilePhone}>{profile?.phone ?? target ?? ''}</Text>
-        </View>
-
-        {/* Section 1: Account */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Tài khoản</Text>
-          <View style={styles.cardContent}>
-            <Pressable
-              style={styles.item}
-              onPress={() => Alert.alert('Thông tin cá nhân', 'Tính năng đang phát triển')}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="person" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Thông tin cá nhân</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable style={styles.item} onPress={() => router.push('/saved-addresses' as any)}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="location-on" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Địa chỉ đã lưu</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable style={styles.item} onPress={() => router.push('/user-wallet' as any)}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="account-balance-wallet" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Ví của tôi</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable
-              style={styles.item}
-              onPress={() => Alert.alert('Phương thức thanh toán', 'Tính năng đang phát triển')}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="payment" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Phương thức thanh toán</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Section 2: Activity */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Hoạt động</Text>
-          <View style={styles.cardContent}>
-            <Pressable
-              style={styles.item}
-              onPress={() => Alert.alert('Lịch sử đặt chỗ', 'Tính năng đang phát triển')}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="history" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Lịch sử đặt chỗ</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable
-              style={styles.item}
-              onPress={() => Alert.alert('Voucher của tôi', 'Tính năng đang phát triển')}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="local-offer" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Voucher của tôi</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable
-              style={styles.item}
-              onPress={() => Alert.alert('Đánh giá của tôi', 'Tính năng đang phát triển')}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="star-rate" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Đánh giá của tôi</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Section 3: General */}
-        <View style={styles.card}>
-          <Text style={styles.cardTitle}>Chung</Text>
-          <View style={styles.cardContent}>
-            <Pressable
-              style={styles.item}
-              onPress={() => Alert.alert('Cài đặt', 'Tính năng đang phát triển')}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="settings" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Cài đặt</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable
-              style={styles.item}
-              onPress={() => router.push('/(customer)/support-tickets' as any)}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="support-agent" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Trung tâm trợ giúp</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-            <View style={styles.divider} />
-            <Pressable
-              style={styles.item}
-              onPress={() => Alert.alert('Về Fixy', 'Phiên bản 1.0.0')}>
-              <View style={styles.itemLeft}>
-                <MaterialIcons name="info" size={22} color="#ff8228" />
-                <Text style={styles.itemText}>Về Fixy</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#574237" />
-            </Pressable>
-          </View>
-        </View>
-
-        {/* Logout Button */}
-        <View style={styles.logoutContainer}>
-          <Pressable style={styles.logoutButton} onPress={handleLogout}>
-            <MaterialIcons name="logout" size={20} color="#ba1a1a" />
-            <Text style={styles.logoutText}>Đăng xuất</Text>
-          </Pressable>
-        </View>
         </ScrollView>
       )}
 
@@ -259,15 +257,16 @@ export default function ProfileScreen() {
               <Pressable
                 style={styles.logoutCancelButton}
                 onPress={() => setLogoutConfirmOpen(false)}
-                disabled={isLoggingOut}
-              >
+                disabled={isLoggingOut}>
                 <Text style={styles.logoutCancelText}>Hủy</Text>
               </Pressable>
               <Pressable
-                style={[styles.logoutConfirmButton, isLoggingOut && styles.logoutConfirmButtonDisabled]}
+                style={[
+                  styles.logoutConfirmButton,
+                  isLoggingOut && styles.logoutConfirmButtonDisabled,
+                ]}
                 onPress={confirmLogout}
-                disabled={isLoggingOut}
-              >
+                disabled={isLoggingOut}>
                 {isLoggingOut ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (

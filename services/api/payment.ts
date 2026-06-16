@@ -18,26 +18,25 @@ function normalizePaymentResult(data: any): PaymentResult {
   if (data && typeof data === 'object') {
     return {
       ...data,
-      paymentUrl: data.paymentUrl ?? data.redirectUrl ?? data.checkoutUrl ?? data.url ?? data.data?.paymentUrl,
+      paymentUrl:
+        data.paymentUrl ??
+        data.redirectUrl ??
+        data.checkoutUrl ??
+        data.url ??
+        data.data?.paymentUrl,
     };
   }
   return {};
 }
 
 /** POST /payment/booking/{bookingId} — Start payment for a booking */
-export async function payForBooking(
-  bookingId: string,
-  method: number
-): Promise<PaymentResult> {
+export async function payForBooking(bookingId: string, method: number): Promise<PaymentResult> {
   const response = await apiClient.post(`/payment/booking/${bookingId}`, { method });
   return normalizePaymentResult(unwrapData(response.data));
 }
 
 /** POST /payment/topup — Top up wallet balance */
-export async function topUpWallet(
-  amount: number,
-  method: number
-): Promise<PaymentResult> {
+export async function topUpWallet(amount: number, method: number): Promise<PaymentResult> {
   const response = await apiClient.post('/payment/topup', { amount, method });
   return normalizePaymentResult(unwrapData(response.data));
 }

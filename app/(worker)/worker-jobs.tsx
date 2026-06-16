@@ -2,7 +2,15 @@ import { MaterialIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
 import { router } from 'expo-router';
 import * as React from 'react';
-import { ActivityIndicator, Image, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Text,
+  View,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
@@ -11,11 +19,9 @@ import { fetchCategories } from '@/services/api/categories';
 import { getWorkerCategoryIcon } from '@/utils/category-ui';
 import { formatCurrency } from '@/utils/format';
 import { formatDateTime } from '@/utils/date';
+import { getWorkerProfileMe } from '@/services/api/workers';
 
-const STATUS_STYLES: Record<
-  number,
-  { label: string; color: string; bg: string }
-> = {
+const STATUS_STYLES: Record<number, { label: string; color: string; bg: string }> = {
   [BookingStatus.Pending]: { label: 'Chờ phản hồi', color: '#D97706', bg: '#FEF3C7' },
   [BookingStatus.Matching]: { label: 'Đang ghép cặp', color: '#EA580C', bg: '#FFEDD5' },
   [BookingStatus.Confirmed]: { label: 'Đã nhận', color: '#059669', bg: '#D1FAE5' },
@@ -32,9 +38,26 @@ export default function WorkerJobsScreen() {
   const insets = useSafeAreaInsets();
   const [jobsSubTab, setJobsSubTab] = React.useState<'active' | 'history'>('active');
 
+  const { data: profile = null, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ['workerProfileMe'],
+    queryFn: getWorkerProfileMe,
+    retry: false,
+  });
+
+  React.useEffect(() => {
+    if (!isLoadingProfile) {
+      if (profile === null) {
+        router.replace('/(worker)/worker-setup' as any);
+      }
+    }
+  }, [profile, isLoadingProfile]);
+
+  const hasApprovedProfile = profile !== null && profile.status === 1;
+
   const { data: bookings = [], isLoading } = useQuery<Booking[]>({
     queryKey: ['workerBookings'],
     queryFn: () => getWorkerBookings(),
+    enabled: hasApprovedProfile,
   });
 
   const { data: categories = [] } = useQuery({
@@ -56,6 +79,14 @@ export default function WorkerJobsScreen() {
       b.status === BookingStatus.Disputed ||
       b.status === BookingStatus.PendingPayment
   );
+
+  if (isLoadingProfile) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fbf9f8' }}>
+        <ActivityIndicator size="large" color="#FF8228" />
+      </View>
+    );
+  }
 
   const displayedJobs = jobsSubTab === 'active' ? activeJobs : historyJobs;
 
@@ -95,7 +126,9 @@ export default function WorkerJobsScreen() {
           <View style={styles.jobsList}>
             {displayedJobs.length > 0 ? (
               displayedJobs.map((job) => {
-                const category = categories.find((c) => c.id === job.categoryId || c.code === job.categoryId);
+                const category = categories.find(
+                  (c) => c.id === job.categoryId || c.code === job.categoryId
+                );
                 return (
                   <Pressable
                     key={job.id}
@@ -120,44 +153,53 @@ export default function WorkerJobsScreen() {
                         </View>
                       )}
                       <View style={styles.jobDetails}>
-                      <View style={styles.jobTitleRow}>
-                        <Text style={styles.jobTitle} numberOfLines={1}>
-                          {job.description || 'Yêu cầu sửa chữa'}
-                        </Text>
-                        <Text style={styles.jobPrice}>
-                          {formatCurrency(job.finalAmount || job.estimatedAmount || 150000)}
-                        </Text>
-                      </View>
-                      
-                      <View style={styles.infoRow}>
-                        <MaterialIcons name="place" size={14} color="#818A91" />
-                        <Text style={styles.jobAddressText} numberOfLines={1}>
-                          {job.address}
-                        </Text>
-                      </View>
-
-                      <View style={styles.infoRow}>
-                        <MaterialIcons name="access-time" size={14} color="#818A91" />
-                        <Text style={styles.jobTimeText}>
-                          {job.scheduledType === 0 || String(job.scheduledType).toLowerCase() === 'now'
-                            ? 'Làm ngay'
-                            : 'Hẹn lịch'}
-                          {job.scheduledAt && ` • ${formatDateTime(job.scheduledAt)}`}
-                        </Text>
-                      </View>
-
-                      {STATUS_STYLES[job.status] && (
-                        <View style={styles.statusRow}>
-                          <View style={[styles.statusBadge, { backgroundColor: STATUS_STYLES[job.status].bg }]}>
-                            <Text style={[styles.statusBadgeText, { color: STATUS_STYLES[job.status].color }]}>
-                              {STATUS_STYLES[job.status].label}
-                            </Text>
-                          </View>
+                        <View style={styles.jobTitleRow}>
+                          <Text style={styles.jobTitle} numberOfLines={1}>
+                            {job.description || 'Yêu cầu sửa chữa'}
+                          </Text>
+                          <Text style={styles.jobPrice}>
+                            {formatCurrency(job.finalAmount || job.estimatedAmount || 150000)}
+                          </Text>
                         </View>
-                      )}
+
+                        <View style={styles.infoRow}>
+                          <MaterialIcons name="place" size={14} color="#818A91" />
+                          <Text style={styles.jobAddressText} numberOfLines={1}>
+                            {job.address}
+                          </Text>
+                        </View>
+
+                        <View style={styles.infoRow}>
+                          <MaterialIcons name="access-time" size={14} color="#818A91" />
+                          <Text style={styles.jobTimeText}>
+                            {job.scheduledType === 0 ||
+                            String(job.scheduledType).toLowerCase() === 'now'
+                              ? 'Làm ngay'
+                              : 'Hẹn lịch'}
+                            {job.scheduledAt && ` • ${formatDateTime(job.scheduledAt)}`}
+                          </Text>
+                        </View>
+
+                        {STATUS_STYLES[job.status] && (
+                          <View style={styles.statusRow}>
+                            <View
+                              style={[
+                                styles.statusBadge,
+                                { backgroundColor: STATUS_STYLES[job.status].bg },
+                              ]}>
+                              <Text
+                                style={[
+                                  styles.statusBadgeText,
+                                  { color: STATUS_STYLES[job.status].color },
+                                ]}>
+                                {STATUS_STYLES[job.status].label}
+                              </Text>
+                            </View>
+                          </View>
+                        )}
+                      </View>
                     </View>
-                  </View>
-                </Pressable>
+                  </Pressable>
                 );
               })
             ) : (

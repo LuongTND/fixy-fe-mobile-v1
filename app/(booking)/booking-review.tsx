@@ -20,6 +20,7 @@ import { useQueryClient } from '@tanstack/react-query';
 
 import { submitReview } from '@/services/api/reviews';
 import { getApiErrorMessage } from '@/services/api/client';
+import { prepareUploadFile } from '@/services/api/media';
 
 const SUGGESTION_CHIPS = [
   'Đúng giờ',
@@ -94,11 +95,9 @@ export default function BookingReviewScreen() {
       const chipText = selectedChips.length > 0 ? selectedChips.join(', ') + '. ' : '';
       const fullComment = chipText + comment.trim();
 
-      const imageFiles = images.map((uri, i) => ({
-        uri,
-        type: 'image/jpeg',
-        name: `review_${i}.jpg`,
-      }));
+      const imageFiles = await Promise.all(
+        images.map((uri, i) => prepareUploadFile(uri, `review_${i}.jpg`))
+      );
 
       await submitReview(params.bookingId, {
         Rating: rating,

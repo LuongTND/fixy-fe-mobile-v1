@@ -17,6 +17,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { router } from 'expo-router';
 
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
 import { getWalletOverview, WalletOverview } from '@/services/api/wallet';
@@ -29,6 +30,7 @@ import {
   requestPayout,
   PayoutAccount,
   PayoutRequest,
+  getWorkerProfileMe,
 } from '@/services/api/workers';
 import { getPayoutStatus, getPayoutStatusLabel } from '@/utils/payout';
 import { formatCurrency } from '@/utils/format';
@@ -70,6 +72,23 @@ function getBankLogoUri(bank: VietQrBank | { name: string; code: string }): stri
 export default function WorkerWalletScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+
+  const { data: profile = null, isLoading: isLoadingProfile } = useQuery({
+    queryKey: ['workerProfileMe'],
+    queryFn: getWorkerProfileMe,
+    retry: false,
+  });
+
+  React.useEffect(() => {
+    if (!isLoadingProfile) {
+      if (profile === null) {
+        router.replace('/(worker)/worker-setup' as any);
+      }
+    }
+  }, [profile, isLoadingProfile]);
+
+  const hasApprovedProfile = profile !== null && profile.status === 1;
+
   const [wallet, setWallet] = React.useState<WalletOverview | null>(null);
   const [isLoading, setIsLoading] = React.useState(true);
   const [isRefreshing, setIsRefreshing] = React.useState(false);
@@ -104,11 +123,13 @@ export default function WorkerWalletScreen() {
   const { data: payoutAccounts = [] } = useQuery<PayoutAccount[]>({
     queryKey: ['payoutAccounts'],
     queryFn: getPayoutAccounts,
+    enabled: hasApprovedProfile,
   });
 
   const { data: payoutRequests = [] } = useQuery<PayoutRequest[]>({
     queryKey: ['payoutRequests'],
     queryFn: getPayoutRequests,
+    enabled: hasApprovedProfile,
   });
 
   const selectedPayoutAccount = React.useMemo(
@@ -180,6 +201,7 @@ export default function WorkerWalletScreen() {
   }, [vietqrBanks, selectedBank]);
 
   const fetchWallet = React.useCallback(async (silent = false) => {
+    if (!hasApprovedProfile) return;
     if (!silent) setIsLoading(true);
     try {
       const data = await getWalletOverview();
@@ -192,11 +214,13 @@ export default function WorkerWalletScreen() {
       setIsLoading(false);
       setIsRefreshing(false);
     }
-  }, []);
+  }, [hasApprovedProfile]);
 
   React.useEffect(() => {
-    fetchWallet();
-  }, [fetchWallet]);
+    if (hasApprovedProfile) {
+      fetchWallet();
+    }
+  }, [fetchWallet, hasApprovedProfile]);
 
   const handleRefresh = () => {
     setIsRefreshing(true);
@@ -210,6 +234,14 @@ export default function WorkerWalletScreen() {
     }
     setWithdrawModalOpen(true);
   };
+
+  if (isLoadingProfile) {
+    return (
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fbf9f8' }}>
+        <ActivityIndicator size="large" color="#FF8228" />
+      </View>
+    );
+  }
 
   return (
     <View style={[styles.screen, { paddingTop: insets.top }]}>

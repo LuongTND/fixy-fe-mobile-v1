@@ -73,14 +73,34 @@ export default function BookingTrackingScreen() {
   };
 
   const handleChatWorker = () => {
-    Alert.alert('Chat', 'Tính năng chat đang được phát triển.');
+    if (params.bookingId) {
+      router.push({
+        pathname: '/(booking)/booking-chat',
+        params: { bookingId: params.bookingId },
+      } as any);
+    } else {
+      Alert.alert('Thông báo', 'Không tìm thấy thông tin đơn hàng để mở chat.');
+    }
   };
 
   const handleReport = () => {
-    Alert.alert('Báo cáo sự cố', 'Bạn có muốn báo cáo sự cố với đơn hàng này?', [
-      { text: 'Hủy', style: 'cancel' },
-      { text: 'Báo cáo', style: 'destructive', onPress: () => {} },
-    ]);
+    if (params.bookingId) {
+      Alert.alert('Báo cáo sự cố', 'Bạn có muốn báo cáo sự cố với đơn hàng này?', [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Báo cáo',
+          style: 'destructive',
+          onPress: () => {
+            router.push({
+              pathname: '/(customer)/create-support-ticket',
+              params: { bookingId: params.bookingId },
+            } as any);
+          },
+        },
+      ]);
+    } else {
+      Alert.alert('Thông báo', 'Không tìm thấy thông tin đơn hàng để tạo khiếu nại.');
+    }
   };
 
   return (

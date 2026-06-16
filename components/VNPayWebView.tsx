@@ -1,5 +1,13 @@
 import React, { useEffect, useState } from 'react';
-import { ActivityIndicator, Alert, Modal, StyleSheet, Text, TouchableOpacity, View } from 'react-native';
+import {
+  ActivityIndicator,
+  Alert,
+  Modal,
+  StyleSheet,
+  Text,
+  TouchableOpacity,
+  View,
+} from 'react-native';
 import { WebView } from 'react-native-webview';
 
 interface VNPayWebViewProps {
@@ -32,13 +40,13 @@ const VNPayWebView: React.FC<VNPayWebViewProps> = ({
     if (hasProcessed) {
       return true;
     }
-    
+
     const isCallbackUrl =
       url.includes('/payment/callback/vnpay') ||
       url.includes('/api/payment/callback/vnpay') ||
       url.includes('/payment/vnpay-return') ||
       url.includes('vnpay-return');
-    
+
     const hasResponseCode = url.includes('vnp_ResponseCode');
 
     if (isCallbackUrl && hasResponseCode) {
@@ -48,7 +56,7 @@ const VNPayWebView: React.FC<VNPayWebViewProps> = ({
         if (urlParts.length < 2) {
           return false;
         }
-        
+
         // Custom query params parsing (to handle react-native URLSearchParams support)
         const queryStr = urlParts[1];
         const params: Record<string, string> = {};
@@ -61,11 +69,11 @@ const VNPayWebView: React.FC<VNPayWebViewProps> = ({
 
         const responseCode = params['vnp_ResponseCode'];
         const transactionId = params['vnp_TxnRef'];
-        
+
         // Mark as processed to prevent duplicate handling
         setHasProcessed(true);
         setLoading(false);
-        
+
         if (responseCode === '00') {
           // Payment successful
           onSuccess(transactionId || '', params);
@@ -74,11 +82,11 @@ const VNPayWebView: React.FC<VNPayWebViewProps> = ({
           const errorMessage = getErrorMessage(responseCode || '');
           onError(errorMessage);
         }
-        
+
         // Close the WebView
         onClose();
         return true;
-      } catch (error) {
+      } catch {
         setLoading(false);
         onError('Có lỗi xảy ra khi xử lý kết quả thanh toán');
         onClose();
@@ -106,32 +114,32 @@ const VNPayWebView: React.FC<VNPayWebViewProps> = ({
       '75': 'Ngân hàng thanh toán đang bảo trì. Vui lòng thử lại sau.',
       '79': 'Số tiền giao dịch không hợp lệ.',
       '99': 'Lỗi không xác định. Vui lòng thử lại sau.',
-      'unknown_error': 'Đã xảy ra lỗi trong quá trình thanh toán.',
+      unknown_error: 'Đã xảy ra lỗi trong quá trình thanh toán.',
     };
 
     return errorMessages[responseCode] || 'Giao dịch thất bại. Vui lòng thử lại.';
   };
 
   const handleClose = () => {
-    Alert.alert(
-      'Hủy thanh toán',
-      'Bạn có chắc chắn muốn hủy thanh toán?',
-      [
-        { text: 'Tiếp tục', style: 'cancel' },
-        {
-          text: 'Hủy',
-          style: 'destructive',
-          onPress: () => {
-            onError('Người dùng hủy thanh toán');
-            onClose();
-          },
+    Alert.alert('Hủy thanh toán', 'Bạn có chắc chắn muốn hủy thanh toán?', [
+      { text: 'Tiếp tục', style: 'cancel' },
+      {
+        text: 'Hủy',
+        style: 'destructive',
+        onPress: () => {
+          onError('Người dùng hủy thanh toán');
+          onClose();
         },
-      ]
-    );
+      },
+    ]);
   };
 
   return (
-    <Modal visible={visible} animationType="slide" presentationStyle="pageSheet" onRequestClose={handleClose}>
+    <Modal
+      visible={visible}
+      animationType="slide"
+      presentationStyle="pageSheet"
+      onRequestClose={handleClose}>
       <View style={styles.container}>
         <View style={styles.header}>
           <TouchableOpacity onPress={handleClose} style={styles.closeButton}>
@@ -156,17 +164,17 @@ const VNPayWebView: React.FC<VNPayWebViewProps> = ({
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
             console.warn('[VNPayWebView] error:', nativeEvent);
-            
+
             // Try to intercept from the failed URL (e.g. localhost connection failure on redirect)
             if (nativeEvent.url && checkAndHandleCallback(nativeEvent.url)) {
               return;
             }
-            
+
             // If the error occurred on VNPAY's domain, show a helpful alert with a balance check option
-            const isGatewayError = nativeEvent.url && (
-              nativeEvent.url.includes('sandbox.vnpayment.vn') || 
-              nativeEvent.url.includes('vnpayment.vn')
-            );
+            const isGatewayError =
+              nativeEvent.url &&
+              (nativeEvent.url.includes('sandbox.vnpayment.vn') ||
+                nativeEvent.url.includes('vnpayment.vn'));
             if (isGatewayError) {
               Alert.alert(
                 'Sự cố kết nối VNPAY',
@@ -177,17 +185,17 @@ const VNPayWebView: React.FC<VNPayWebViewProps> = ({
                     onPress: () => {
                       onError('Sự cố kết nối VNPAY. Đang cập nhật số dư.');
                       onClose();
-                    }
+                    },
                   },
                   {
                     text: 'Thử lại',
-                    style: 'cancel'
-                  }
+                    style: 'cancel',
+                  },
                 ]
               );
               return;
             }
-            
+
             onError(nativeEvent.description || 'Không thể kết nối đến máy chủ thanh toán.');
             onClose();
           }}

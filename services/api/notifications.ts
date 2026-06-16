@@ -38,14 +38,14 @@ export async function getNotifications(params?: {
 }): Promise<Notification[]> {
   const response = await apiClient.get('/Notification', { params });
   const data = unwrapData<any>(response.data);
-  return Array.isArray(data) ? data : data?.items ?? [];
+  return Array.isArray(data) ? data : (data?.items ?? []);
 }
 
 /** GET /Notification/unread-count — Get unread badge count */
 export async function getUnreadCount(): Promise<number> {
   const response = await apiClient.get('/Notification/unread-count');
   const data = unwrapData<any>(response.data);
-  return typeof data === 'number' ? data : data?.count ?? 0;
+  return typeof data === 'number' ? data : (data?.count ?? 0);
 }
 
 /** PATCH /Notification/{id}/read — Mark one notification as read */

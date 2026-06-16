@@ -13,15 +13,16 @@ import { addNotificationResponseReceivedListener } from 'expo-notifications/buil
 import { setNotificationHandler } from 'expo-notifications/build/NotificationsHandler';
 import scheduleNotificationAsync from 'expo-notifications/build/scheduleNotificationAsync';
 import setNotificationChannelAsync from 'expo-notifications/build/setNotificationChannelAsync';
+import { HubConnectionBuilder, LogLevel, HubConnection } from '@microsoft/signalr';
+import Constants from 'expo-constants';
 import { router } from 'expo-router';
 import * as React from 'react';
 import { AppState, Platform } from 'react-native';
 
-import { getNotifications, Notification } from '@/services/api/notifications';
+import { Notification } from '@/services/api/notifications';
 import { useAuthStore } from '@/store/store';
 import { parseDeepLink } from '@/utils/navigation';
 
-const NOTIFICATION_POLL_INTERVAL_MS = 30000;
 const POPUP_CHANNEL_ID = 'fixy-notifications';
 
 type PopupNotificationData = {
@@ -39,17 +40,7 @@ setNotificationHandler({
   }),
 });
 
-function isNewerNotification(candidate: Notification, current?: Notification) {
-  if (!current) return true;
-  return new Date(candidate.createdDate).getTime() > new Date(current.createdDate).getTime();
-}
 
-function getLatestNotification(notifications: Notification[]) {
-  return notifications.reduce<Notification | undefined>(
-    (latest, item) => (isNewerNotification(item, latest) ? item : latest),
-    undefined
-  );
-}
 
 function openNotificationTarget(data: PopupNotificationData) {
   const parsedRoute = parseDeepLink(data.deepLink);
@@ -142,9 +133,8 @@ export function NotificationPopupObserver() {
   const queryClient = useQueryClient();
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
   const isHydrating = useAuthStore((state) => state.isHydrating);
-  const lastSeenNotificationIdRef = React.useRef<string | null>(null);
-  const hasLoadedInitialSnapshotRef = React.useRef(false);
-  const isPollingRef = React.useRef(false);
+  const accessToken = useAuthStore((state) => state.accessToken);
+  const notificationHubUrl = Constants.expoConfig?.extra?.notificationHubUrl;
 
   React.useEffect(() => {
     const subscription = addNotificationResponseReceivedListener((response) => {
@@ -156,62 +146,61 @@ export function NotificationPopupObserver() {
   }, []);
 
   React.useEffect(() => {
-    if (isHydrating || !isAuthenticated) {
-      lastSeenNotificationIdRef.current = null;
-      hasLoadedInitialSnapshotRef.current = false;
+    if (isHydrating || !isAuthenticated || !accessToken || !notificationHubUrl) {
       return;
     }
 
-    let cancelled = false;
+    let connection: HubConnection | null = null;
+    let isConnected = true;
 
-    const pollNotifications = async () => {
-      if (cancelled || isPollingRef.current || AppState.currentState !== 'active') return;
-
-      isPollingRef.current = true;
+    async function startSignalR() {
       try {
-        const notifications = await getNotifications({ PageNumber: 1, PageSize: 5 });
-        const latest = getLatestNotification(notifications);
+        connection = new HubConnectionBuilder()
+          .withUrl(notificationHubUrl, {
+            accessTokenFactory: () => accessToken || '',
+          })
+          .withAutomaticReconnect()
+          .configureLogging(LogLevel.Warning)
+          .build();
 
-        if (!latest) {
-          hasLoadedInitialSnapshotRef.current = true;
-          return;
-        }
+        // Listen for new notifications
+        const handleNewNotification = async (notification: any) => {
+          if (!isConnected) return;
 
-        if (!hasLoadedInitialSnapshotRef.current) {
-          lastSeenNotificationIdRef.current = latest.id;
-          hasLoadedInitialSnapshotRef.current = true;
-          return;
-        }
-
-        if (latest.id !== lastSeenNotificationIdRef.current) {
-          lastSeenNotificationIdRef.current = latest.id;
+          // Invalidate cache to refresh UI lists and unread count badges
           queryClient.invalidateQueries({ queryKey: ['notifications'] });
           queryClient.invalidateQueries({ queryKey: ['unreadNotificationCount'] });
-          if (!latest.isRead) {
-            await showNotificationPopup(latest);
-          }
-        }
-      } catch (error) {
-        console.warn('[notifications] Unable to poll latest notification', error);
-      } finally {
-        isPollingRef.current = false;
-      }
-    };
 
-    pollNotifications();
-    const interval = setInterval(pollNotifications, NOTIFICATION_POLL_INTERVAL_MS);
-    const appStateSubscription = AppState.addEventListener('change', (state) => {
-      if (state === 'active') {
-        pollNotifications();
+          // Show local popup notification when app is active
+          if (AppState.currentState === 'active' && !notification.isRead) {
+            await showNotificationPopup(notification);
+          }
+        };
+
+        connection.on('ReceiveNotification', handleNewNotification);
+        connection.on('ReceiveSystemNotification', handleNewNotification);
+
+        await connection.start();
+
+        // Initial cache invalidation on hub connect to fetch missed alerts
+        queryClient.invalidateQueries({ queryKey: ['notifications'] });
+        queryClient.invalidateQueries({ queryKey: ['unreadNotificationCount'] });
+
+        console.log('[notifications] Connected to SignalR Notification Hub.');
+      } catch (err) {
+        console.warn('[notifications] SignalR Hub connection failed:', err);
       }
-    });
+    }
+
+    startSignalR();
 
     return () => {
-      cancelled = true;
-      clearInterval(interval);
-      appStateSubscription.remove();
+      isConnected = false;
+      if (connection) {
+        connection.stop().catch((err) => console.warn('[notifications] Error stopping hub:', err));
+      }
     };
-  }, [isAuthenticated, isHydrating, queryClient]);
+  }, [isAuthenticated, isHydrating, accessToken, notificationHubUrl, queryClient]);
 
   return null;
 }

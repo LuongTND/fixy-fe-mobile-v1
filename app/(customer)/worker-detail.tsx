@@ -178,17 +178,25 @@ export default function WorkerDetailScreen() {
           <View style={styles.skillsContainer}>
             {worker.specialties.map((spec) => {
               const category = categories.find((c) => c.id === spec || c.code === spec);
-              const name = category?.name || (
-                spec === 'dien' ? 'Điện gia dụng' :
-                spec === 'nuoc' ? 'Sửa đường nước' :
-                spec === 'dieuhoa' ? 'Điện lạnh - Điều hòa' :
-                spec === 'maygiat' ? 'Sửa máy giặt' :
-                spec === 'xemay' ? 'Sửa xe máy/ô tô' :
-                spec === 'moc' ? 'Mộc & Nội thất' :
-                spec === 'son' ? 'Sơn & Xây trát' :
-                spec === 'vesinh' ? 'Vệ sinh công nghiệp' :
-                spec
-              );
+              const name =
+                category?.name ||
+                (spec === 'dien'
+                  ? 'Điện gia dụng'
+                  : spec === 'nuoc'
+                    ? 'Sửa đường nước'
+                    : spec === 'dieuhoa'
+                      ? 'Điện lạnh - Điều hòa'
+                      : spec === 'maygiat'
+                        ? 'Sửa máy giặt'
+                        : spec === 'xemay'
+                          ? 'Sửa xe máy/ô tô'
+                          : spec === 'moc'
+                            ? 'Mộc & Nội thất'
+                            : spec === 'son'
+                              ? 'Sơn & Xây trát'
+                              : spec === 'vesinh'
+                                ? 'Vệ sinh công nghiệp'
+                                : spec);
               return (
                 <View key={spec} style={styles.skillBadge}>
                   <Text style={styles.skillBadgeText}>{name}</Text>

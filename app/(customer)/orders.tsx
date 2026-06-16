@@ -14,17 +14,19 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '@/components/layout/bottom-tab-bar';
-import {
-  Booking,
-  BookingStatus,
-  getMyBookings,
-} from '@/services/api/bookings';
+import { Booking, BookingStatus, getMyBookings } from '@/services/api/bookings';
 import { formatDateTime } from '@/utils/date';
 import { fetchCategories } from '@/services/api/categories';
 
 const STATUS_MAP: Record<
   number,
-  { label: string; color: string; bg: string; border: string; icon: React.ComponentProps<typeof MaterialIcons>['name'] }
+  {
+    label: string;
+    color: string;
+    bg: string;
+    border: string;
+    icon: React.ComponentProps<typeof MaterialIcons>['name'];
+  }
 > = {
   [BookingStatus.Pending]: {
     label: 'Chờ thợ phản hồi',
@@ -116,7 +118,11 @@ export default function CustomerOrdersScreen() {
   const insets = useSafeAreaInsets();
   const [activeTab, setActiveTab] = React.useState<'active' | 'history'>('active');
 
-  const { data: bookings = [], isLoading, refetch } = useQuery<Booking[]>({
+  const {
+    data: bookings = [],
+    isLoading,
+    refetch,
+  } = useQuery<Booking[]>({
     queryKey: ['myBookings'],
     queryFn: () => getMyBookings(),
   });
@@ -135,7 +141,7 @@ export default function CustomerOrdersScreen() {
         status === BookingStatus.Completed ||
         status === BookingStatus.Cancelled ||
         status === BookingStatus.Disputed;
-      
+
       return activeTab === 'active' ? !isTerminal : isTerminal;
     });
   }, [bookings, activeTab]);
@@ -165,8 +171,7 @@ export default function CustomerOrdersScreen() {
     return (
       <Pressable
         style={styles.bookingCard}
-        onPress={() => router.push(`/booking-detail?bookingId=${item.id}` as any)}
-      >
+        onPress={() => router.push(`/booking-detail?bookingId=${item.id}` as any)}>
         <View style={styles.cardHeader}>
           <View style={styles.categoryBadge}>
             {category?.imageUrl ? (
@@ -191,12 +196,14 @@ export default function CustomerOrdersScreen() {
                 backgroundColor: statusInfo.bg,
                 borderColor: statusInfo.border,
               },
-            ]}
-          >
-            <MaterialIcons name={statusInfo.icon} size={14} color={statusInfo.color} style={styles.statusIcon} />
-            <Text style={[styles.statusText, { color: statusInfo.color }]}>
-              {statusInfo.label}
-            </Text>
+            ]}>
+            <MaterialIcons
+              name={statusInfo.icon}
+              size={14}
+              color={statusInfo.color}
+              style={styles.statusIcon}
+            />
+            <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
           </View>
         </View>
 
@@ -242,16 +249,14 @@ export default function CustomerOrdersScreen() {
       <View style={styles.tabContainer}>
         <Pressable
           style={[styles.tabButton, activeTab === 'active' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('active')}
-        >
+          onPress={() => setActiveTab('active')}>
           <Text style={[styles.tabLabel, activeTab === 'active' && styles.tabLabelActive]}>
             Đang hoạt động
           </Text>
         </Pressable>
         <Pressable
           style={[styles.tabButton, activeTab === 'history' && styles.tabButtonActive]}
-          onPress={() => setActiveTab('history')}
-        >
+          onPress={() => setActiveTab('history')}>
           <Text style={[styles.tabLabel, activeTab === 'history' && styles.tabLabelActive]}>
             Lịch sử đơn
           </Text>
@@ -279,7 +284,9 @@ export default function CustomerOrdersScreen() {
                   ? 'Không có đơn hàng nào đang hoạt động.'
                   : 'Bạn chưa có lịch sử đơn hàng nào.'}
               </Text>
-              <Pressable style={styles.bookNowButton} onPress={() => router.replace('/home' as any)}>
+              <Pressable
+                style={styles.bookNowButton}
+                onPress={() => router.replace('/home' as any)}>
                 <Text style={styles.bookNowButtonText}>Đặt lịch ngay</Text>
               </Pressable>
             </View>

@@ -7,7 +7,6 @@ import {
   FlatList,
   Pressable,
   RefreshControl,
-  StyleSheet,
   Text,
   View,
   Alert,
@@ -22,7 +21,6 @@ import {
 } from '@/services/api/notifications';
 import { formatDateFriendly } from '@/utils/date';
 import { parseDeepLink } from '@/utils/navigation';
-
 
 export default function NotificationsScreen() {
   const insets = useSafeAreaInsets();
@@ -59,7 +57,7 @@ export default function NotificationsScreen() {
     if (!item.isRead) {
       markReadMutation.mutate(item.id);
     }
-    
+
     // Parse the deepLink if provided
     const parsedRoute = parseDeepLink(item.deepLink);
     if (parsedRoute) {
@@ -99,48 +97,61 @@ export default function NotificationsScreen() {
     const icon = getNotificationIcon(item.type);
     return (
       <Pressable
-        style={[styles.notificationCard, !item.isRead && styles.unreadCard]}
+        className={`flex-row rounded-xl p-3 mb-3 border shadow-sm ${
+          item.isRead ? 'bg-white border-gray-200' : 'bg-[#fffdfb] border-[#ffd3b5]'
+        }`}
         onPress={() => handleNotificationPress(item)}>
-        <View style={[styles.iconContainer, { backgroundColor: icon.bg }]}>
+        <View 
+          className="w-[42px] h-[42px] rounded-full items-center justify-center mr-3"
+          style={{ backgroundColor: icon.bg }}>
           <MaterialIcons name={icon.name as any} size={22} color={icon.color} />
         </View>
-        <View style={styles.contentContainer}>
-          <View style={styles.titleRow}>
-            <Text style={[styles.titleText, !item.isRead && styles.unreadText]}>
+        <View className="flex-1 justify-center">
+          <View className="flex-row items-center justify-between mb-1 gap-2">
+            <Text 
+              className={`text-sm flex-1 ${
+                item.isRead 
+                  ? 'text-gray-700 font-montserrat-semibold' 
+                  : 'text-gray-900 font-montserrat-bold'
+              }`}>
               {item.title}
             </Text>
-            {!item.isRead && <View style={styles.unreadDot} />}
+            {!item.isRead && <View className="w-2 h-2 rounded-full bg-[#FF8228]" />}
           </View>
-          <Text style={styles.messageText} numberOfLines={2}>
+          <Text 
+            className="text-xs text-[#574237] leading-5 mb-1.5 font-montserrat" 
+            numberOfLines={2}>
             {item.body}
           </Text>
-          <Text style={styles.dateText}>{formatDateFriendly(item.createdDate)}</Text>
+          <Text className="text-[11px] text-gray-400 font-montserrat">
+            {formatDateFriendly(item.createdDate)}
+          </Text>
         </View>
       </Pressable>
     );
   };
 
   return (
-    <View style={styles.screen}>
+    <View className="flex-1 bg-[#FBF9F8]">
       {/* Top Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <Pressable style={styles.headerButton} onPress={() => router.back()}>
+      <View 
+        className="h-24 flex-row items-center justify-between px-4 bg-white border-b border-gray-200 z-10"
+        style={{ paddingTop: insets.top }}>
+        <Pressable className="p-2 items-center justify-center" onPress={() => router.back()}>
           <MaterialIcons name="arrow-back-ios" size={20} color="#1b1c1c" />
         </Pressable>
-        <Text style={styles.headerTitle}>Thông báo</Text>
-        <View style={styles.headerRightActions}>
+        <Text className="flex-1 text-center text-lg text-[#1b1c1c] ml-3 font-montserrat-bold">
+          Thông báo
+        </Text>
+        <View className="flex-row items-center gap-1">
           <Pressable
-            style={styles.headerButton}
+            className="p-2 items-center justify-center"
             onPress={() => {
-              if (notifications.some(n => !n.isRead)) {
-                Alert.alert(
-                  'Xác nhận',
-                  'Đánh dấu đọc tất cả thông báo?',
-                  [
-                    { text: 'Hủy', style: 'cancel' },
-                    { text: 'Đồng ý', onPress: () => markAllReadMutation.mutate() }
-                  ]
-                );
+              if (notifications.some((n) => !n.isRead)) {
+                Alert.alert('Xác nhận', 'Đánh dấu đọc tất cả thông báo?', [
+                  { text: 'Hủy', style: 'cancel' },
+                  { text: 'Đồng ý', onPress: () => markAllReadMutation.mutate() },
+                ]);
               } else {
                 Alert.alert('Thông báo', 'Bạn không có thông báo chưa đọc.');
               }
@@ -148,7 +159,7 @@ export default function NotificationsScreen() {
             <MaterialIcons name="done-all" size={22} color="#1b1c1c" />
           </Pressable>
           <Pressable
-            style={styles.headerButton}
+            className="p-2 items-center justify-center"
             onPress={() => router.push('/(customer)/notifications-settings' as any)}>
             <MaterialIcons name="settings" size={22} color="#1b1c1c" />
           </Pressable>
@@ -157,7 +168,7 @@ export default function NotificationsScreen() {
 
       {/* Main List */}
       {isLoading ? (
-        <View style={styles.centerContent}>
+        <View className="flex-1 items-center justify-center">
           <ActivityIndicator size="large" color="#FF8228" />
         </View>
       ) : (
@@ -166,23 +177,23 @@ export default function NotificationsScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
-              colors={['#FF8228']}
-            />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#FF8228']} />
           }
-          contentContainerStyle={[
-            styles.listContent,
-            { paddingBottom: Math.max(insets.bottom, 16) + 16 },
-          ]}
+          contentContainerStyle={{
+            paddingTop: 12,
+            paddingHorizontal: 16,
+            paddingBottom: Math.max(insets.bottom, 16) + 16,
+            flexGrow: 1,
+          }}
           ListEmptyComponent={
-            <View style={styles.emptyContainer}>
-              <View style={styles.emptyIconCircle}>
+            <View className="items-center justify-center py-20 px-8">
+              <View className="w-20 h-20 rounded-full bg-[#FFE6D5] items-center justify-center mb-4">
                 <MaterialIcons name="notifications-none" size={48} color="#818A91" />
               </View>
-              <Text style={styles.emptyTitle}>Không có thông báo nào</Text>
-              <Text style={styles.emptySubtitle}>
+              <Text className="text-base text-gray-800 mb-1.5 font-montserrat-bold">
+                Không có thông báo nào
+              </Text>
+              <Text className="text-sm text-gray-400 text-center leading-5 font-montserrat">
                 Bạn sẽ thấy cập nhật về đơn hàng, khuyến mãi tại đây.
               </Text>
             </View>
@@ -192,142 +203,3 @@ export default function NotificationsScreen() {
     </View>
   );
 }
-
-const styles = StyleSheet.create({
-  screen: {
-    flex: 1,
-    backgroundColor: '#FBF9F8',
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  header: {
-    height: 96,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
-    backgroundColor: '#ffffff',
-    borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
-    zIndex: 10,
-  },
-  headerButton: {
-    padding: 8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  headerTitle: {
-    flex: 1,
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 18,
-    color: '#1b1c1c',
-    textAlign: 'center',
-    marginLeft: 12,
-  },
-  headerRightActions: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  listContent: {
-    paddingTop: 12,
-    paddingHorizontal: 16,
-    flexGrow: 1,
-  },
-  notificationCard: {
-    flexDirection: 'row',
-    backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 12,
-    marginBottom: 12,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    shadowColor: '#000000',
-    shadowOpacity: 0.02,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 1,
-  },
-  unreadCard: {
-    backgroundColor: '#fffdfb',
-    borderColor: '#ffd3b5',
-  },
-  iconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  contentContainer: {
-    flex: 1,
-    justifyContent: 'center',
-  },
-  titleRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 4,
-    gap: 8,
-  },
-  titleText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#383838',
-    flex: 1,
-  },
-  unreadText: {
-    color: '#1b1c1c',
-    fontFamily: 'Montserrat_700Bold',
-  },
-  unreadDot: {
-    width: 8,
-    height: 8,
-    borderRadius: 4,
-    backgroundColor: '#FF8228',
-  },
-  messageText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
-    color: '#574237',
-    lineHeight: 18,
-    marginBottom: 6,
-  },
-  dateText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    color: '#818A91',
-  },
-  emptyContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 80,
-    paddingHorizontal: 32,
-  },
-  emptyIconCircle: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: '#FFE6D5',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 16,
-  },
-  emptyTitle: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
-    color: '#383838',
-    marginBottom: 6,
-  },
-  emptySubtitle: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
-    color: '#818A91',
-    textAlign: 'center',
-    lineHeight: 18,
-  },
-});

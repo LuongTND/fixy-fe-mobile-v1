@@ -14,6 +14,7 @@ import { StatusBar } from 'expo-status-bar';
 import * as React from 'react';
 import { ActivityIndicator, Keyboard, TouchableWithoutFeedback, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { NotificationPopupObserver } from '@/components/notifications/notification-popup-observer';
 import { useColorScheme } from '@/hooks/use-color-scheme';
@@ -64,23 +65,25 @@ export default function RootLayout() {
       <NotificationPopupObserver />
       <StatusBar style="dark" />
       <GestureHandlerRootView style={{ flex: 1 }}>
-        <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-          <View style={{ flex: 1 }}>
-            <ActionSheetProvider>
-              <NavThemeProvider value={NAV_THEME[colorScheme]}>
-                <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
-                  <Stack.Screen name="index" />
-                  <Stack.Screen name="(auth)" />
-                  <Stack.Screen name="(customer)" options={{ gestureEnabled: false }} />
-                  <Stack.Screen name="(worker)" options={{ gestureEnabled: false }} />
-                  <Stack.Screen name="(booking)" />
-                  <Stack.Screen name="(location)" />
-                  <Stack.Screen name="+not-found" />
-                </Stack>
-              </NavThemeProvider>
-            </ActionSheetProvider>
-          </View>
-        </TouchableWithoutFeedback>
+        <KeyboardProvider>
+          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
+            <View style={{ flex: 1 }}>
+              <ActionSheetProvider>
+                <NavThemeProvider value={NAV_THEME[colorScheme]}>
+                  <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+                    <Stack.Screen name="index" />
+                    <Stack.Screen name="(auth)" />
+                    <Stack.Screen name="(customer)" options={{ gestureEnabled: false }} />
+                    <Stack.Screen name="(worker)" options={{ gestureEnabled: false }} />
+                    <Stack.Screen name="(booking)" />
+                    <Stack.Screen name="(location)" />
+                    <Stack.Screen name="+not-found" />
+                  </Stack>
+                </NavThemeProvider>
+              </ActionSheetProvider>
+            </View>
+          </TouchableWithoutFeedback>
+        </KeyboardProvider>
       </GestureHandlerRootView>
     </QueryClientProvider>
   );

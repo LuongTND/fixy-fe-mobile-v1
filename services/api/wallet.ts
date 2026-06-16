@@ -38,7 +38,7 @@ export async function getWalletTransactions(params?: {
 }): Promise<WalletTransaction[]> {
   const response = await apiClient.get('/wallet/transactions', { params });
   const data = unwrapData<any>(response.data);
-  return Array.isArray(data) ? data : data?.items ?? [];
+  return Array.isArray(data) ? data : (data?.items ?? []);
 }
 
 /** POST /wallet/booking/{bookingId}/wallet — Legacy direct wallet booking payment */
