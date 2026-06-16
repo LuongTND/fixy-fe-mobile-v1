@@ -27,10 +27,7 @@ function unwrapData<T = any>(responseData: any): T {
 }
 
 /** POST /reviews/{bookingId} — Submit a review (multipart) */
-export async function submitReview(
-  bookingId: string,
-  data: ReviewSubmission
-): Promise<Review> {
+export async function submitReview(bookingId: string, data: ReviewSubmission): Promise<Review> {
   const formData = new FormData();
   formData.append('Rating', String(data.Rating));
   formData.append('Comment', data.Comment);
@@ -43,6 +40,7 @@ export async function submitReview(
 
   const response = await apiClient.post(`/reviews/${bookingId}`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
   });
   return unwrapData<Review>(response.data);
 }
@@ -77,6 +75,7 @@ export async function replyToReview(reviewId: string, reply: string): Promise<an
 
   const response = await apiClient.post(`/reviews/${reviewId}/reply`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
   });
   return unwrapData(response.data);
 }

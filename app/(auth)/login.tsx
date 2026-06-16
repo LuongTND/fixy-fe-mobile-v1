@@ -9,12 +9,14 @@ import { AuthTextField } from '@/features/auth/components/auth-text-field';
 import { GoogleIcon } from '@/features/auth/components/google-icon';
 import { login as loginRequest } from '@/features/auth/services/auth-api';
 import { extractAuthTokens } from '@/features/auth/tokens';
+import { useGoogleSignIn } from '@/features/auth/use-google-sign-in';
 import { FieldErrors, validateLoginForm } from '@/features/auth/validation';
 import { apiClient, getApiErrorMessage } from '@/services/api/client';
 import { useAuthStore } from '@/store/store';
 
 export default function LoginScreen() {
   const saveAuth = useAuthStore((state) => state.saveAuth);
+  const { signIn: googleSignIn, loading: googleLoading } = useGoogleSignIn();
   const [target, setTarget] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [errors, setErrors] = React.useState<FieldErrors>({});
@@ -35,11 +37,11 @@ export default function LoginScreen() {
 
       if (tokens) {
         await saveAuth(tokens, validation.values.target);
-        
+
         let isWorker = false;
         const targetLower = validation.values.target.toLowerCase();
         const pwdLower = validation.values.password.toLowerCase();
-        
+
         const roles = response.data?.roles || response?.roles;
         if (Array.isArray(roles)) {
           if (roles.includes('WORKER')) {
@@ -47,7 +49,11 @@ export default function LoginScreen() {
           } else if (roles.includes('CUSTOMER')) {
             isWorker = false;
           }
-        } else if (targetLower.includes('worker') || targetLower.includes('tho') || pwdLower.includes('worker')) {
+        } else if (
+          targetLower.includes('worker') ||
+          targetLower.includes('tho') ||
+          pwdLower.includes('worker')
+        ) {
           isWorker = true;
         } else {
           try {
@@ -56,7 +62,7 @@ export default function LoginScreen() {
             if (profileRes.status === 200 && profileRes.data) {
               isWorker = true;
             }
-          } catch (e) {
+          } catch {
             // Customer fallback
           }
         }
@@ -130,10 +136,13 @@ export default function LoginScreen() {
           </View>
 
           <Pressable
-            style={styles.googleButton}
-            onPress={() => Alert.alert('Đăng nhập Google', 'Tính năng đang được phát triển.')}>
+            style={[styles.googleButton, googleLoading && { opacity: 0.6 }]}
+            disabled={googleLoading}
+            onPress={googleSignIn}>
             <GoogleIcon size={24} />
-            <Text style={styles.googleText}>Tiếp tục với Google</Text>
+            <Text style={styles.googleText}>
+              {googleLoading ? 'Đang xử lý...' : 'Tiếp tục với Google'}
+            </Text>
           </Pressable>
 
           <View style={styles.footerRow}>

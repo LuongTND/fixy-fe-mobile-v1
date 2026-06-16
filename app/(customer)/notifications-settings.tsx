@@ -61,7 +61,9 @@ export default function NotificationSettingsScreen() {
           <ActivityIndicator size="large" color="#FF8228" />
         </View>
       ) : (
-        <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+        <ScrollView
+          contentContainerStyle={styles.scrollContent}
+          showsVerticalScrollIndicator={false}>
           <View style={styles.sectionHeader}>
             <Text style={styles.sectionTitle}>Loại sự kiện nhận thông báo</Text>
             <Text style={styles.sectionSubtitle}>
@@ -253,7 +255,8 @@ export default function NotificationSettingsScreen() {
           </View>
 
           <Text style={styles.footerInfo}>
-            * Lưu ý: Các thông báo quan trọng liên quan đến bảo mật tài khoản và giao dịch thanh toán sẽ luôn được gửi để bảo vệ quyền lợi của bạn.
+            * Lưu ý: Các thông báo quan trọng liên quan đến bảo mật tài khoản và giao dịch thanh
+            toán sẽ luôn được gửi để bảo vệ quyền lợi của bạn.
           </Text>
         </ScrollView>
       )}

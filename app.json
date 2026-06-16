@@ -25,7 +25,8 @@
     },
     "assetBundlePatterns": ["**/*"],
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fixy.app"
     },
     "android": {
       "adaptiveIcon": {

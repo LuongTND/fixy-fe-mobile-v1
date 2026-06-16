@@ -6,7 +6,7 @@ import { extractAuthTokens } from '@/features/auth/tokens';
 
 export const apiClient = create({
   baseURL: getApiBaseUrl(),
-  timeout: 15000,
+  timeout: 30000,
   headers: {
     'Content-Type': 'application/json',
   },
@@ -61,6 +61,12 @@ function logApiResponseError(error: any) {
     return;
   }
 
+  // Suppress expected 404 when checking profile status of a first-time logged-in worker.
+  if (originalRequest?.url?.includes('/worker-profiles/me') && status === 404) {
+    console.log(`[API RESPONSE INFO] 404 ${originalRequest.url} - Profile not yet created (needs setup).`);
+    return;
+  }
+
   console.error(`[API RESPONSE ERROR] ${status} ${originalRequest?.url}`, {
     message: error.message,
     data: error.response?.data,
@@ -108,6 +114,7 @@ async function retryWithFreshToken(originalRequest: any) {
   try {
     const refreshToken = useAuthStore.getState().refreshToken;
     if (!refreshToken) {
+      console.warn('[API CLIENT] No refresh token found, logging out user');
       await useAuthStore.getState().logout();
       throw new Error('Missing refresh token');
     }
@@ -118,6 +125,7 @@ async function retryWithFreshToken(originalRequest: any) {
     return apiClient(originalRequest);
   } catch (refreshError) {
     processQueue(refreshError, null);
+    console.error('[API CLIENT] Token refresh failed, logging out user:', refreshError);
     await useAuthStore.getState().logout();
     throw refreshError;
   } finally {
@@ -132,9 +140,9 @@ apiClient.interceptors.response.use(
   },
   async (error) => {
     const originalRequest = error.config;
-    logApiResponseError(error);
 
     if (!shouldAttemptRefresh(error) || isRefreshRequest(originalRequest?.url)) {
+      logApiResponseError(error);
       throw error;
     }
 

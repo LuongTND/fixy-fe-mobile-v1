@@ -40,23 +40,20 @@ export default function UserWalletScreen() {
   const [paymentUrl, setPaymentUrl] = React.useState<string | null>(null);
   const [showPaymentWebView, setShowPaymentWebView] = React.useState(false);
 
-  const fetchWallet = React.useCallback(
-    async (silent = false) => {
-      if (!silent) setIsLoading(true);
-      try {
-        const data = await getWalletOverview();
-        setWallet(data);
-      } catch (error) {
-        if (!silent) {
-          Alert.alert('Lỗi', getApiErrorMessage(error));
-        }
-      } finally {
-        setIsLoading(false);
-        setIsRefreshing(false);
+  const fetchWallet = React.useCallback(async (silent = false) => {
+    if (!silent) setIsLoading(true);
+    try {
+      const data = await getWalletOverview();
+      setWallet(data);
+    } catch (error) {
+      if (!silent) {
+        Alert.alert('Lỗi', getApiErrorMessage(error));
       }
-    },
-    []
-  );
+    } finally {
+      setIsLoading(false);
+      setIsRefreshing(false);
+    }
+  }, []);
 
   React.useEffect(() => {
     fetchWallet();

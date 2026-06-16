@@ -150,7 +150,9 @@ export default function BookingDetailScreen() {
     queryFn: () => fetchCategories(),
   });
 
-  const category = categories.find((c) => c.id === booking?.categoryId || c.code === booking?.categoryId);
+  const category = categories.find(
+    (c) => c.id === booking?.categoryId || c.code === booking?.categoryId
+  );
   const categoryName = category?.name || (booking ? getCategoryLabel(booking.categoryId) : '');
 
   const { data: tracking = null } = useQuery<BookingTracking | null>({
@@ -184,8 +186,7 @@ export default function BookingDetailScreen() {
   const { data: bookingReview = null } = useQuery<Review | null>({
     queryKey: ['bookingReview', bookingId],
     queryFn: () => getBookingReview(bookingId || ''),
-    enabled:
-      !!bookingId && booking !== null && Number(booking.status) === BookingStatus.Completed,
+    enabled: !!bookingId && booking !== null && Number(booking.status) === BookingStatus.Completed,
   });
 
   // Local UI States
@@ -239,10 +240,13 @@ export default function BookingDetailScreen() {
         queryClient.setQueryData(['booking', bookingId], updatedBooking);
       }
       queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
-      const status = updatedBooking?.status ?? (booking?.status === BookingStatus.Pending ? BookingStatus.Confirmed : booking?.status);
-      const msg = status === BookingStatus.Confirmed
-        ? 'Bạn đã đồng ý với đề xuất của kỹ thuật viên.'
-        : 'Bạn đã từ chối đề xuất của kỹ thuật viên.';
+      const status =
+        updatedBooking?.status ??
+        (booking?.status === BookingStatus.Pending ? BookingStatus.Confirmed : booking?.status);
+      const msg =
+        status === BookingStatus.Confirmed
+          ? 'Bạn đã đồng ý với đề xuất của kỹ thuật viên.'
+          : 'Bạn đã từ chối đề xuất của kỹ thuật viên.';
       Alert.alert('Thành công', msg);
     },
     onError: (error) => {
@@ -327,8 +331,6 @@ export default function BookingDetailScreen() {
     },
   });
 
-
-
   const handleCancelBooking = () => {
     Alert.alert(
       'Hủy đặt lịch',
@@ -336,7 +338,10 @@ export default function BookingDetailScreen() {
       [
         { text: 'Thay đổi kế hoạch', onPress: () => cancelMutation.mutate('Thay đổi kế hoạch') },
         { text: 'Tìm được thợ khác', onPress: () => cancelMutation.mutate('Tìm được thợ khác') },
-        { text: 'Thời gian không phù hợp', onPress: () => cancelMutation.mutate('Thời gian không phù hợp') },
+        {
+          text: 'Thời gian không phù hợp',
+          onPress: () => cancelMutation.mutate('Thời gian không phù hợp'),
+        },
         { text: 'Quay lại', style: 'cancel' },
       ],
       { cancelable: true }
@@ -477,23 +482,27 @@ export default function BookingDetailScreen() {
             </View>
             <Text style={styles.bookingIdText}>ID: #{booking.id.slice(-8).toUpperCase()}</Text>
           </View>
-
         </View>
 
         {/* Proposal Card */}
         {Number(booking.status) === BookingStatus.Pending &&
           ((booking.workerProposedPrice !== null && booking.workerProposedPrice !== undefined) ||
             (booking.workerProposedTime !== null && booking.workerProposedTime !== undefined) ||
-            (booking.workerProposedNote !== null && booking.workerProposedNote !== undefined && booking.workerProposedNote !== '')) && (
+            (booking.workerProposedNote !== null &&
+              booking.workerProposedNote !== undefined &&
+              booking.workerProposedNote !== '')) && (
             <View style={[styles.infoCard, styles.proposalCard]}>
               <Text style={styles.proposalCardTitle}>Đề xuất mới từ kỹ thuật viên</Text>
 
-              {booking.workerProposedPrice !== undefined && booking.workerProposedPrice !== null && (
-                <View style={styles.proposalDetailRow}>
-                  <Text style={styles.proposalDetailLabel}>Giá nhân công đề xuất:</Text>
-                  <Text style={styles.proposalPriceVal}>{formatCurrency(booking.workerProposedPrice)}</Text>
-                </View>
-              )}
+              {booking.workerProposedPrice !== undefined &&
+                booking.workerProposedPrice !== null && (
+                  <View style={styles.proposalDetailRow}>
+                    <Text style={styles.proposalDetailLabel}>Giá nhân công đề xuất:</Text>
+                    <Text style={styles.proposalPriceVal}>
+                      {formatCurrency(booking.workerProposedPrice)}
+                    </Text>
+                  </View>
+                )}
 
               {booking.workerProposedTime !== undefined && booking.workerProposedTime !== null && (
                 <View style={styles.proposalDetailRow}>
@@ -513,13 +522,19 @@ export default function BookingDetailScreen() {
 
               <View style={styles.proposalActionsRow}>
                 <Pressable
-                  style={[styles.proposalDeclineBtn, respondProposalMutation.isPending && styles.proposalDisabledBtn]}
+                  style={[
+                    styles.proposalDeclineBtn,
+                    respondProposalMutation.isPending && styles.proposalDisabledBtn,
+                  ]}
                   onPress={() => respondProposalMutation.mutate({ accept: false })}
                   disabled={respondProposalMutation.isPending}>
                   <Text style={styles.proposalDeclineBtnText}>Từ chối đề xuất</Text>
                 </Pressable>
                 <Pressable
-                  style={[styles.proposalAcceptBtn, respondProposalMutation.isPending && styles.proposalDisabledBtn]}
+                  style={[
+                    styles.proposalAcceptBtn,
+                    respondProposalMutation.isPending && styles.proposalDisabledBtn,
+                  ]}
                   onPress={() => respondProposalMutation.mutate({ accept: true })}
                   disabled={respondProposalMutation.isPending}>
                   <Text style={styles.proposalAcceptBtnText}>Đồng ý & Xác nhận</Text>
@@ -568,64 +583,81 @@ export default function BookingDetailScreen() {
                   )}
                 </View>
               </View>
+              <Pressable
+                style={styles.trackingMapButton}
+                onPress={() =>
+                  router.push({
+                    pathname: '/booking-tracking',
+                    params: {
+                      bookingId: booking.id,
+                      status: String(booking.status),
+                      workerName: booking.worker?.fullName || booking.workerName || '',
+                      workerPhone: booking.worker?.phone || booking.workerPhone || '',
+                      workerRating: String(booking.worker?.rating || '4.8'),
+                      categoryName: categoryName,
+                    },
+                  } as any)
+                }>
+                <MaterialIcons name="map" size={18} color="#FF8228" />
+                <Text style={styles.trackingMapButtonText}>Xem bản đồ theo dõi</Text>
+              </Pressable>
             </View>
           )}
 
         {/* Worker Info Card (Visible if assigned: status >= 2) */}
-        {Number(booking.status) >= BookingStatus.Confirmed && (booking.worker || booking.workerName) && (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Kỹ thuật viên phụ trách</Text>
-            <View style={styles.workerRow}>
-              <Image
-                source={{
-                  uri:
-                    booking.worker?.avatarUrl ||
-                    booking.workerAvatarUrl ||
-                    'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-                }}
-                style={styles.workerAvatar}
-              />
-              <View style={styles.workerDetails}>
-                <Text style={styles.workerName}>
-                  {booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên'}
-                </Text>
-                <View style={styles.ratingRow}>
-                  <MaterialIcons name="star" size={14} color="#FFB020" />
-                  <Text style={styles.ratingVal}>
-                    {booking.worker?.rating?.toFixed(1) || '4.8'}
+        {Number(booking.status) >= BookingStatus.Confirmed &&
+          (booking.worker || booking.workerName) && (
+            <View style={styles.infoCard}>
+              <Text style={styles.infoCardTitle}>Kỹ thuật viên phụ trách</Text>
+              <View style={styles.workerRow}>
+                <Image
+                  source={{
+                    uri:
+                      booking.worker?.avatarUrl ||
+                      booking.workerAvatarUrl ||
+                      'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
+                  }}
+                  style={styles.workerAvatar}
+                />
+                <View style={styles.workerDetails}>
+                  <Text style={styles.workerName}>
+                    {booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên'}
                   </Text>
-                  <Text style={styles.workerPhone}>
-                    • SĐT: {booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}
-                  </Text>
+                  <View style={styles.ratingRow}>
+                    <MaterialIcons name="star" size={14} color="#FFB020" />
+                    <Text style={styles.ratingVal}>
+                      {booking.worker?.rating?.toFixed(1) || '4.8'}
+                    </Text>
+                    <Text style={styles.workerPhone}>
+                      • SĐT: {booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}
+                    </Text>
+                  </View>
                 </View>
               </View>
-            </View>
 
-            {Number(booking.status) < BookingStatus.Completed && (
-              <View style={styles.actionButtonsRow}>
-                <Pressable
-                  style={[styles.actionBtn, styles.actionBtnCall]}
-                  onPress={() =>
-                    Alert.alert(
-                      'Gọi thợ',
-                      `Đang kết nối cuộc gọi tới SĐT: ${booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}`
-                    )
-                  }>
-                  <MaterialIcons name="phone" size={18} color="#FF8228" />
-                  <Text style={styles.actionBtnTextCall}>Gọi thợ</Text>
-                </Pressable>
-                <Pressable
-                  style={[styles.actionBtn, styles.actionBtnChat]}
-                  onPress={() =>
-                    router.push(`/booking-chat?bookingId=${booking.id}` as any)
-                  }>
-                  <MaterialIcons name="chat" size={18} color="#ffffff" />
-                  <Text style={styles.actionBtnTextChat}>Nhắn tin</Text>
-                </Pressable>
-              </View>
-            )}
-          </View>
-        )}
+              {Number(booking.status) < BookingStatus.Completed && (
+                <View style={styles.actionButtonsRow}>
+                  <Pressable
+                    style={[styles.actionBtn, styles.actionBtnCall]}
+                    onPress={() =>
+                      Alert.alert(
+                        'Gọi thợ',
+                        `Đang kết nối cuộc gọi tới SĐT: ${booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}`
+                      )
+                    }>
+                    <MaterialIcons name="phone" size={18} color="#FF8228" />
+                    <Text style={styles.actionBtnTextCall}>Gọi thợ</Text>
+                  </Pressable>
+                  <Pressable
+                    style={[styles.actionBtn, styles.actionBtnChat]}
+                    onPress={() => router.push(`/booking-chat?bookingId=${booking.id}` as any)}>
+                    <MaterialIcons name="chat" size={18} color="#ffffff" />
+                    <Text style={styles.actionBtnTextChat}>Nhắn tin</Text>
+                  </Pressable>
+                </View>
+              )}
+            </View>
+          )}
 
         {/* Job details card */}
         <View style={styles.infoCard}>
@@ -633,9 +665,7 @@ export default function BookingDetailScreen() {
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Loại dịch vụ</Text>
-            <Text style={styles.detailValue}>
-              {categoryName}
-            </Text>
+            <Text style={styles.detailValue}>{categoryName}</Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -683,7 +713,8 @@ export default function BookingDetailScreen() {
         </View>
 
         {/* Invoice Summary (Visible if PENDING_PAYMENT or COMPLETED) */}
-        {(Number(booking.status) === BookingStatus.PendingPayment || Number(booking.status) === BookingStatus.Completed) && (
+        {(Number(booking.status) === BookingStatus.PendingPayment ||
+          Number(booking.status) === BookingStatus.Completed) && (
           <View style={styles.infoCard}>
             <Text style={styles.infoCardTitle}>Chi phí nghiệm thu thực tế</Text>
 
@@ -750,15 +781,14 @@ export default function BookingDetailScreen() {
                 showsHorizontalScrollIndicator={false}
                 style={styles.photoList}>
                 {bookingReview.images.map((imgUri: any, idx) => {
-                  const imgUrl = typeof imgUri === 'string' 
-                    ? imgUri 
-                    : (imgUri?.fileUrl ?? imgUri?.imageUrl ?? imgUri?.url ?? '');
+                  const imgUrl =
+                    typeof imgUri === 'string'
+                      ? imgUri
+                      : (imgUri?.fileUrl ?? imgUri?.imageUrl ?? imgUri?.url ?? '');
                   if (!imgUrl) return null;
                   const resolvedImgUri = imgUrl.startsWith('http') ? imgUrl : getMediaUrl(imgUrl);
                   return (
-                    <Pressable
-                      key={idx}
-                      onPress={() => setActivePreviewImage(resolvedImgUri)}>
+                    <Pressable key={idx} onPress={() => setActivePreviewImage(resolvedImgUri)}>
                       <Image source={{ uri: resolvedImgUri }} style={styles.photoAttachment} />
                     </Pressable>
                   );
@@ -919,17 +949,18 @@ export default function BookingDetailScreen() {
               </Text>
             )}
           </Pressable>
-        ) : (Number(booking.status) === BookingStatus.Pending || Number(booking.status) === BookingStatus.Matching) ? (
+        ) : Number(booking.status) === BookingStatus.Pending ||
+          Number(booking.status) === BookingStatus.Matching ? (
           // Cancel button for draft/matching statuses
           <Pressable style={styles.cancelBtn} onPress={handleCancelBooking}>
             <Text style={styles.cancelBtnText}>Hủy đặt lịch</Text>
           </Pressable>
-        ) : (Number(booking.status) === BookingStatus.Confirmed || Number(booking.status) === BookingStatus.Traveling || Number(booking.status) === BookingStatus.Arrived) ? (
+        ) : Number(booking.status) === BookingStatus.Confirmed ||
+          Number(booking.status) === BookingStatus.Traveling ||
+          Number(booking.status) === BookingStatus.Arrived ? (
           // Side-by-side buttons for Confirmed/Traveling/Arrived: Cancel booking and Back to Home
           <View style={{ flexDirection: 'row', gap: 12 }}>
-            <Pressable
-              style={styles.proposalDeclineBtn}
-              onPress={handleCancelBooking}>
+            <Pressable style={styles.proposalDeclineBtn} onPress={handleCancelBooking}>
               <Text style={styles.proposalDeclineBtnText}>Hủy đặt lịch</Text>
             </Pressable>
             <Pressable
@@ -1839,5 +1870,23 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#574237',
     lineHeight: 18,
+  },
+  trackingMapButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    backgroundColor: '#FFF3EA',
+    borderWidth: 1,
+    borderColor: '#FF8228',
+    borderRadius: 8,
+    height: 40,
+    marginTop: 12,
+    width: '100%',
+  },
+  trackingMapButtonText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#FF8228',
   },
 });

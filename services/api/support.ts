@@ -97,7 +97,7 @@ export async function getSupportTickets(params?: {
 }): Promise<SupportTicket[]> {
   const response = await apiClient.get('/support/tickets', { params });
   const data = unwrapData<any>(response.data);
-  return Array.isArray(data) ? data : data?.items ?? [];
+  return Array.isArray(data) ? data : (data?.items ?? []);
 }
 
 /** GET /support/tickets/{id} — Get ticket details */
@@ -116,7 +116,7 @@ export async function getSupportTicketMessages(
 ): Promise<SupportMessage[]> {
   const response = await apiClient.get(`/support/tickets/${id}/messages`, { params });
   const data = unwrapData<any>(response.data);
-  return Array.isArray(data) ? data : data?.items ?? [];
+  return Array.isArray(data) ? data : (data?.items ?? []);
 }
 
 /** POST /support/tickets/{id}/messages — Send a ticket message */

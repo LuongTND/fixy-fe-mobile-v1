@@ -1,6 +1,7 @@
 import axios from 'axios';
 
 import { getFptAiApiKey, getFptProxyBaseUrl } from '@/config/env';
+import { prepareUploadFile } from './media';
 
 export type FptIdentityRecognitionResult = {
   type: string;
@@ -93,11 +94,14 @@ export async function recognizeIdentityImage(
   imageUri: string
 ): Promise<FptIdentityRecognitionResult> {
   const formData = new FormData();
-  formData.append('image', buildImageFile(imageUri, `identity_${Date.now()}.jpg`));
+  const fileObj = await prepareUploadFile(imageUri, `identity_${Date.now()}.jpg`, { compress: false });
+  if (fileObj) {
+    formData.append('image', fileObj);
+  }
   const fptApiKey = getFptAiApiKey();
 
   const response = fptApiKey
-    ? await axios.post('https://api.fpt.ai/vision/idr/vnm/', formData, {
+    ? await axios.post('https://api.fpt.ai/vision/idr/vnm', formData, {
         headers: {
           'Content-Type': 'multipart/form-data',
           'api-key': fptApiKey,

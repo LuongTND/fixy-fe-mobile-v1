@@ -42,6 +42,80 @@ export function getMediaUrl(mediaId: string) {
  * @param ownerType The MediaOwnerType enum value (default is Booking = 2)
  * @returns Array of uploaded media IDs (UUIDs)
  */
+export async function preprocessImage(
+  uri: string,
+  options?: { compress?: boolean; resizeWidth?: number; quality?: number }
+): Promise<string> {
+  const shouldCompress = options?.compress ?? true;
+  const resizeWidth = options?.resizeWidth ?? 1024;
+  const quality = options?.quality ?? 0.5;
+
+  let uploadUri = uri;
+  if (shouldCompress) {
+    try {
+      if (uri.startsWith('file://') || uri.startsWith('content://') || !uri.startsWith('http')) {
+        const manipResult = await ImageManipulator.manipulateAsync(
+          uri,
+          [{ resize: { width: resizeWidth } }],
+          { compress: quality, format: ImageManipulator.SaveFormat.JPEG }
+        );
+        uploadUri = manipResult.uri;
+      }
+    } catch (err) {
+      console.warn('[media API] Failed to compress image:', uri, err);
+    }
+  }
+
+  if (Platform.OS === 'android') {
+    try {
+      uploadUri = decodeURIComponent(uploadUri);
+      if (uploadUri.includes('%')) {
+        uploadUri = decodeURIComponent(uploadUri);
+      }
+    } catch (decodeErr) {
+      console.warn('[media API] Failed to decode URI:', uploadUri, decodeErr);
+    }
+  }
+  return uploadUri;
+}
+
+export async function prepareUploadFile(
+  uri: string,
+  fallbackName: string,
+  options?: { compress?: boolean; resizeWidth?: number; quality?: number }
+): Promise<any> {
+  if (!uri) {
+    return null;
+  }
+
+  if (uri.startsWith('http')) {
+    const filename = uri.split('/').pop() || fallbackName;
+    const match = /\.(\w+)$/.exec(filename);
+    const extension = match?.[1]?.toLowerCase();
+    const type = extension
+      ? `image/${extension === 'jpg' || extension === 'jpeg' ? 'jpeg' : extension}`
+      : 'image/jpeg';
+    return {
+      uri,
+      name: filename.includes('?') ? filename.split('?')[0] : filename,
+      type,
+    };
+  }
+
+  const processedUri = await preprocessImage(uri, options);
+  const filename = processedUri.split('/').pop() || fallbackName;
+  const match = /\.(\w+)$/.exec(filename);
+  const extension = match?.[1]?.toLowerCase();
+  const type = extension
+    ? `image/${extension === 'jpg' || extension === 'jpeg' ? 'jpeg' : extension}`
+    : 'image/jpeg';
+  return {
+    uri: processedUri,
+    name: filename,
+    type,
+  };
+}
+
 export async function uploadMediaFiles(
   localUris: string[],
   category: MediaCategory = MediaCategory.Request,
@@ -53,53 +127,12 @@ export async function uploadMediaFiles(
   formData.append('Category', category.toString());
   formData.append('OwnerType', ownerType.toString());
 
-  // Automatically compress/resize images to prevent "Network Error" on large files
-  const processedUris = await Promise.all(
-    localUris.map(async (uri) => {
-      try {
-        if (uri.startsWith('file://') || uri.startsWith('content://') || !uri.startsWith('http')) {
-          const manipResult = await ImageManipulator.manipulateAsync(
-            uri,
-            [{ resize: { width: 1024 } }],
-            { compress: 0.5, format: ImageManipulator.SaveFormat.JPEG }
-          );
-          return manipResult.uri;
-        }
-        return uri;
-      } catch (err) {
-        console.warn('[media API] Failed to compress image, uploading original:', uri, err);
-        return uri;
-      }
-    })
-  );
-
-  processedUris.forEach((uri, index) => {
-    // Generate a file name
-    const filename = uri.split('/').pop() || `upload_${Date.now()}_${index}.jpg`;
-
-    // Determine type from extension
-    const match = /\.(\w+)$/.exec(filename);
-    const type = match ? `image/${match[1]}` : 'image/jpeg';
-
-    // Decode URI for Android to resolve double encoding in expo caching directory
-    let uploadUri = uri;
-    if (Platform.OS === 'android') {
-      try {
-        uploadUri = decodeURIComponent(uri);
-        if (uploadUri.includes('%')) {
-          uploadUri = decodeURIComponent(uploadUri);
-        }
-      } catch (decodeErr) {
-        console.warn('[media API] Failed to decode URI:', uri, decodeErr);
-      }
+  for (let i = 0; i < localUris.length; i++) {
+    const fileObj = await prepareUploadFile(localUris[i], `upload_${Date.now()}_${i}.jpg`);
+    if (fileObj) {
+      formData.append('Files', fileObj);
     }
-
-    formData.append('Files', {
-      uri: uploadUri,
-      name: filename,
-      type,
-    } as any);
-  });
+  }
 
   try {
     const response = await apiClient.post('/Media/upload', formData, {

@@ -130,7 +130,9 @@ export default function BookingSetupScreen() {
     },
     onSuccess: (draft) => {
       if (draft.id) {
-        router.push(`/booking-checkout?draftId=${draft.id}&workerUserId=${workerUserId || ''}` as any);
+        router.push(
+          `/booking-checkout?draftId=${draft.id}&workerUserId=${workerUserId || ''}` as any
+        );
       } else {
         throw new Error('No draft ID returned');
       }
@@ -388,10 +390,7 @@ export default function BookingSetupScreen() {
                   <Pressable onPress={() => setActivePreviewImage(uri)}>
                     <Image source={{ uri }} style={styles.previewImage} />
                   </Pressable>
-                  <Pressable
-                    style={styles.removeImageBtn}
-                    onPress={() => handleRemoveImage(index)}
-                  >
+                  <Pressable style={styles.removeImageBtn} onPress={() => handleRemoveImage(index)}>
                     <MaterialIcons name="close" size={14} color="#ffffff" />
                   </Pressable>
                 </View>
@@ -481,9 +480,7 @@ export default function BookingSetupScreen() {
         transparent
         animationType="fade"
         onRequestClose={() => setActivePreviewImage(null)}>
-        <Pressable
-          style={styles.previewOverlay}
-          onPress={() => setActivePreviewImage(null)}>
+        <Pressable style={styles.previewOverlay} onPress={() => setActivePreviewImage(null)}>
           {activePreviewImage ? (
             <Image
               source={{ uri: activePreviewImage }}
@@ -491,9 +488,7 @@ export default function BookingSetupScreen() {
               resizeMode="contain"
             />
           ) : null}
-          <Pressable
-            style={styles.previewCloseBtn}
-            onPress={() => setActivePreviewImage(null)}>
+          <Pressable style={styles.previewCloseBtn} onPress={() => setActivePreviewImage(null)}>
             <MaterialIcons name="close" size={24} color="#ffffff" />
           </Pressable>
         </Pressable>

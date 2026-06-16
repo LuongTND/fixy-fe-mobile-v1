@@ -204,8 +204,10 @@ function normalizeScheduledType(type: unknown): BookingScheduledType | number {
 
 function normalizeDraft(raw: any, fallback?: Partial<BookingDraft>): BookingDraft {
   const source = raw ?? {};
-  const rawScheduledType = source.scheduledType ?? source.ScheduledType ?? source.scheduleType ?? source.ScheduleType;
-  const rawScheduledAt = source.scheduledAt ?? source.ScheduledAt ?? source.scheduleAt ?? source.ScheduleAt;
+  const rawScheduledType =
+    source.scheduledType ?? source.ScheduledType ?? source.scheduleType ?? source.ScheduleType;
+  const rawScheduledAt =
+    source.scheduledAt ?? source.ScheduledAt ?? source.scheduleAt ?? source.ScheduleAt;
 
   return {
     ...fallback,
@@ -231,8 +233,10 @@ function normalizeDraft(raw: any, fallback?: Partial<BookingDraft>): BookingDraf
 function normalizeBooking(raw: any): Booking {
   const source = raw ?? {};
   const worker = source.worker;
-  const rawScheduledType = source.scheduledType ?? source.ScheduledType ?? source.scheduleType ?? source.ScheduleType;
-  const rawScheduledAt = source.scheduledAt ?? source.ScheduledAt ?? source.scheduleAt ?? source.ScheduleAt;
+  const rawScheduledType =
+    source.scheduledType ?? source.ScheduledType ?? source.scheduleType ?? source.ScheduleType;
+  const rawScheduledAt =
+    source.scheduledAt ?? source.ScheduledAt ?? source.scheduleAt ?? source.ScheduleAt;
 
   return {
     ...source,
@@ -359,7 +363,7 @@ export async function getBookingDetails(bookingId: string): Promise<Booking> {
 
 export async function getMyBookings(params?: Record<string, unknown>): Promise<Booking[]> {
   try {
-    const response = await apiClient.get(BOOKING_PATH, { params });
+    const response = await apiClient.get(`${BOOKING_PATH}/customer`, { params });
     const data = unwrapData(response.data);
     const items = Array.isArray(data?.items) ? data.items : data;
     if (Array.isArray(items)) return items.map((item) => normalizeBooking(item));
@@ -535,17 +539,18 @@ export async function sendBookingChatMessage(
 ): Promise<BookingChatMessage> {
   const formData = new FormData();
   formData.append('Type', String(payload.type ?? 0));
-  
+
   if (payload.content) {
     formData.append('Content', payload.content);
   }
-  
+
   if (payload.file) {
     formData.append('File', payload.file as any);
   }
 
   const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/chat/messages`, formData, {
     headers: { 'Content-Type': 'multipart/form-data' },
+    timeout: 60000,
   });
   return normalizeChatMessage(unwrapData(response.data));
 }

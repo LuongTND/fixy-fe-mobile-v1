@@ -13,13 +13,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  getSupportTickets,
-  SupportCategory,
-  SupportPriority,
-  SupportStatus,
-  SupportTicket,
-} from '@/services/api/support';
+import { getSupportTickets, SupportStatus, SupportTicket } from '@/services/api/support';
 import { formatDateTime } from '@/utils/date';
 import { getCategoryLabel, getPriorityStyle, getStatusStyle } from '@/utils/support';
 
@@ -144,11 +138,7 @@ export default function SupportTicketsScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           refreshControl={
-            <RefreshControl
-              refreshing={isRefetching}
-              onRefresh={refetch}
-              colors={['#FF8228']}
-            />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#FF8228']} />
           }
           contentContainerStyle={[
             styles.listContent,
