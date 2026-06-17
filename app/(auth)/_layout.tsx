@@ -16,15 +16,20 @@ export default function AuthLayout() {
       const timer = setTimeout(() => {
         if (role === 'worker') {
           router.replace('/(worker)/worker-home');
-        } else {
+        } else if (role === 'customer') {
           router.replace('/(customer)/home');
+        } else {
+          // Corrupted session (token exists but no role): logout to recover
+          useAuthStore.getState().logout().then(() => {
+            router.replace('/(auth)/login');
+          });
         }
       }, 0);
       return () => clearTimeout(timer);
     }
   }, [isAuthenticated, isHydrating, role, router]);
 
-  if (isHydrating || isAuthenticated) {
+  if (isHydrating || (isAuthenticated && role)) {
     return null;
   }
 
