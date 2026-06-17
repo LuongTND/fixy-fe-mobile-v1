@@ -166,6 +166,14 @@ export default function BookingChatScreen() {
     let connection: HubConnection | null = null;
 
     async function startSignalR() {
+      // Check if token is expired
+      const jwt = parseJwt(accessToken || '');
+      const isExpired = jwt?.exp ? Date.now() >= (jwt.exp * 1000 - 10000) : false; // 10s buffer
+      if (isExpired) {
+        console.log('[chat] Token is expired or expiring soon. Waiting for refresh via initial load...');
+        return;
+      }
+
       try {
         connection = new HubConnectionBuilder()
           .withUrl(`${chatHubUrl}?bookingId=${bookingId}`, {
@@ -196,8 +204,12 @@ export default function BookingChatScreen() {
         await connection.start();
         setIsConnected(true);
         await connection.invoke('JoinChatGroup', bookingId);
-      } catch (err) {
+      } catch (err: any) {
         console.error('SignalR start failed:', err);
+        if (err?.message?.includes('401') || String(err).includes('401')) {
+          console.log('[chat] SignalR 401 detected. Triggering token refresh...');
+          getBookingDetails(bookingId!).catch(() => {});
+        }
       }
     }
 

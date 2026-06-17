@@ -19,9 +19,20 @@ import { router } from 'expo-router';
 import * as React from 'react';
 import { AppState, Platform } from 'react-native';
 
-import { Notification } from '@/services/api/notifications';
+import { Notification, getUnreadCount } from '@/services/api/notifications';
 import { useAuthStore } from '@/store/store';
 import { parseDeepLink } from '@/utils/navigation';
+
+function parseJwt(token: string) {
+  try {
+    const base64Url = token.split('.')[1];
+    const base64 = base64Url.replace(/-/g, '+').replace(/_/g, '/');
+    const decoded = atob(base64);
+    return JSON.parse(decoded);
+  } catch {
+    return null;
+  }
+}
 
 const POPUP_CHANNEL_ID = 'fixy-notifications';
 
@@ -154,6 +165,15 @@ export function NotificationPopupObserver() {
     let isConnected = true;
 
     async function startSignalR() {
+      // Check if token is expired
+      const jwt = parseJwt(accessToken || '');
+      const isExpired = jwt?.exp ? Date.now() >= (jwt.exp * 1000 - 10000) : false; // 10s buffer
+      if (isExpired) {
+        console.log('[notifications] Token is expired or expiring soon. Triggering refresh...');
+        getUnreadCount().catch(() => {});
+        return;
+      }
+
       try {
         connection = new HubConnectionBuilder()
           .withUrl(notificationHubUrl, {
@@ -187,8 +207,12 @@ export function NotificationPopupObserver() {
         queryClient.invalidateQueries({ queryKey: ['unreadNotificationCount'] });
 
         console.log('[notifications] Connected to SignalR Notification Hub.');
-      } catch (err) {
+      } catch (err: any) {
         console.warn('[notifications] SignalR Hub connection failed:', err);
+        if (err?.message?.includes('401') || String(err).includes('401')) {
+          console.log('[notifications] SignalR 401 detected. Triggering token refresh via API...');
+          getUnreadCount().catch(() => {});
+        }
       }
     }
 
