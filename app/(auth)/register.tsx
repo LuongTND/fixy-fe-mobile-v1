@@ -14,7 +14,6 @@ import {
 } from '@/features/auth/constants';
 import { register, sendOtp, verifyOtp, login as loginRequest } from '@/features/auth/services/auth-api';
 import { extractAuthTokens } from '@/features/auth/tokens';
-import { useGoogleSignIn } from '@/features/auth/use-google-sign-in';
 import { FieldErrors, validateRegisterForm } from '@/features/auth/validation';
 import { getApiErrorMessage } from '@/services/api/client';
 import { useAuthStore } from '@/store/store';
@@ -29,7 +28,11 @@ const ROLE_REGISTER_VALUE: Record<RegisterRole, number> = {
 export default function RegisterScreen() {
   const saveAuth = useAuthStore((state) => state.saveAuth);
   const setPendingOtp = useAuthStore((state) => state.setPendingOtp);
-  const { signIn: googleSignIn, loading: googleLoading } = useGoogleSignIn();
+
+  function googleSignIn() {
+    Alert.alert('Đăng nhập Google', 'Tính năng đăng nhập Google đang được phát triển.');
+  }
+
   const [step, setStep] = React.useState(1);
   const [selectedRole, setSelectedRole] = React.useState<RegisterRole | null>(null);
 
@@ -279,7 +282,6 @@ export default function RegisterScreen() {
             onSetDigit={setDigit}
             onSubmit={onSubmit}
             onGoogleSignIn={googleSignIn}
-            googleLoading={googleLoading}
           />
         ) : (
           <RoleSelection
@@ -386,7 +388,6 @@ type RegisterFormProps = Readonly<{
   onSetDigit: (index: number, value: string) => void;
   onSubmit: () => void;
   onGoogleSignIn: () => void;
-  googleLoading: boolean;
 }>;
 
 function RegisterForm({
@@ -419,7 +420,6 @@ function RegisterForm({
   onSetDigit,
   onSubmit,
   onGoogleSignIn,
-  googleLoading,
 }: RegisterFormProps) {
   const isWorker = selectedRole === 'worker';
 
@@ -590,13 +590,10 @@ function RegisterForm({
               </View>
 
               <Pressable
-                style={[styles.googleButton, googleLoading && { opacity: 0.6 }]}
-                disabled={googleLoading}
+                style={styles.googleButton}
                 onPress={onGoogleSignIn}>
                 <GoogleIcon size={24} />
-                <Text style={styles.googleText}>
-                  {googleLoading ? 'Đang xử lý...' : 'Tiếp tục với Google'}
-                </Text>
+                <Text style={styles.googleText}>Tiếp tục với Google</Text>
               </Pressable>
             </View>
           </View>

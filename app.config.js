@@ -27,13 +27,9 @@ function readEnvLocal() {
 
 module.exports = ({ config }) => {
   const envLocal = readEnvLocal();
-  const googleIosRedirectScheme =
-    process.env.GOOGLE_IOS_REDIRECT_SCHEME || envLocal.GOOGLE_IOS_REDIRECT_SCHEME;
-  const scheme = googleIosRedirectScheme ? ['fixy-app', googleIosRedirectScheme] : config.scheme;
 
   return {
     ...config,
-    scheme,
     extra: {
       ...config.extra,
       apiUrl: process.env.API_URL || envLocal.API_URL,
@@ -51,11 +47,6 @@ module.exports = ({ config }) => {
         process.env.VIETNAM_PROVINCES_API_URL ||
         envLocal.VIETNAM_PROVINCES_API_URL ||
         'https://provinces.open-api.vn/api/v2',
-      googleClientId: process.env.GOOGLE_CLIENT_ID || envLocal.GOOGLE_CLIENT_ID,
-      googleIosClientId: process.env.GOOGLE_IOS_CLIENT_ID || envLocal.GOOGLE_IOS_CLIENT_ID,
-      googleAndroidClientId:
-        process.env.GOOGLE_ANDROID_CLIENT_ID || envLocal.GOOGLE_ANDROID_CLIENT_ID,
-      googleIosRedirectScheme,
     },
   };
 };

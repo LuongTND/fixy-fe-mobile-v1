@@ -3,7 +3,6 @@ import {
   RegisterBody,
   buildChangePasswordBody,
   buildForgotPasswordBody,
-  buildGoogleLoginBody,
   buildLoginBody,
   buildOtpSendBody,
   buildOtpVerifyBody,
@@ -65,14 +64,6 @@ export async function forgotPassword(target: string) {
   const response = await apiClient.post(
     AUTH_ENDPOINTS.forgotPassword,
     buildForgotPasswordBody(target)
-  );
-  return response.data;
-}
-
-export async function loginWithGoogle(credential: string) {
-  const response = await apiClient.post(
-    AUTH_ENDPOINTS.loginGoogle,
-    buildGoogleLoginBody(credential)
   );
   return response.data;
 }
