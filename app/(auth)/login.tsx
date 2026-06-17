@@ -9,14 +9,16 @@ import { AuthTextField } from '@/features/auth/components/auth-text-field';
 import { GoogleIcon } from '@/features/auth/components/google-icon';
 import { login as loginRequest } from '@/features/auth/services/auth-api';
 import { extractAuthTokens } from '@/features/auth/tokens';
-import { useGoogleSignIn } from '@/features/auth/use-google-sign-in';
 import { FieldErrors, validateLoginForm } from '@/features/auth/validation';
 import { apiClient, getApiErrorMessage } from '@/services/api/client';
 import { useAuthStore } from '@/store/store';
 
 export default function LoginScreen() {
   const saveAuth = useAuthStore((state) => state.saveAuth);
-  const { signIn: googleSignIn, loading: googleLoading } = useGoogleSignIn();
+
+  function googleSignIn() {
+    Alert.alert('Đăng nhập Google', 'Tính năng đăng nhập Google đang được phát triển.');
+  }
   const [target, setTarget] = React.useState('');
   const [password, setPassword] = React.useState('');
   const [errors, setErrors] = React.useState<FieldErrors>({});
@@ -136,13 +138,10 @@ export default function LoginScreen() {
           </View>
 
           <Pressable
-            style={[styles.googleButton, googleLoading && { opacity: 0.6 }]}
-            disabled={googleLoading}
+            style={styles.googleButton}
             onPress={googleSignIn}>
             <GoogleIcon size={24} />
-            <Text style={styles.googleText}>
-              {googleLoading ? 'Đang xử lý...' : 'Tiếp tục với Google'}
-            </Text>
+            <Text style={styles.googleText}>Tiếp tục với Google</Text>
           </Pressable>
 
           <View style={styles.footerRow}>

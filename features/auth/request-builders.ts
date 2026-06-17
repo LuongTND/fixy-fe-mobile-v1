@@ -3,16 +3,11 @@ export const AUTH_ENDPOINTS = {
   otpSend: '/auth/otp/send',
   otpVerify: '/auth/otp/verify',
   login: '/auth/login',
-  loginGoogle: '/auth/login/google',
   refreshToken: '/auth/token/refresh',
   changePassword: '/auth/password/change',
   resetPassword: '/auth/reset-password',
   forgotPassword: '/auth/forgot-password',
 } as const;
-
-export function buildGoogleLoginBody(credential: string) {
-  return { credential };
-}
 
 export type RegisterBody = {
   fullName: string;
