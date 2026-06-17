@@ -63,7 +63,8 @@ export function selectAuthRole(state: AuthState): ProtectedRole | undefined {
         const claim =
           payload.role ??
           payload.roles ??
-          payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+          payload['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'] ??
+          payload['http://schemas.xmlsoap.org/ws/2005/05/identity/claims/role'];
         const normalized = normalizeRole(claim);
         if (normalized) return normalized;
       }
@@ -108,8 +109,10 @@ export function useProtectedRoute(allowedRoles: ProtectedRole[]) {
       const timer = setTimeout(() => {
         if (role === 'worker') {
           router.replace('/(worker)/worker-home');
-        } else {
+        } else if (role === 'customer') {
           router.replace('/(customer)/home');
+        } else {
+          router.replace('/(auth)/login');
         }
       }, 0);
       return () => clearTimeout(timer);

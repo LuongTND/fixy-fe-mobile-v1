@@ -4,11 +4,28 @@ import { Dimensions, Image, Pressable, ScrollView, StyleSheet, View } from 'reac
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/nativewindui/Text';
+import { useAuthStore } from '@/store/store';
+import { selectAuthRole } from '@/hooks/useProtectedRoute';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 export default function WelcomeScreen() {
   const insets = useSafeAreaInsets();
+  const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
+  const isHydrating = useAuthStore((state) => state.isHydrating);
+  const role = useAuthStore(selectAuthRole);
+
+  React.useEffect(() => {
+    if (isHydrating) return;
+
+    if (isAuthenticated) {
+      if (role === 'worker') {
+        router.replace('/(worker)/worker-home' as any);
+      } else if (role === 'customer') {
+        router.replace('/(customer)/home' as any);
+      }
+    }
+  }, [isAuthenticated, isHydrating, role]);
 
   return (
     <View style={styles.screen}>
