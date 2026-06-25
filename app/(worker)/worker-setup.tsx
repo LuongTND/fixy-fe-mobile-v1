@@ -627,13 +627,9 @@ export default function WorkerSetupScreen() {
           <MaterialIcons name="arrow-back" size={24} color="#383838" />
         </Pressable>
         <Text style={styles.headerTitle}>Thiết lập hồ sơ thợ</Text>
-        {currentStep === 4 ? (
-          <Pressable style={styles.logoutBtn} onPress={handleLogout}>
-            <MaterialIcons name="logout" size={20} color="#ba1a1a" />
-          </Pressable>
-        ) : (
-          <View style={{ width: 40 }} />
-        )}
+        <Pressable style={styles.logoutBtn} onPress={handleLogout}>
+          <MaterialIcons name="logout" size={20} color="#ba1a1a" />
+        </Pressable>
       </View>
 
       {/* Progress Wizard */}

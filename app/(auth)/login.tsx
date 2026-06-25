@@ -1,7 +1,7 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as React from 'react';
-import { Alert, Pressable, StyleSheet, Text, View } from 'react-native';
+import { Alert, BackHandler, Pressable, StyleSheet, Text, View } from 'react-native';
 
 import { AuthButton } from '@/features/auth/components/auth-button';
 import { AuthScreen } from '@/features/auth/components/auth-screen';
@@ -15,6 +15,20 @@ import { useAuthStore } from '@/store/store';
 
 export default function LoginScreen() {
   const saveAuth = useAuthStore((state) => state.saveAuth);
+
+  React.useEffect(() => {
+    const backAction = () => {
+      router.replace('/');
+      return true;
+    };
+
+    const backHandler = BackHandler.addEventListener(
+      'hardwareBackPress',
+      backAction
+    );
+
+    return () => backHandler.remove();
+  }, []);
 
   function googleSignIn() {
     Alert.alert('Đăng nhập Google', 'Tính năng đăng nhập Google đang được phát triển.');
@@ -91,7 +105,7 @@ export default function LoginScreen() {
     <AuthScreen>
       <View style={styles.container}>
         <View style={styles.header}>
-          <Pressable style={styles.backButton} onPress={() => router.back()}>
+          <Pressable style={styles.backButton} onPress={() => router.replace('/')}>
             <MaterialIcons name="arrow-back" size={26} color="#574237" />
           </Pressable>
           <Text style={styles.title}>Đăng nhập</Text>
