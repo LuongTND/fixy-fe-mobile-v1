@@ -47,6 +47,8 @@ function parseJwt(token: string) {
   }
 }
 
+type ChatMessage = BookingChatMessage & { status?: 'sending' | 'sent' | 'failed' };
+
 export default function BookingChatScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
@@ -54,10 +56,9 @@ export default function BookingChatScreen() {
   const flatListRef = React.useRef<FlatList>(null);
 
   const [booking, setBooking] = React.useState<Booking | null>(null);
-  const [messages, setMessages] = React.useState<BookingChatMessage[]>([]);
+  const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [inputText, setInputText] = React.useState('');
   const [isLoading, setIsLoading] = React.useState(true);
-  const [isSending, setIsSending] = React.useState(false);
   const [isConnected, setIsConnected] = React.useState(false);
   const [previewImage, setPreviewImage] = React.useState<string | null>(null);
   const [keyboardHeight, setKeyboardHeight] = React.useState(0);
@@ -188,8 +189,36 @@ export default function BookingChatScreen() {
           const normalized = normalizeChatMessage(msg);
           if (normalized && normalized.bookingId?.toLowerCase() === bookingId?.toLowerCase()) {
             setMessages((prev) => {
+              // 1. If we already have a message with the same real ID, ignore
               if (prev.some((m) => m.id?.toLowerCase() === normalized.id?.toLowerCase()))
                 return prev;
+
+              // 2. If it's sent by me, check if there's an optimistic message matching it to replace
+              const isMe = normalized.senderId?.toLowerCase() === currentUserId?.toLowerCase();
+              if (isMe) {
+                const isImage = normalized.type === 1 || !!normalized.mediaUrl;
+                if (isImage) {
+                  const optIndex = prev.findIndex(
+                    (m: any) => m.status === 'sending' && (m.type === 1 || !!m.mediaUrl)
+                  );
+                  if (optIndex !== -1) {
+                    const next = [...prev];
+                    next[optIndex] = { ...normalized, status: 'sent' };
+                    return next;
+                  }
+                } else {
+                  const optIndex = prev.findIndex(
+                    (m: any) => m.status === 'sending' && m.content === normalized.content
+                  );
+                  if (optIndex !== -1) {
+                    const next = [...prev];
+                    next[optIndex] = { ...normalized, status: 'sent' };
+                    return next;
+                  }
+                }
+              }
+
+              // 3. Otherwise, append it
               return [...prev, normalized];
             });
             scrollToLatestMessage();
@@ -252,26 +281,102 @@ export default function BookingChatScreen() {
     }
   }, [booking, currentUserId]);
 
-  const handleSendText = async () => {
-    const text = inputText.trim();
-    if (!text || !bookingId) return;
+  const sendTextMessage = async (text: string) => {
+    if (!bookingId) return;
 
-    setInputText('');
-    setIsSending(true);
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      bookingId,
+      senderId: currentUserId || '',
+      senderName: 'Me',
+      type: 0,
+      content: text,
+      createdDate: new Date().toISOString(),
+      isRead: false,
+      status: 'sending',
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    scrollToLatestMessage();
+
     try {
       const sentMsg = await sendBookingChatMessage(bookingId, {
         type: 0,
         content: text,
       });
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === sentMsg.id)) return prev;
-        return [...prev, sentMsg];
-      });
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...sentMsg, status: 'sent' } : m))
+      );
     } catch (err) {
-      Alert.alert('Lỗi', getApiErrorMessage(err));
-    } finally {
-      setIsSending(false);
+      console.warn('Failed to send text message:', err);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
+      );
     }
+  };
+
+  const sendImageMessage = async (localUri: string, fileObj: any) => {
+    if (!bookingId) return;
+
+    const tempId = `temp-${Date.now()}`;
+    const optimisticMsg: ChatMessage = {
+      id: tempId,
+      bookingId,
+      senderId: currentUserId || '',
+      senderName: 'Me',
+      type: 1,
+      content: '',
+      mediaUrl: localUri,
+      createdDate: new Date().toISOString(),
+      isRead: false,
+      status: 'sending',
+    };
+
+    setMessages((prev) => [...prev, optimisticMsg]);
+    scrollToLatestMessage();
+
+    try {
+      const sentMsg = await sendBookingChatMessage(bookingId, {
+        type: 1,
+        file: fileObj,
+      });
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...sentMsg, status: 'sent' } : m))
+      );
+    } catch (err) {
+      console.warn('Failed to send image message:', err);
+      setMessages((prev) =>
+        prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
+      );
+    }
+  };
+
+  const handleRetry = async (failedMsg: ChatMessage) => {
+    setMessages((prev) => prev.filter((m) => m.id !== failedMsg.id));
+
+    if (failedMsg.type === 1 && failedMsg.mediaUrl) {
+      const localUri = failedMsg.mediaUrl;
+      const filename = localUri.split('/').pop() || 'photo.jpg';
+      const match = /\.(\w+)$/.exec(filename);
+      const type = match ? `image/${match[1]}` : 'image/jpeg';
+      const fileObj = {
+        uri: localUri,
+        name: filename,
+        type,
+      };
+      await sendImageMessage(localUri, fileObj);
+    } else if (failedMsg.content) {
+      await sendTextMessage(failedMsg.content);
+    }
+  };
+
+  const handleSendText = async () => {
+    const text = inputText.trim();
+    if (!text || !bookingId) return;
+
+    setInputText('');
+    await sendTextMessage(text);
   };
 
   const handleSendImage = async () => {
@@ -287,7 +392,6 @@ export default function BookingChatScreen() {
         return;
       }
 
-      setIsSending(true);
       const localUri = result.assets[0].uri;
       const filename = localUri.split('/').pop() || 'photo.jpg';
       const match = /\.(\w+)$/.exec(filename);
@@ -299,19 +403,9 @@ export default function BookingChatScreen() {
         type,
       };
 
-      const sentMsg = await sendBookingChatMessage(bookingId, {
-        type: 1,
-        file: fileObj,
-      });
-
-      setMessages((prev) => {
-        if (prev.some((m) => m.id === sentMsg.id)) return prev;
-        return [...prev, sentMsg];
-      });
+      await sendImageMessage(localUri, fileObj);
     } catch (err) {
       Alert.alert('Lỗi', getApiErrorMessage(err));
-    } finally {
-      setIsSending(false);
     }
   };
 
@@ -325,9 +419,10 @@ export default function BookingChatScreen() {
     }
   };
 
-  const renderMessageItem = ({ item }: { item: BookingChatMessage }) => {
+  const renderMessageItem = ({ item }: { item: ChatMessage }) => {
     const isMe = item.senderId?.toLowerCase() === currentUserId?.toLowerCase();
     const isImage = item.type === 1 || !!item.mediaUrl;
+    const status = item.status;
 
     return (
       <View style={[styles.messageRow, isMe ? styles.messageRowRight : styles.messageRowLeft]}>
@@ -348,29 +443,44 @@ export default function BookingChatScreen() {
             styles.bubbleWrapper,
             isMe ? styles.bubbleWrapperRight : styles.bubbleWrapperLeft,
           ]}>
-          <View
-            style={[
-              styles.bubble,
-              isMe ? styles.bubbleRight : styles.bubbleLeft,
-              isImage && styles.bubbleImageFrame,
-            ]}>
-            {isImage ? (
-              <Pressable onPress={() => setPreviewImage(item.mediaUrl || null)}>
-                <Image
-                  source={{ uri: item.mediaUrl }}
-                  style={styles.messageImage}
-                  resizeMode="cover"
-                />
+          <View style={styles.bubbleRow}>
+            {isMe && status === 'failed' && (
+              <Pressable style={styles.retryButton} onPress={() => handleRetry(item)}>
+                <MaterialIcons name="error-outline" size={18} color="#BA1A1A" />
+                <Text style={styles.retryText}>Thử lại</Text>
               </Pressable>
-            ) : (
-              <Text
-                style={[
-                  styles.messageText,
-                  isMe ? styles.messageTextRight : styles.messageTextLeft,
-                ]}>
-                {item.content}
-              </Text>
             )}
+            {isMe && status === 'sending' && (
+              <ActivityIndicator size="small" color="#FF8228" style={styles.sendingSpinner} />
+            )}
+
+            <View
+              style={[
+                styles.bubble,
+                isMe ? styles.bubbleRight : styles.bubbleLeft,
+                isImage && styles.bubbleImageFrame,
+                isMe && status === 'failed' && styles.bubbleRightFailed,
+                status === 'sending' && styles.bubbleSending,
+              ]}>
+              {isImage ? (
+                <Pressable onPress={() => setPreviewImage(item.mediaUrl || null)} disabled={status === 'sending'}>
+                  <Image
+                    source={{ uri: item.mediaUrl }}
+                    style={styles.messageImage}
+                    resizeMode="cover"
+                  />
+                </Pressable>
+              ) : (
+                <Text
+                  style={[
+                    styles.messageText,
+                    isMe ? styles.messageTextRight : styles.messageTextLeft,
+                    isMe && status === 'failed' && styles.messageTextRightFailed,
+                  ]}>
+                  {item.content}
+                </Text>
+              )}
+            </View>
           </View>
           <Text style={styles.timestampText}>{formatTime(item.createdDate)}</Text>
         </View>
@@ -448,7 +558,7 @@ export default function BookingChatScreen() {
           onLayout={(event) => {
             setInputPanelHeight(event.nativeEvent.layout.height);
           }}>
-          <Pressable style={styles.attachBtn} onPress={handleSendImage} disabled={isSending}>
+          <Pressable style={styles.attachBtn} onPress={handleSendImage}>
             <MaterialIcons name="image" size={24} color="#FF8228" />
           </Pressable>
 
@@ -464,14 +574,10 @@ export default function BookingChatScreen() {
           />
 
           <Pressable
-            style={[styles.sendBtn, (!inputText.trim() || isSending) && styles.sendBtnDisabled]}
+            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
             onPress={handleSendText}
-            disabled={!inputText.trim() || isSending}>
-            {isSending ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <MaterialIcons name="send" size={20} color="#ffffff" />
-            )}
+            disabled={!inputText.trim()}>
+            <MaterialIcons name="send" size={20} color="#ffffff" />
           </Pressable>
         </View>
       </KeyboardAvoidingView>
@@ -748,5 +854,39 @@ const styles = StyleSheet.create({
   previewImage: {
     width: '100%',
     height: '80%',
+  },
+  bubbleRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  sendingSpinner: {
+    marginRight: 4,
+  },
+  retryButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#FFEAEA',
+    paddingVertical: 4,
+    paddingHorizontal: 8,
+    borderRadius: 12,
+    marginRight: 4,
+  },
+  retryText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 11,
+    color: '#BA1A1A',
+  },
+  bubbleRightFailed: {
+    backgroundColor: '#FFE5E5',
+    borderWidth: 1,
+    borderColor: '#BA1A1A',
+  },
+  messageTextRightFailed: {
+    color: '#BA1A1A',
+  },
+  bubbleSending: {
+    opacity: 0.7,
   },
 });

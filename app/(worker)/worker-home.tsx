@@ -55,7 +55,6 @@ export default function WorkerHomeScreen() {
   const { data: unreadCount = 0 } = useQuery<number>({
     queryKey: ['unreadNotificationCount'],
     queryFn: getUnreadCount,
-    refetchInterval: 30000,
     enabled: hasApprovedProfile,
   });
 

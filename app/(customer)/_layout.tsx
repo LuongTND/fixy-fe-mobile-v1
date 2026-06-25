@@ -15,7 +15,7 @@ export default function CustomerLayout() {
         <Stack.Screen name="profile" options={{ animation: 'none' }} />
         <Stack.Screen name="saved-addresses" options={{ animation: 'none' }} />
         <Stack.Screen name="service-workers" options={{ animation: 'none' }} />
-        <Stack.Screen name="user-wallet" />
+        <Stack.Screen name="user-wallet" options={{ animation: 'none' }} />
         <Stack.Screen name="worker-detail" options={{ animation: 'none' }} />
         <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="notifications-settings" options={{ animation: 'slide_from_right' }} />

@@ -18,6 +18,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import VNPayWebView from '@/components/VNPayWebView';
+import { BottomTabBar } from '@/components/layout/bottom-tab-bar';
 import { getWalletOverview, WalletOverview } from '@/services/api/wallet';
 import { topUpWallet, verifyVnpayCallback } from '@/services/api/payment';
 import { PaymentMethod } from '@/services/api/bookings';
@@ -128,14 +129,6 @@ export default function UserWalletScreen() {
     ]);
   };
 
-  if (isLoading) {
-    return (
-      <View style={[styles.screen, styles.centerContent, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#FF8228" />
-      </View>
-    );
-  }
-
   return (
     <KeyboardAvoidingView
       behavior={Platform.OS === 'ios' ? 'padding' : undefined}
@@ -143,142 +136,144 @@ export default function UserWalletScreen() {
       <View style={[styles.screen, { paddingTop: insets.top }]}>
         {/* Header */}
         <View style={styles.header}>
-          <Pressable style={styles.headerBtn} onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={24} color="#1b1c1c" />
-          </Pressable>
           <Text style={styles.headerTitle}>Ví điện tử</Text>
-          <View style={{ width: 40 }} />
         </View>
 
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          refreshControl={
-            <RefreshControl
-              refreshing={isRefreshing}
-              onRefresh={handleRefresh}
-              tintColor="#FF8228"
-            />
-          }>
-          {/* Balance Card */}
-          <View style={styles.balanceCardContainer}>
-            <LinearGradient
-              colors={['#FF8228', '#F45100']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 1, y: 1 }}
-              style={styles.balanceCard}>
-              <View style={styles.balanceDecor}>
-                <MaterialIcons
-                  name="account-balance-wallet"
-                  size={120}
-                  color="rgba(255,255,255,0.1)"
-                />
-              </View>
-              <View style={styles.balanceInfo}>
-                <Text style={styles.balanceLabel}>Số dư ví của tôi</Text>
-                <Text style={styles.balanceAmount}>{formatCurrency(wallet?.balance ?? 0)}</Text>
-              </View>
-            </LinearGradient>
+        {isLoading ? (
+          <View style={[{ flex: 1 }, styles.centerContent]}>
+            <ActivityIndicator size="large" color="#FF8228" />
           </View>
-
-          {/* Top Up Section */}
-          <View style={styles.topupSection}>
-            <Text style={styles.sectionTitle}>Nạp tiền vào ví</Text>
-            <View style={styles.topupCard}>
-              {/* Input row */}
-              <View style={styles.inputContainer}>
-                <TextInput
-                  style={styles.amountInput}
-                  placeholder="Nhập số tiền cần nạp..."
-                  placeholderTextColor="#9A9A9A"
-                  keyboardType="numeric"
-                  value={topupAmount}
-                  onChangeText={(val) => {
-                    const clean = val.replace(/\D/g, '');
-                    if (clean) {
-                      setTopupAmount(Number(clean).toLocaleString('vi-VN'));
-                    } else {
-                      setTopupAmount('');
-                    }
-                  }}
-                />
-                <Text style={styles.currencyLabel}>đ</Text>
-              </View>
-
-              {/* Quick Selectors */}
-              <View style={styles.quickSelectors}>
-                {QUICK_AMOUNTS.map((amt) => (
-                  <Pressable
-                    key={amt}
-                    style={styles.quickBtn}
-                    onPress={() => setTopupAmount(amt.toLocaleString('vi-VN'))}>
-                    <Text style={styles.quickBtnText}>+{amt / 1000}k</Text>
-                  </Pressable>
-                ))}
-              </View>
-
-              {/* Top Up Button */}
-              <Pressable
-                style={[styles.topupSubmitBtn, isSubmittingTopup && styles.topupSubmitBtnDisabled]}
-                onPress={handleTopup}
-                disabled={isSubmittingTopup}>
-                {isSubmittingTopup ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <>
-                    <MaterialIcons name="payment" size={20} color="#ffffff" />
-                    <Text style={styles.topupSubmitBtnText}>Nạp tiền qua VNPay</Text>
-                  </>
-                )}
-              </Pressable>
+        ) : (
+          <ScrollView
+            contentContainerStyle={styles.scrollContent}
+            showsVerticalScrollIndicator={false}
+            refreshControl={
+              <RefreshControl
+                refreshing={isRefreshing}
+                onRefresh={handleRefresh}
+                tintColor="#FF8228"
+              />
+            }>
+            {/* Balance Card */}
+            <View style={styles.balanceCardContainer}>
+              <LinearGradient
+                colors={['#FF8228', '#F45100']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={styles.balanceCard}>
+                <View style={styles.balanceDecor}>
+                  <MaterialIcons
+                    name="account-balance-wallet"
+                    size={120}
+                    color="rgba(255,255,255,0.1)"
+                  />
+                </View>
+                <View style={styles.balanceInfo}>
+                  <Text style={styles.balanceLabel}>Số dư ví của tôi</Text>
+                  <Text style={styles.balanceAmount}>{formatCurrency(wallet?.balance ?? 0)}</Text>
+                </View>
+              </LinearGradient>
             </View>
-          </View>
 
-          {/* Transaction History */}
-          <View style={styles.transactionSection}>
-            <Text style={styles.sectionTitle}>Lịch sử giao dịch</Text>
-            <View style={styles.transactionList}>
-              {(wallet?.recentTransactions ?? []).map((tx) => (
-                <View key={tx.id} style={styles.transactionItem}>
-                  <View style={styles.transactionLeft}>
-                    <View
-                      style={[
-                        styles.transactionIcon,
-                        tx.direction === 'Debit' && styles.transactionIconDebit,
-                      ]}>
+            {/* Top Up Section */}
+            <View style={styles.topupSection}>
+              <Text style={styles.sectionTitle}>Nạp tiền vào ví</Text>
+              <View style={styles.topupCard}>
+                {/* Input row */}
+                <View style={styles.inputContainer}>
+                  <TextInput
+                    style={styles.amountInput}
+                    placeholder="Nhập số tiền cần nạp..."
+                    placeholderTextColor="#9A9A9A"
+                    keyboardType="numeric"
+                    value={topupAmount}
+                    onChangeText={(val) => {
+                      const clean = val.replace(/\D/g, '');
+                      if (clean) {
+                        setTopupAmount(Number(clean).toLocaleString('vi-VN'));
+                      } else {
+                        setTopupAmount('');
+                      }
+                    }}
+                  />
+                  <Text style={styles.currencyLabel}>đ</Text>
+                </View>
+
+                {/* Quick Selectors */}
+                <View style={styles.quickSelectors}>
+                  {QUICK_AMOUNTS.map((amt) => (
+                    <Pressable
+                      key={amt}
+                      style={styles.quickBtn}
+                      onPress={() => setTopupAmount(amt.toLocaleString('vi-VN'))}>
+                      <Text style={styles.quickBtnText}>+{amt / 1000}k</Text>
+                    </Pressable>
+                  ))}
+                </View>
+
+                {/* Top Up Button */}
+                <Pressable
+                  style={[styles.topupSubmitBtn, isSubmittingTopup && styles.topupSubmitBtnDisabled]}
+                  onPress={handleTopup}
+                  disabled={isSubmittingTopup}>
+                  {isSubmittingTopup ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <>
+                      <MaterialIcons name="payment" size={20} color="#ffffff" />
+                      <Text style={styles.topupSubmitBtnText}>Nạp tiền qua VNPay</Text>
+                    </>
+                  )}
+                </Pressable>
+              </View>
+            </View>
+
+            {/* Transaction History */}
+            <View style={styles.transactionSection}>
+              <Text style={styles.sectionTitle}>Lịch sử giao dịch</Text>
+              <View style={styles.transactionList}>
+                {(wallet?.recentTransactions ?? []).map((tx) => (
+                  <View key={tx.id} style={styles.transactionItem}>
+                    <View style={styles.transactionLeft}>
+                      <View
+                        style={[
+                          styles.transactionIcon,
+                          tx.direction === 'Debit' && styles.transactionIconDebit,
+                        ]}>
                       <MaterialIcons
                         name={getWalletTransactionIcon(tx.type, tx.direction)}
                         size={22}
                         color={tx.direction === 'Debit' ? '#BA1A1A' : '#006E20'}
                       />
+                      </View>
+                      <View>
+                        <Text style={styles.transactionName}>
+                          {getWalletTransactionLabel(tx.type, tx.description)}
+                        </Text>
+                        <Text style={styles.transactionDate}>{formatDateTime(tx.createdDate)}</Text>
+                      </View>
                     </View>
-                    <View>
-                      <Text style={styles.transactionName}>
-                        {getWalletTransactionLabel(tx.type, tx.description)}
-                      </Text>
-                      <Text style={styles.transactionDate}>{formatDateTime(tx.createdDate)}</Text>
-                    </View>
+                    <Text
+                      style={[
+                        styles.transactionAmount,
+                        tx.direction === 'Credit' && styles.transactionAmountCredit,
+                      ]}>
+                      {tx.direction === 'Credit' ? '+' : '-'}
+                      {formatCurrency(tx.amount)}
+                    </Text>
                   </View>
-                  <Text
-                    style={[
-                      styles.transactionAmount,
-                      tx.direction === 'Credit' && styles.transactionAmountCredit,
-                    ]}>
-                    {tx.direction === 'Credit' ? '+' : '-'}
-                    {formatCurrency(tx.amount)}
-                  </Text>
-                </View>
-              ))}
+                ))}
 
-              {(wallet?.recentTransactions ?? []).length === 0 && (
-                <View style={styles.emptyState}>
-                  <MaterialIcons name="receipt-long" size={48} color="#DDDDDD" />
-                  <Text style={styles.emptyText}>Chưa có giao dịch nào</Text>
-                </View>
-              )}
+                {(wallet?.recentTransactions ?? []).length === 0 && (
+                  <View style={styles.emptyState}>
+                    <MaterialIcons name="receipt-long" size={48} color="#DDDDDD" />
+                    <Text style={styles.emptyText}>Chưa có giao dịch nào</Text>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
-        </ScrollView>
+          </ScrollView>
+        )}
 
         {/* VNPay WebView Overlay Modal */}
         {paymentUrl && (
@@ -290,6 +285,8 @@ export default function UserWalletScreen() {
             onError={handlePaymentError}
           />
         )}
+        {/* Bottom Bar */}
+        <BottomTabBar activeTab="wallet" />
       </View>
     </KeyboardAvoidingView>
   );
@@ -306,10 +303,8 @@ const styles = StyleSheet.create({
   },
   header: {
     height: 64,
-    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingHorizontal: 16,
+    justifyContent: 'center',
     backgroundColor: '#FBF9F8',
     borderBottomWidth: 1,
     borderBottomColor: '#DDDDDD',
@@ -329,7 +324,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 40,
+    paddingBottom: 110,
     gap: 24,
   },
   balanceCardContainer: {

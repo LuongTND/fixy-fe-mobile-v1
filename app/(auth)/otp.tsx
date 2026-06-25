@@ -193,9 +193,13 @@ export default function OtpScreen() {
             <Text
               style={{
                 ...styles.resend,
-                ...((resending || timerSeconds > 0) ? styles.disabledText : {}),
+                ...(resending || timerSeconds > 0 ? styles.disabledText : {}),
               }}>
-              {resending ? 'Đang gửi lại...' : timerSeconds > 0 ? `Gửi lại mã (${timerSeconds}s)` : 'Gửi lại mã'}
+              {resending
+                ? 'Đang gửi lại...'
+                : timerSeconds > 0
+                  ? `Gửi lại mã (${timerSeconds}s)`
+                  : 'Gửi lại mã'}
             </Text>
           </Pressable>
         </View>

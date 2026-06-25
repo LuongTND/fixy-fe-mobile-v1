@@ -125,7 +125,6 @@ export default function HomeScreen() {
   const { data: unreadCount = 0 } = useQuery<number>({
     queryKey: ['unreadNotificationCount'],
     queryFn: getUnreadCount,
-    refetchInterval: 30000,
   });
 
   const updateCurrentCity = React.useCallback(async () => {
