@@ -38,7 +38,7 @@ import { applyVoucher, getEligibleVouchers } from '@/services/api/vouchers';
 import { getBookingReview, Review } from '@/services/api/reviews';
 import { getMediaUrl } from '@/services/api/media';
 import { fetchCategories } from '@/services/api/categories';
-import { formatDateTime } from '@/utils/date';
+import { formatDateTime, formatDateOnly, formatTime } from '@/utils/date';
 import { formatCurrency } from '@/utils/format';
 import {
   EligibleVoucher,
@@ -508,7 +508,7 @@ export default function BookingDetailScreen() {
                 <View style={styles.proposalDetailRow}>
                   <Text style={styles.proposalDetailLabel}>Thời gian thi công đề xuất:</Text>
                   <Text style={styles.proposalTimeVal}>
-                    {new Date(booking.workerProposedTime).toLocaleString('vi-VN')}
+                    {formatDateTime(booking.workerProposedTime)}
                   </Text>
                 </View>
               )}
@@ -578,7 +578,7 @@ export default function BookingDetailScreen() {
                   </Text>
                   {tracking.locationUpdatedAt && (
                     <Text style={styles.trackingMeta}>
-                      Cập nhật: {new Date(tracking.locationUpdatedAt).toLocaleTimeString('vi-VN')}
+                      Cập nhật: {formatTime(tracking.locationUpdatedAt)}
                     </Text>
                   )}
                 </View>
@@ -1063,7 +1063,7 @@ export default function BookingDetailScreen() {
                       )}
                       {voucher.expiresAt && (
                         <Text style={styles.voucherItemMeta}>
-                          Hạn dùng: {new Date(voucher.expiresAt).toLocaleDateString('vi-VN')}
+                          Hạn dùng: {formatDateOnly(voucher.expiresAt)}
                         </Text>
                       )}
                       {!voucher.isEligible && voucher.ineligibleReason && (

@@ -18,6 +18,7 @@ import { useQuery, useMutation } from '@tanstack/react-query';
 import { BookingDraft, confirmDraft, getDraftDetails } from '@/services/api/bookings';
 import { getWorkerDetails, WorkerProfile } from '@/services/api/workers';
 import { fetchCategories } from '@/services/api/categories';
+import { formatCurrency } from '@/utils/format';
 
 export default function BookingCheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -216,16 +217,16 @@ export default function BookingCheckoutScreen() {
 
           <View style={styles.costRow}>
             <Text style={styles.costLabel}>Giá nhân công cơ bản</Text>
-            <Text style={styles.costValue}>{basePrice.toLocaleString()}đ</Text>
+            <Text style={styles.costValue}>{formatCurrency(basePrice)}</Text>
           </View>
           <View style={styles.costRow}>
             <Text style={styles.costLabel}>Phí di chuyển lắp đặt</Text>
-            <Text style={styles.costValue}>{travelPrice.toLocaleString()}đ</Text>
+            <Text style={styles.costValue}>{formatCurrency(travelPrice)}</Text>
           </View>
           <View style={styles.costDivider} />
           <View style={[styles.costRow, { marginTop: 6 }]}>
             <Text style={styles.costTotalLabel}>Tổng số tiền (Ước lượng)</Text>
-            <Text style={styles.costTotalValue}>{totalPrice.toLocaleString()}đ</Text>
+            <Text style={styles.costTotalValue}>{formatCurrency(totalPrice)}</Text>
           </View>
 
           <View style={styles.infoAlert}>

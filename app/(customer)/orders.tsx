@@ -17,6 +17,7 @@ import { BottomTabBar } from '@/components/layout/bottom-tab-bar';
 import { Booking, BookingStatus, getMyBookings } from '@/services/api/bookings';
 import { formatDateTime } from '@/utils/date';
 import { fetchCategories } from '@/services/api/categories';
+import { formatCurrency } from '@/utils/format';
 
 const STATUS_MAP: Record<
   number,
@@ -164,7 +165,7 @@ export default function CustomerOrdersScreen() {
     };
 
     const displayPrice = item.finalAmount || item.estimatedPrice || item.estimatedAmount || 0;
-    const formattedPrice = `${displayPrice.toLocaleString('vi-VN')}đ`;
+    const formattedPrice = formatCurrency(displayPrice);
 
     const formattedDate = formatDateTime(item.createdDate);
 

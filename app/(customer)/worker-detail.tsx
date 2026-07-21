@@ -16,6 +16,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getWorkerDetails, getWeeklySchedule, WorkerProfile } from '@/services/api/workers';
 import { getWorkerReviews } from '@/services/api/reviews';
 import { fetchCategories } from '@/services/api/categories';
+import { formatDateOnly } from '@/utils/date';
+import { formatCurrency } from '@/utils/format';
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -241,7 +243,7 @@ export default function WorkerDetailScreen() {
                       <Text style={styles.certIssuer}>Cấp bởi: {cert.issuedBy}</Text>
                       {cert.issuedAt && (
                         <Text style={styles.certDate}>
-                          Ngày cấp: {new Date(cert.issuedAt).toLocaleDateString('vi-VN')}
+                          Ngày cấp: {formatDateOnly(cert.issuedAt)}
                         </Text>
                       )}
                     </View>
@@ -308,7 +310,7 @@ export default function WorkerDetailScreen() {
                   </View>
                 </View>
                 <Text style={styles.reviewDate}>
-                  {new Date(rev.date).toLocaleDateString('vi-VN')}
+                  {formatDateOnly(rev.date)}
                 </Text>
                 <Text style={styles.reviewComment}>{rev.comment}</Text>
               </View>
@@ -323,7 +325,7 @@ export default function WorkerDetailScreen() {
       <View style={[styles.footerBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         <View style={styles.footerPriceCol}>
           <Text style={styles.footerPriceLbl}>Giá khởi điểm</Text>
-          <Text style={styles.footerPriceVal}>{worker.basePrice.toLocaleString()}đ</Text>
+          <Text style={styles.footerPriceVal}>{formatCurrency(worker.basePrice)}</Text>
         </View>
         <Pressable style={styles.bookButton} onPress={handleBookNow}>
           <Text style={styles.bookButtonText}>Đặt lịch với thợ này</Text>
