@@ -1,0 +1,41 @@
+diff --git a/node_modules/expo/src/async-require/fetchAsync.native.ts b/node_modules/expo/src/async-require/fetchAsync.native.ts
+index d8bcf25..5119cf7 100644
+--- a/node_modules/expo/src/async-require/fetchAsync.native.ts
++++ b/node_modules/expo/src/async-require/fetchAsync.native.ts
+@@ -14,13 +14,18 @@ type Subscriber = { remove: () => void };
+ class LoadBundleFromServerError extends Error {
+   name = 'LoadBundleFromServerError';
+ 
++  url: string;
++  isTimeout: boolean;
++
+   constructor(
+     message: string,
+-    public url: string,
+-    public isTimeout: boolean,
++    url: string,
++    isTimeout: boolean,
+     options?: ErrorOptions
+   ) {
+     super(message, options);
++    this.url = url;
++    this.isTimeout = isTimeout;
+   }
+ }
+ 
+diff --git a/node_modules/expo/src/winter/TextDecoder.ts b/node_modules/expo/src/winter/TextDecoder.ts
+index 979c003..b10b454 100644
+--- a/node_modules/expo/src/winter/TextDecoder.ts
++++ b/node_modules/expo/src/winter/TextDecoder.ts
+@@ -189,7 +189,10 @@ class UTF8Decoder implements Decoder {
+   private utf8BytesNeeded = 0;
+   private utf8LowerBoundary = 0x80;
+   private utf8UpperBoundary = 0xbf;
+-  constructor(private options: { fatal: boolean }) {}
++  options: { fatal: boolean };
++  constructor(options: { fatal: boolean }) {
++    this.options = options;
++  }
+   /**
+    * @param {Stream} stream The stream of bytes being decoded.
+    * @param {number} bite The next byte read from the stream.
