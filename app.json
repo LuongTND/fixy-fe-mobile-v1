@@ -1,0 +1,54 @@
+{
+  "expo": {
+    "name": "fixy-app",
+    "slug": "fixy-app",
+    "version": "1.0.0",
+    "scheme": "fixy-app",
+    "platforms": [
+      "ios",
+      "android"
+    ],
+    "web": {
+      "bundler": "metro",
+      "output": "static",
+      "favicon": "./assets/favicon.png"
+    },
+    "plugins": [
+      "expo-router",
+      "@react-native-community/datetimepicker"
+    ],
+    "experiments": {
+      "typedRoutes": true,
+      "tsconfigPaths": true
+    },
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "userInterfaceStyle": "automatic",
+    "splash": {
+      "image": "./assets/splash.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "assetBundlePatterns": [
+      "**/*"
+    ],
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.fixy.app"
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/adaptive-icon.png",
+        "backgroundColor": "#ffffff"
+      },
+      "package": "com.fixy.app"
+    },
+    "extra": {
+      "vietnamProvincesApiUrl": "https://provinces.open-api.vn/api/v2",
+      "router": {},
+      "eas": {
+        "projectId": "901f1bec-4b1c-4717-8dd5-2c1b13bdc6f3"
+      }
+    }
+  }
+}
