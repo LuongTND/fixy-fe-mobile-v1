@@ -20,21 +20,20 @@ interface BottomTabBarProps {
   activeTab: TabType;
 }
 
-const SLOT_COUNT = 5;
-const CENTER_INDEX = 2;
+const SLOT_COUNT = 4;
 
 const INDEX_TO_TAB: Record<number, TabType> = {
   0: 'home',
   1: 'orders',
-  3: 'wallet',
-  4: 'profile',
+  2: 'wallet',
+  3: 'profile',
 };
 
 const TAB_TO_INDEX: Record<TabType, number> = {
   home: 0,
   orders: 1,
-  wallet: 3,
-  profile: 4,
+  wallet: 2,
+  profile: 3,
 };
 
 interface TabItemProps {
@@ -114,10 +113,6 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
     }
   };
 
-  const handleQuickBooking = () => {
-    router.push('/booking-setup' as any);
-  };
-
   const handleNavigate = (index: number) => {
     const tab = INDEX_TO_TAB[index];
     if (tab) {
@@ -140,7 +135,6 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
       if (totalBarWidth.value <= 0) return;
       const raw = Math.floor(e.x / (totalBarWidth.value / SLOT_COUNT));
       const clamped = Math.max(0, Math.min(raw, SLOT_COUNT - 1));
-      if (clamped === CENTER_INDEX) return;
       activeIndex.value = clamped;
       runOnJS(handleNavigate)(clamped);
     });
@@ -152,7 +146,6 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
       isPressed.value = true;
       const raw = Math.floor(e.x / (totalBarWidth.value / SLOT_COUNT));
       const clamped = Math.max(0, Math.min(raw, SLOT_COUNT - 1));
-      if (clamped === CENTER_INDEX) return;
       activeIndex.value = clamped;
     })
     .onUpdate((e) => {
@@ -160,7 +153,6 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
       if (totalBarWidth.value <= 0) return;
       const raw = Math.floor(e.x / (totalBarWidth.value / SLOT_COUNT));
       const clamped = Math.max(0, Math.min(raw, SLOT_COUNT - 1));
-      if (clamped === CENTER_INDEX) return;
       activeIndex.value = clamped;
     })
     .onEnd(() => {
@@ -199,25 +191,19 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
               iconInactive="assignment"
               activeIndex={activeIndex}
             />
-            <View style={styles.centerPlaceholder} />
             <TabItem
-              slot={3}
+              slot={2}
               iconActive="account-balance-wallet"
               iconInactive="account-balance-wallet"
               activeIndex={activeIndex}
             />
             <TabItem
-              slot={4}
+              slot={3}
               iconActive="person"
               iconInactive="person"
               activeIndex={activeIndex}
             />
           </View>
-
-          {/* Center button — absolute positioned inside gestureZone, above the pointerEvents="none" tabsRow */}
-          <Pressable style={styles.normalizedCenterTab} onPress={handleQuickBooking}>
-            <MaterialIcons name="add" size={26} color="#818A91" />
-          </Pressable>
         </Animated.View>
       </GestureDetector>
     </View>
@@ -225,7 +211,6 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
 }
 
 const styles = StyleSheet.create({
-  // Original styles preserved exactly
   bottomBar: {
     position: 'absolute',
     bottom: 0,
@@ -250,35 +235,6 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     flex: 1,
-  },
-  centerTab: {
-    alignItems: 'center',
-    justifyContent: 'flex-end',
-    flex: 1.2,
-    height: 54,
-    paddingBottom: 4,
-    position: 'relative',
-  },
-  centerButton: {
-    position: 'absolute',
-    top: -22,
-    width: 54,
-    height: 54,
-    borderRadius: 27,
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#ffffff',
-    shadowColor: '#FF8228',
-    shadowOpacity: 0.35,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 6,
-  },
-  centerButtonText: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 10,
-    color: '#FF8228',
   },
   activeIconIndicator: {
     width: 64,
@@ -306,8 +262,6 @@ const styles = StyleSheet.create({
     color: '#622a00',
     fontFamily: 'Montserrat_700Bold',
   },
-
-  // Premium glassmorphic floating bottom tab bar styles
   floatingBottomBar: {
     position: 'absolute',
     left: 16,
@@ -335,24 +289,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     height: '100%',
   },
-  centerPlaceholder: {
-    flex: 1,
-  },
   iconWrapper: {
     width: 26,
     height: 26,
     alignItems: 'center',
     justifyContent: 'center',
-  },
-  normalizedCenterTab: {
-    position: 'absolute',
-    left: '40%',
-    width: '20%',
-    top: 0,
-    bottom: 0,
-    alignItems: 'center',
-    justifyContent: 'center',
-    zIndex: 10,
   },
 });
 
