@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Image,
   Modal,
   Pressable,
@@ -40,6 +41,25 @@ export default function WorkerDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
   const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
+
+  const shimmerAnim = React.useRef(new Animated.Value(0.3)).current;
+
+  React.useEffect(() => {
+    Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, {
+          toValue: 1,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+        Animated.timing(shimmerAnim, {
+          toValue: 0.3,
+          duration: 800,
+          useNativeDriver: true,
+        }),
+      ])
+    ).start();
+  }, [shimmerAnim]);
 
   const { data: worker = null, isLoading: loading } = useQuery<WorkerProfile | null>({
     queryKey: ['worker', id],
@@ -90,8 +110,69 @@ export default function WorkerDetailScreen() {
 
   if (loading || loadingCategories) {
     return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FF8228" />
+      <View style={styles.screen}>
+        {/* Header */}
+        <View style={[styles.header, { paddingTop: insets.top }]}>
+          <Pressable style={styles.backButton} onPress={() => router.back()}>
+            <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Hồ sơ kỹ thuật viên</Text>
+        </View>
+
+        <ScrollView contentContainerStyle={styles.scrollContent} scrollEnabled={false}>
+          {/* Profile Card Skeleton */}
+          <View style={styles.profileCard}>
+            <View style={styles.avatarRow}>
+              <Animated.View style={[styles.skeletonAvatar, { opacity: shimmerAnim }]} />
+              <View style={styles.avatarDetails}>
+                <Animated.View style={[styles.skeletonName, { opacity: shimmerAnim }]} />
+                <Animated.View style={[styles.skeletonTextShort, { opacity: shimmerAnim, marginTop: 8 }]} />
+                <Animated.View style={[styles.skeletonTextMedium, { opacity: shimmerAnim, marginTop: 8 }]} />
+              </View>
+            </View>
+            <View style={[styles.statsGrid, { borderTopWidth: 0, marginTop: 16 }]}>
+              <Animated.View style={[styles.skeletonStatBox, { opacity: shimmerAnim }]} />
+              <View style={styles.statDivider} />
+              <Animated.View style={[styles.skeletonStatBox, { opacity: shimmerAnim }]} />
+              <View style={styles.statDivider} />
+              <Animated.View style={[styles.skeletonStatBox, { opacity: shimmerAnim }]} />
+            </View>
+          </View>
+
+          {/* Intro Section Skeleton */}
+          <View style={styles.sectionCard}>
+            <Animated.View style={[styles.skeletonTitleText, { opacity: shimmerAnim }]} />
+            <Animated.View style={[styles.skeletonParagraphLine, { opacity: shimmerAnim }]} />
+            <Animated.View style={[styles.skeletonParagraphLine, { opacity: shimmerAnim, width: '90%' }]} />
+            <Animated.View style={[styles.skeletonParagraphLine, { opacity: shimmerAnim, width: '75%' }]} />
+
+            <Animated.View style={[styles.skeletonTitleText, { opacity: shimmerAnim, marginTop: 20 }]} />
+            <View style={styles.skillsContainer}>
+              <Animated.View style={[styles.skeletonBadge, { opacity: shimmerAnim }]} />
+              <Animated.View style={[styles.skeletonBadge, { opacity: shimmerAnim, width: 80 }]} />
+              <Animated.View style={[styles.skeletonBadge, { opacity: shimmerAnim, width: 110 }]} />
+            </View>
+          </View>
+
+          {/* Portfolio Section Skeleton */}
+          <View style={styles.sectionCard}>
+            <Animated.View style={[styles.skeletonTitleText, { opacity: shimmerAnim }]} />
+            <View style={{ flexDirection: 'row', gap: 12 }}>
+              <Animated.View style={[styles.skeletonPortfolioItem, { opacity: shimmerAnim }]} />
+              <Animated.View style={[styles.skeletonPortfolioItem, { opacity: shimmerAnim }]} />
+              <Animated.View style={[styles.skeletonPortfolioItem, { opacity: shimmerAnim }]} />
+            </View>
+          </View>
+        </ScrollView>
+
+        {/* Footer Skeleton */}
+        <View style={[styles.footerBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+          <View style={styles.footerPriceCol}>
+            <Animated.View style={[styles.skeletonTextShort, { opacity: shimmerAnim }]} />
+            <Animated.View style={[styles.skeletonTextMedium, { opacity: shimmerAnim, marginTop: 4 }]} />
+          </View>
+          <Animated.View style={[styles.skeletonButton, { opacity: shimmerAnim }]} />
+        </View>
       </View>
     );
   }
@@ -427,11 +508,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     marginBottom: 4,
+    flexWrap: 'wrap',
   },
   nameText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
     color: '#383838',
+    flexShrink: 1,
   },
   proBadge: {
     backgroundColor: '#FF8228',
@@ -756,5 +839,68 @@ const styles = StyleSheet.create({
     height: 120,
     borderRadius: 8,
     backgroundColor: '#efedec',
+  },
+  skeletonAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    backgroundColor: '#EAE5E3',
+  },
+  skeletonName: {
+    width: '60%',
+    height: 20,
+    borderRadius: 4,
+    backgroundColor: '#EAE5E3',
+  },
+  skeletonTextShort: {
+    width: '40%',
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: '#EAE5E3',
+  },
+  skeletonTextMedium: {
+    width: '70%',
+    height: 14,
+    borderRadius: 4,
+    backgroundColor: '#EAE5E3',
+  },
+  skeletonStatBox: {
+    flex: 1,
+    height: 40,
+    borderRadius: 8,
+    backgroundColor: '#EAE5E3',
+    marginHorizontal: 8,
+  },
+  skeletonTitleText: {
+    width: '35%',
+    height: 18,
+    borderRadius: 4,
+    backgroundColor: '#EAE5E3',
+    marginBottom: 12,
+  },
+  skeletonParagraphLine: {
+    width: '100%',
+    height: 12,
+    borderRadius: 4,
+    backgroundColor: '#EAE5E3',
+    marginBottom: 8,
+  },
+  skeletonBadge: {
+    width: 90,
+    height: 28,
+    borderRadius: 6,
+    backgroundColor: '#EAE5E3',
+  },
+  skeletonPortfolioItem: {
+    width: 100,
+    height: 100,
+    borderRadius: 8,
+    backgroundColor: '#EAE5E3',
+  },
+  skeletonButton: {
+    width: 160,
+    height: 48,
+    borderRadius: 10,
+    backgroundColor: '#EAE5E3',
   },
 });
