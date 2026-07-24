@@ -4,45 +4,45 @@
 
 @layer base {
   :root {
-    --background: 242 242 247;
-    --foreground: 0 0 0;
+    --background: 251 249 245;
+    --foreground: 28 37 38;
     --card: 255 255 255;
-    --card-foreground: 8 28 30;
-    --popover: 230 230 235;
-    --popover-foreground: 0 0 0;
-    --primary: 0 123 254;
+    --card-foreground: 15 56 44;
+    --popover: 245 242 235;
+    --popover-foreground: 28 37 38;
+    --primary: 15 56 44;
     --primary-foreground: 255 255 255;
-    --secondary: 45 175 231;
-    --secondary-foreground: 255 255 255;
-    --muted: 175 176 180;
-    --muted-foreground: 142 142 147;
-    --accent: 255 40 84;
-    --accent-foreground: 255 255 255;
-    --destructive: 255 56 43;
+    --secondary: 212 175 55;
+    --secondary-foreground: 15 56 44;
+    --muted: 180 185 182;
+    --muted-foreground: 107 114 128;
+    --accent: 232 180 184;
+    --accent-foreground: 15 56 44;
+    --destructive: 220 38 38;
     --destructive-foreground: 255 255 255;
-    --border: 230 230 235;
-    --input: 210 210 215;
-    --ring: 230 230 235;
+    --border: 230 228 222;
+    --input: 220 218 210;
+    --ring: 212 175 55;
 
-    --android-background: 249 249 255;
-    --android-foreground: 0 0 0;
+    --android-background: 251 249 245;
+    --android-foreground: 28 37 38;
     --android-card: 255 255 255;
-    --android-card-foreground: 24 28 35;
-    --android-popover: 215 217 228;
-    --android-popover-foreground: 0 0 0;
-    --android-primary: 0 112 233;
+    --android-card-foreground: 15 56 44;
+    --android-popover: 245 242 235;
+    --android-popover-foreground: 28 37 38;
+    --android-primary: 15 56 44;
     --android-primary-foreground: 255 255 255;
-    --android-secondary: 176 201 255;
-    --android-secondary-foreground: 20 55 108;
-    --android-muted: 193 198 215;
-    --android-muted-foreground: 65 71 84;
-    --android-accent: 169 73 204;
-    --android-accent-foreground: 255 255 255;
-    --android-destructive: 186 26 26;
+    --android-secondary: 212 175 55;
+    --android-secondary-foreground: 15 56 44;
+    --android-muted: 180 185 182;
+    --android-muted-foreground: 107 114 128;
+    --android-accent: 232 180 184;
+    --android-accent-foreground: 15 56 44;
+    --android-destructive: 220 38 38;
     --android-destructive-foreground: 255 255 255;
-    --android-border: 215 217 228;
-    --android-input: 210 210 215;
-    --android-ring: 215 217 228;
+    --android-border: 230 228 222;
+    --android-input: 220 218 210;
+    --android-ring: 212 175 55;
   }
 
   @media (prefers-color-scheme: dark) {
