@@ -668,11 +668,13 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 6,
     marginBottom: 2,
+    flexWrap: 'wrap',
   },
   craftsmanName: {
     color: '#383838',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 15,
+    flexShrink: 1,
   },
   proBadge: {
     backgroundColor: '#E7F8FC',

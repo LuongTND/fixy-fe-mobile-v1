@@ -155,7 +155,7 @@ export default function WorkerWalletScreen() {
     mutationFn: requestPayout,
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['payoutRequests'] });
-      queryClient.invalidateQueries({ queryKey: ['walletSummary'] });
+      fetchWallet(true);
       setWithdrawModalOpen(false);
       setWithdrawAccountDropdownOpen(false);
       setWithdrawAmount('');
@@ -287,7 +287,7 @@ export default function WorkerWalletScreen() {
                 const pendingTotal = (payoutRequests || [])
                   .filter((r) => getPayoutStatus(r) === 0)
                   .reduce((s, r) => s + (r.amount || 0), 0);
-                const displayed = (wallet?.balance ?? 0) + pendingTotal;
+                const displayed = wallet?.balance ?? 0;
                 return (
                   <>
                     <Text style={styles.balanceAmount}>{formatCurrency(displayed)}</Text>
