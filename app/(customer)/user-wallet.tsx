@@ -24,7 +24,7 @@ import { topUpWallet, verifyVnpayCallback } from '@/services/api/payment';
 import { PaymentMethod } from '@/services/api/bookings';
 import { getApiErrorMessage } from '@/services/api/client';
 import { formatDateTime } from '@/utils/date';
-import { formatCurrency } from '@/utils/format';
+import { formatCurrency, formatNumber } from '@/utils/format';
 import { getWalletTransactionIcon, getWalletTransactionLabel } from '@/utils/wallet-transactions';
 
 const QUICK_AMOUNTS = [50000, 100000, 200000, 500000];
@@ -190,7 +190,7 @@ export default function UserWalletScreen() {
                     onChangeText={(val) => {
                       const clean = val.replace(/\D/g, '');
                       if (clean) {
-                        setTopupAmount(Number(clean).toLocaleString('vi-VN'));
+                        setTopupAmount(formatNumber(Number(clean)));
                       } else {
                         setTopupAmount('');
                       }
@@ -205,7 +205,7 @@ export default function UserWalletScreen() {
                     <Pressable
                       key={amt}
                       style={styles.quickBtn}
-                      onPress={() => setTopupAmount(amt.toLocaleString('vi-VN'))}>
+                      onPress={() => setTopupAmount(formatNumber(amt))}>
                       <Text style={styles.quickBtnText}>+{amt / 1000}k</Text>
                     </Pressable>
                   ))}

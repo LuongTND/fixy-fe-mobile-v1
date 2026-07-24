@@ -35,6 +35,8 @@ import { getMediaUrl, uploadMediaFiles, MediaCategory, MediaOwnerType } from '@/
 import { getApiErrorMessage } from '@/services/api/client';
 import { fetchCategories } from '@/services/api/categories';
 import { getBookingReview, replyToReview, Review } from '@/services/api/reviews';
+import { formatDateTime, formatDateOnly } from '@/utils/date';
+import { formatCurrency } from '@/utils/format';
 
 // Map status enum values to string keys and styles
 const STATUS_MAP: Record<
@@ -493,7 +495,7 @@ export default function WorkerJobDetailScreen() {
               {job.scheduledType === 0
                 ? 'Làm ngay bây giờ'
                 : job.scheduledAt
-                  ? new Date(job.scheduledAt).toLocaleString('vi-VN')
+                  ? formatDateTime(job.scheduledAt)
                   : 'Đang xếp lịch'}
             </Text>
           </View>
@@ -539,7 +541,7 @@ export default function WorkerJobDetailScreen() {
             <View style={styles.invoiceRow}>
               <Text style={styles.invoiceLabel}>Tổng giá trị công việc</Text>
               <Text style={styles.invoiceVal}>
-                {(job.finalAmount || job.finalPrice || 0).toLocaleString()}đ
+                {formatCurrency(job.finalAmount || job.finalPrice || 0)}
               </Text>
             </View>
             {job.completeImages && job.completeImages.length > 0 && (
@@ -603,7 +605,7 @@ export default function WorkerJobDetailScreen() {
                     </Text>
                     {bookingReview.createdAt ? (
                       <Text style={styles.reviewDateText}>
-                        {new Date(bookingReview.createdAt).toLocaleDateString('vi-VN')}
+                        {formatDateOnly(bookingReview.createdAt)}
                       </Text>
                     ) : null}
                   </View>

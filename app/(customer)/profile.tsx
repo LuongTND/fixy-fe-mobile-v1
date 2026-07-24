@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import { BottomTabBar } from '@/components/layout/bottom-tab-bar';
 import * as React from 'react';
 import {
@@ -29,28 +29,30 @@ export default function ProfileScreen() {
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
 
-  // Redirect to login if not authenticated, otherwise fetch profile
-  React.useEffect(() => {
-    if (!isAuthenticated) {
-      router.replace('/login' as any);
-      return;
-    }
-
-    async function fetchProfile() {
-      try {
-        const response = await getUserProfile();
-        if (response.isSuccess) {
-          setProfile(response.data);
-        }
-      } catch {
-        // Fallback to offline defaults
-      } finally {
-        setLoading(false);
+  // Redirect to login if not authenticated, otherwise fetch profile on focus
+  useFocusEffect(
+    React.useCallback(() => {
+      if (!isAuthenticated) {
+        router.replace('/login' as any);
+        return;
       }
-    }
 
-    fetchProfile();
-  }, [isAuthenticated]);
+      async function fetchProfile() {
+        try {
+          const response = await getUserProfile();
+          if (response.isSuccess) {
+            setProfile(response.data);
+          }
+        } catch {
+          // Fallback to offline defaults
+        } finally {
+          setLoading(false);
+        }
+      }
+
+      fetchProfile();
+    }, [isAuthenticated])
+  );
 
   function handleLogout() {
     setLogoutConfirmOpen(true);
@@ -107,7 +109,7 @@ export default function ProfileScreen() {
               />
               <Pressable
                 style={styles.editAvatarButton}
-                onPress={() => Alert.alert('Đổi ảnh đại diện', 'Tính năng đang được phát triển.')}>
+                onPress={() => router.push('/(customer)/profile-info' as any)}>
                 <MaterialIcons name="edit" size={14} color="#FFFFFF" />
               </Pressable>
             </View>
@@ -121,7 +123,7 @@ export default function ProfileScreen() {
             <View style={styles.cardContent}>
               <Pressable
                 style={styles.item}
-                onPress={() => Alert.alert('Thông tin cá nhân', 'Tính năng đang phát triển')}>
+                onPress={() => router.push('/(customer)/profile-info' as any)}>
                 <View style={styles.itemLeft}>
                   <MaterialIcons name="person" size={22} color="#ff8228" />
                   <Text style={styles.itemText}>Thông tin cá nhân</Text>

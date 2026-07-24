@@ -18,6 +18,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { searchWorkers, WorkerProfile } from '@/services/api/workers';
 import { getCategoryGuid } from '@/services/api/categories';
+import { formatCurrency } from '@/utils/format';
 
 import { useQuery } from '@tanstack/react-query';
 
@@ -231,7 +232,7 @@ export default function ServiceWorkersScreen() {
 
         <View style={styles.footerRow}>
           <Text style={styles.priceText}>
-            Từ <Text style={styles.priceAmount}>{item.basePrice.toLocaleString()}đ</Text>
+            Từ <Text style={styles.priceAmount}>{formatCurrency(item.basePrice)}</Text>
           </Text>
           <Pressable
             style={styles.selectButton}

@@ -1,5 +1,14 @@
+export function formatNumber(amount?: number | null): string {
+  const val = Math.max(0, amount ?? 0);
+  try {
+    return Math.round(val).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+  } catch (e) {
+    return String(val);
+  }
+}
+
 export function formatCurrency(amount?: number | null): string {
-  return `${Math.max(0, amount ?? 0).toLocaleString('vi-VN')}\u0111`;
+  return `${formatNumber(amount)}\u0111`;
 }
 
 export function formatToIsoDateTime(dateStr: string): string {

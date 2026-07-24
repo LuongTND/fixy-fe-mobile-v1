@@ -1,0 +1,45 @@
+{
+  "cli": {
+    "version": ">= 16.0.1",
+    "appVersionSource": "remote"
+  },
+  "build": {
+    "development": {
+      "developmentClient": true,
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "API_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/api",
+        "CHAT_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/chat",
+        "NOTIFICATION_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/notifications",
+        "APP_NAME": "Fixy"
+      }
+    },
+    "preview": {
+      "distribution": "internal",
+      "android": {
+        "buildType": "apk"
+      },
+      "env": {
+        "API_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/api",
+        "CHAT_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/chat",
+        "NOTIFICATION_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/notifications",
+        "APP_NAME": "Fixy"
+      }
+    },
+    "production": {
+      "autoIncrement": true,
+      "env": {
+        "API_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/api",
+        "CHAT_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/chat",
+        "NOTIFICATION_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/notifications",
+        "APP_NAME": "Fixy"
+      }
+    }
+  },
+  "submit": {
+    "production": {}
+  }
+}
