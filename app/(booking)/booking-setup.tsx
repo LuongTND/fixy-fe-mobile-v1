@@ -21,16 +21,45 @@ import * as ImagePicker from 'expo-image-picker';
 import { Address, getMyAddresses } from '@/services/api/addresses';
 import { createDraft } from '@/services/api/bookings';
 import { uploadMediaFiles } from '@/services/api/media';
-import { checkAvailability } from '@/services/api/workers';
+import { checkAvailability, searchWorkers, WorkerProfile } from '@/services/api/workers';
 import { useQuery, useMutation } from '@tanstack/react-query';
 import { getApiErrorMessage } from '@/services/api/client';
 import { fetchCategories } from '@/services/api/categories';
+
+const CATEGORY_IMAGES = {
+  water: require('../../assets/water.png'),
+  hygiene: require('../../assets/hygiene.png'),
+  housePaintRenovate: require('../../assets/house-paint-renovate.png'),
+  furniture: require('../../assets/furniture.png'),
+  bikeCar: require('../../assets/bike-car.png'),
+  washingMachine: require('../../assets/washing-machine.png'),
+  ac: require('../../assets/AC.png'),
+  electric: require('../../assets/electric.png'),
+  toiletPump: require('../../assets/toilet-pump.png'),
+};
+
+const CATEGORIES_UI_MAP: Record<string, { slug: string; image: any }> = {
+  Điện: { slug: 'dien', image: CATEGORY_IMAGES.electric },
+  'Sửa điện': { slug: 'dien', image: CATEGORY_IMAGES.electric },
+  Nước: { slug: 'nuoc', image: CATEGORY_IMAGES.water },
+  'Điều hòa': { slug: 'dieuhoa', image: CATEGORY_IMAGES.ac },
+  'Điện lạnh': { slug: 'dieuhoa', image: CATEGORY_IMAGES.ac },
+  'Máy giặt': { slug: 'maygiat', image: CATEGORY_IMAGES.washingMachine },
+  'Xe máy': { slug: 'xemay', image: CATEGORY_IMAGES.bikeCar },
+  'Ô tô': { slug: 'xemay', image: CATEGORY_IMAGES.bikeCar },
+  Mộc: { slug: 'moc', image: CATEGORY_IMAGES.furniture },
+  'Nội thất': { slug: 'moc', image: CATEGORY_IMAGES.furniture },
+  Sơn: { slug: 'son', image: CATEGORY_IMAGES.housePaintRenovate },
+  'Vệ sinh': { slug: 'vesinh', image: CATEGORY_IMAGES.hygiene },
+  'Thông tắc': { slug: 'thongtac', image: CATEGORY_IMAGES.toiletPump },
+  'Bồn cầu': { slug: 'thongtac', image: CATEGORY_IMAGES.toiletPump },
+};
 
 const TIME_SLOTS = ['08:00', '10:00', '12:00', '14:00', '16:00', '18:00', '20:00'];
 
 export default function BookingSetupScreen() {
   const insets = useSafeAreaInsets();
-  const { categoryId, workerProfileId, workerUserId, autoMatch } = useLocalSearchParams<{
+  const { categoryId: paramCategoryId, workerProfileId: paramWorkerProfileId, workerUserId: paramWorkerUserId, autoMatch: paramAutoMatch } = useLocalSearchParams<{
     categoryId: string;
     workerProfileId?: string;
     workerUserId?: string;
@@ -51,6 +80,16 @@ export default function BookingSetupScreen() {
   const [selectedAddress, setSelectedAddress] = React.useState<Address | null>(null);
   const [showAddressModal, setShowAddressModal] = React.useState(false);
 
+  // Selector states
+  const [selectedCategoryId, setSelectedCategoryId] = React.useState(paramCategoryId || '');
+  const [autoMatchState, setAutoMatchState] = React.useState(() => {
+    if (paramWorkerProfileId) return false;
+    if (paramAutoMatch === 'false') return false;
+    return true; // Default to true (autoMatch) for fast booking
+  });
+  const [selectedWorkerProfileId, setSelectedWorkerProfileId] = React.useState(paramWorkerProfileId || '');
+  const [selectedWorkerUserId, setSelectedWorkerUserId] = React.useState(paramWorkerUserId || '');
+
   // Form states
   const [description, setDescription] = React.useState('');
   const [scheduledType, setScheduledType] = React.useState<number>(0); // 0 = NOW, 1 = SCHEDULED
@@ -59,6 +98,32 @@ export default function BookingSetupScreen() {
   const [selectedImages, setSelectedImages] = React.useState<string[]>([]);
   const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
   const [checkingAvailability, setCheckingAvailability] = React.useState(false);
+
+  // Fetch workers for chosen category if self-selecting
+  const { data: categoryWorkers = [], isLoading: loadingWorkers } = useQuery({
+    queryKey: ['workersForSetup', selectedCategoryId],
+    queryFn: () => searchWorkers({ CategoryId: selectedCategoryId, PageSize: 50 }),
+    enabled: !!selectedCategoryId && !autoMatchState && !paramWorkerProfileId,
+  });
+
+  // Sync categoryId and categories
+  React.useEffect(() => {
+    if (paramCategoryId) {
+      setSelectedCategoryId(paramCategoryId);
+    } else if (categories.length > 0 && !selectedCategoryId) {
+      setSelectedCategoryId(categories[0].id);
+    }
+  }, [paramCategoryId, categories]);
+
+  const getCategoryImage = (categoryName: string, imageUrl?: string | null) => {
+    if (imageUrl) return { uri: imageUrl };
+    for (const [key, value] of Object.entries(CATEGORIES_UI_MAP)) {
+      if (categoryName.toLowerCase().includes(key.toLowerCase())) {
+        return value.image;
+      }
+    }
+    return CATEGORY_IMAGES.electric;
+  };
 
   // Generate next 7 days for scheduler
   const daysList = React.useMemo(() => {
@@ -107,9 +172,9 @@ export default function BookingSetupScreen() {
       }
 
       // Find category GUID
-      const category = categories.find((c) => c.id === categoryId || c.code === categoryId);
+      const category = categories.find((c) => c.id === selectedCategoryId || c.code === selectedCategoryId);
       const defaultCategory = categories.find((c) => c.code === 'dien');
-      const categoryGuid = category?.id || defaultCategory?.id || categoryId;
+      const categoryGuid = category?.id || defaultCategory?.id || selectedCategoryId;
 
       // Step B: Create draft
       const payload = {
@@ -122,8 +187,8 @@ export default function BookingSetupScreen() {
         lng: selectedAddress?.lng ?? 0,
         scheduledType: params.scheduledType,
         scheduledAt: params.scheduledAt,
-        workerProfileId: workerProfileId || undefined,
-        autoMatch: autoMatch === 'true',
+        workerProfileId: selectedWorkerProfileId || undefined,
+        autoMatch: autoMatchState,
       };
 
       return createDraft(payload);
@@ -131,7 +196,7 @@ export default function BookingSetupScreen() {
     onSuccess: (draft) => {
       if (draft.id) {
         router.push(
-          `/booking-checkout?draftId=${draft.id}&workerUserId=${workerUserId || ''}` as any
+          `/booking-checkout?draftId=${draft.id}&workerUserId=${selectedWorkerUserId || ''}` as any
         );
       } else {
         throw new Error('No draft ID returned');
@@ -180,6 +245,16 @@ export default function BookingSetupScreen() {
       return;
     }
 
+    if (!selectedCategoryId) {
+      Alert.alert('Chưa chọn dịch vụ', 'Vui lòng chọn loại dịch vụ cần sửa chữa.');
+      return;
+    }
+
+    if (!autoMatchState && !selectedWorkerProfileId) {
+      Alert.alert('Chưa chọn thợ', 'Vui lòng chọn một kỹ thuật viên hoặc chọn Ghép thợ tự động.');
+      return;
+    }
+
     if (!description.trim()) {
       Alert.alert('Nhập mô tả', 'Vui lòng nhập mô tả sự cố để thợ nắm rõ công việc.');
       return;
@@ -201,10 +276,10 @@ export default function BookingSetupScreen() {
       scheduledAt = new Date().toISOString();
     }
 
-    if (workerProfileId && scheduledAt) {
+    if (selectedWorkerProfileId && scheduledAt) {
       setCheckingAvailability(true);
       try {
-        const isAvailable = await checkAvailability(workerProfileId, scheduledAt);
+        const isAvailable = await checkAvailability(selectedWorkerProfileId, scheduledAt);
         if (!isAvailable) {
           Alert.alert(
             'Thợ không khả dụng',
@@ -283,6 +358,127 @@ export default function BookingSetupScreen() {
               </Pressable>
             )}
           </View>
+
+          {/* Section: Category Selector (if not pre-selected with a specific worker) */}
+          {!paramWorkerProfileId && (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <MaterialIcons name="build" size={20} color="#FF8228" />
+                <Text style={styles.sectionTitle}>Chọn dịch vụ cần sửa chữa</Text>
+              </View>
+              <View style={styles.categoryGrid}>
+                {categories.map((c) => {
+                  const isSelected = c.id === selectedCategoryId;
+                  const imgSource = getCategoryImage(c.name, c.imageUrl);
+                  return (
+                    <Pressable
+                      key={c.id}
+                      style={[styles.categoryGridCard, isSelected && styles.categoryGridCardActive]}
+                      onPress={() => {
+                        setSelectedCategoryId(c.id);
+                        setSelectedWorkerProfileId('');
+                        setSelectedWorkerUserId('');
+                      }}>
+                      <View style={styles.categoryGridIconFrame}>
+                        <Image
+                          source={imgSource}
+                          style={styles.categoryGridIcon}
+                          resizeMode="contain"
+                        />
+                      </View>
+                      <Text style={[styles.categoryGridText, isSelected && styles.categoryGridTextActive]} numberOfLines={2}>
+                        {c.name}
+                      </Text>
+                    </Pressable>
+                  );
+                })}
+              </View>
+            </View>
+          )}
+
+          {/* Section: Worker Selection & Matching Mode */}
+          {!paramWorkerProfileId ? (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <MaterialIcons name="people" size={20} color="#FF8228" />
+                <Text style={styles.sectionTitle}>Phương thức chọn thợ</Text>
+              </View>
+
+              <View style={styles.tabsRow}>
+                <Pressable
+                  style={[styles.tabBtn, autoMatchState && styles.tabBtnActive]}
+                  onPress={() => setAutoMatchState(true)}>
+                  <Text style={[styles.tabBtnText, autoMatchState && styles.tabBtnTextActive]}>
+                    Ghép thợ tự động
+                  </Text>
+                </Pressable>
+                <Pressable
+                  style={[styles.tabBtn, !autoMatchState && styles.tabBtnActive]}
+                  onPress={() => setAutoMatchState(false)}>
+                  <Text style={[styles.tabBtnText, !autoMatchState && styles.tabBtnTextActive]}>
+                    Tôi tự chọn thợ
+                  </Text>
+                </Pressable>
+              </View>
+
+              {/* Worker Horizontal Scroll list (if manual mode) */}
+              {!autoMatchState && (
+                <View style={styles.workerSelectContainer}>
+                  <Text style={styles.fieldLabel}>Chọn kỹ thuật viên:</Text>
+                  {loadingWorkers ? (
+                    <ActivityIndicator size="small" color="#FF8228" style={{ marginVertical: 12 }} />
+                  ) : categoryWorkers.length > 0 ? (
+                    <ScrollView
+                      horizontal
+                      showsHorizontalScrollIndicator={false}
+                      contentContainerStyle={styles.workerScroll}>
+                      {categoryWorkers.map((w) => {
+                        const isSelected = w.workerProfileId === selectedWorkerProfileId;
+                        return (
+                          <Pressable
+                            key={w.id}
+                            style={[styles.workerSelectCard, isSelected && styles.workerSelectCardActive]}
+                            onPress={() => {
+                              setSelectedWorkerProfileId(w.workerProfileId || w.id);
+                              setSelectedWorkerUserId(w.id);
+                            }}>
+                            <Image source={{ uri: w.avatarUrl }} style={styles.workerSelectAvatar} />
+                            <View style={styles.workerSelectInfo}>
+                              <Text style={styles.workerSelectName} numberOfLines={1}>
+                                {w.fullName}
+                              </Text>
+                              <View style={styles.workerSelectRatingRow}>
+                                <MaterialIcons name="star" size={14} color="#FFB020" />
+                                <Text style={styles.workerSelectRatingText}>{w.rating.toFixed(1)}</Text>
+                              </View>
+                              <Text style={styles.workerSelectPrice}>
+                                {w.basePrice.toLocaleString()}đ
+                              </Text>
+                            </View>
+                          </Pressable>
+                        );
+                      })}
+                    </ScrollView>
+                  ) : (
+                    <Text style={styles.noWorkersText}>Không có thợ nào hoạt động ở dịch vụ này.</Text>
+                  )}
+                </View>
+              )}
+            </View>
+          ) : (
+            <View style={styles.sectionCard}>
+              <View style={styles.sectionHeader}>
+                <MaterialIcons name="assignment-ind" size={20} color="#FF8228" />
+                <Text style={styles.sectionTitle}>Thông tin kỹ thuật viên</Text>
+              </View>
+              <View style={styles.directWorkerInfoRow}>
+                <MaterialIcons name="verified" size={20} color="#01677d" />
+                <Text style={styles.directWorkerText}>
+                  Bạn đang đặt lịch trực tiếp với kỹ thuật viên đã chọn.
+                </Text>
+              </View>
+            </View>
+          )}
 
           {/* Section: Schedule Setting */}
           <View style={styles.sectionCard}>
@@ -903,5 +1099,130 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(0,0,0,0.5)',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  categoryGrid: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    justifyContent: 'flex-start',
+    gap: 8,
+    marginTop: 4,
+  },
+  categoryGridCard: {
+    width: '31%',
+    aspectRatio: 1.0,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    backgroundColor: '#ffffff',
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 6,
+    marginBottom: 4,
+  },
+  categoryGridCardActive: {
+    borderColor: '#FF8228',
+    backgroundColor: '#FFF8F4',
+    shadowColor: '#FF8228',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  categoryGridIconFrame: {
+    width: 44,
+    height: 44,
+    marginBottom: 4,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  categoryGridIcon: {
+    width: '100%',
+    height: '100%',
+  },
+  categoryGridText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+    color: '#574237',
+    textAlign: 'center',
+    lineHeight: 14,
+  },
+  categoryGridTextActive: {
+    color: '#FF8228',
+    fontFamily: 'Montserrat_700Bold',
+  },
+  workerSelectContainer: {
+    marginTop: 12,
+  },
+  workerScroll: {
+    gap: 12,
+    paddingBottom: 4,
+  },
+  workerSelectCard: {
+    width: 120,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    borderRadius: 12,
+    backgroundColor: '#ffffff',
+    padding: 8,
+    alignItems: 'center',
+  },
+  workerSelectCardActive: {
+    borderColor: '#FF8228',
+    backgroundColor: '#FFF8F4',
+  },
+  workerSelectAvatar: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#efedec',
+    marginBottom: 6,
+  },
+  workerSelectInfo: {
+    alignItems: 'center',
+    width: '100%',
+  },
+  workerSelectName: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
+    color: '#383838',
+    textAlign: 'center',
+  },
+  workerSelectRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+    marginVertical: 2,
+  },
+  workerSelectRatingText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+    color: '#383838',
+  },
+  workerSelectPrice: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 11,
+    color: '#FF8228',
+  },
+  noWorkersText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 13,
+    color: '#818A91',
+    textAlign: 'center',
+    paddingVertical: 12,
+  },
+  directWorkerInfoRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#E7F8FC',
+    padding: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#bce4eb',
+  },
+  directWorkerText: {
+    flex: 1,
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
+    color: '#004c5c',
   },
 });
