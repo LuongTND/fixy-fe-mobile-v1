@@ -232,7 +232,7 @@ export default function RegisterScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={goBack}>
-            <MaterialIcons name="arrow-back" size={26} color="#574237" />
+            <MaterialIcons name="arrow-back" size={26} color="#0F382C" />
           </Pressable>
           <Text style={styles.title}>Đăng ký tài khoản</Text>
         </View>
@@ -339,7 +339,7 @@ function RoleCard({ icon, title, description, benefits, onPress }: RoleCardProps
   return (
     <Pressable style={styles.roleCard} onPress={onPress}>
       <View style={styles.roleIcon}>
-        <MaterialIcons name={icon} size={30} color="#FF8228" />
+        <MaterialIcons name={icon} size={30} color="#0F382C" />
       </View>
       <View style={styles.roleCopy}>
         <Text style={styles.roleTitle}>{title}</Text>
@@ -353,7 +353,7 @@ function RoleCard({ icon, title, description, benefits, onPress }: RoleCardProps
           ))}
         </View>
       </View>
-      <MaterialIcons name="chevron-right" size={24} color="#574237" />
+      <MaterialIcons name="chevron-right" size={24} color="#0F382C" />
     </Pressable>
   );
 }
@@ -481,7 +481,7 @@ function RegisterForm({
       </Text>
 
       <View style={styles.selectedRoleBadge}>
-        <MaterialIcons name={isWorker ? 'engineering' : 'person'} size={18} color="#FF8228" />
+        <MaterialIcons name={isWorker ? 'engineering' : 'person'} size={18} color="#0F382C" />
         <Text style={styles.selectedRoleText}>{isWorker ? 'Kỹ thuật viên' : 'Khách hàng'}</Text>
         {step === 2 && !isOtpVerified && (
           <Pressable onPress={onChangeRole}>
@@ -635,13 +635,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    color: '#1B1C1C',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 22,
   },
   subtitle: {
     marginTop: 16,
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 16,
     lineHeight: 22,
@@ -658,7 +658,7 @@ const styles = StyleSheet.create({
     gap: 14,
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#FFFFFF',
     padding: 16,
   },
@@ -668,19 +668,19 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderRadius: 18,
-    backgroundColor: '#FFF1E8',
+    backgroundColor: '#F4F1EA',
   },
   roleCopy: {
     flex: 1,
     gap: 4,
   },
   roleTitle: {
-    color: '#1B1C1C',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 17,
   },
   roleDescription: {
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 13,
     lineHeight: 19,
@@ -696,7 +696,7 @@ const styles = StyleSheet.create({
   },
   roleBenefitText: {
     flex: 1,
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 13,
     lineHeight: 18,
@@ -709,18 +709,18 @@ const styles = StyleSheet.create({
     marginTop: 18,
     borderRadius: 999,
     borderWidth: 1,
-    borderColor: '#FFD3B8',
-    backgroundColor: '#FFF7F2',
+    borderColor: '#C6DFC6',
+    backgroundColor: '#F2F7F2',
     paddingHorizontal: 14,
     paddingVertical: 8,
   },
   selectedRoleText: {
-    color: '#574237',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
   },
   changeRoleText: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
   },
@@ -754,27 +754,27 @@ const styles = StyleSheet.create({
     marginTop: 12,
   },
   sendOtpBtn: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     paddingHorizontal: 16,
     paddingVertical: 10,
-    borderRadius: 8,
+    borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
     minWidth: 120,
   },
   sendOtpBtnDisabled: {
-    backgroundColor: '#dec0b1',
+    backgroundColor: '#9CA3AF',
   },
   sendOtpBtnText: {
     color: '#ffffff',
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
   },
   otpVerificationBox: {
-    backgroundColor: '#FFF7F2',
+    backgroundColor: '#F4F1EA',
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FFD3B8',
+    borderColor: '#EFECE6',
     padding: 16,
     marginVertical: 4,
     gap: 12,
@@ -782,7 +782,7 @@ const styles = StyleSheet.create({
   otpSectionTitle: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
-    color: '#574237',
+    color: '#1C2526',
   },
   otpDigitsContainer: {
     flexDirection: 'row',
@@ -795,9 +795,9 @@ const styles = StyleSheet.create({
     height: 52,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     backgroundColor: '#FFFFFF',
-    color: '#1B1C1C',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 20,
     textAlign: 'center',
@@ -812,7 +812,7 @@ const styles = StyleSheet.create({
   verifyingText: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 13,
-    color: '#574237',
+    color: '#6B7280',
   },
   otpErrorText: {
     fontFamily: 'Montserrat_400Regular',
@@ -836,23 +836,23 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     borderRadius: 6,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#FFFFFF',
   },
   checkboxChecked: {
-    borderColor: '#ff8228',
-    backgroundColor: '#ff8228',
+    borderColor: '#0F382C',
+    backgroundColor: '#0F382C',
   },
   termsText: {
     flex: 1,
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 15,
     lineHeight: 22,
   },
   linkText: {
-    color: '#FF8228',
-    fontFamily: 'Montserrat_600SemiBold',
+    color: '#0F382C',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
   },
   errorText: {
@@ -880,7 +880,7 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#DDDDDD',
+    backgroundColor: '#EFECE6',
   },
   dividerText: {
     color: '#818A91',
@@ -896,13 +896,13 @@ const styles = StyleSheet.create({
     gap: 14,
     borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#FFFFFF',
   },
   googleText: {
-    color: '#574237',
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 18,
+    color: '#1C2526',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 16,
   },
   bottomLink: {
     marginTop: 32,
@@ -912,7 +912,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   footerText: {
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 15,
   },
@@ -939,7 +939,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#E5E7EB',
   },
   wizardIndicatorLineActive: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   wizardStepsRow: {
     flexDirection: 'row',
@@ -962,11 +962,11 @@ const styles = StyleSheet.create({
   },
   wizardStepCircleActive: {
     backgroundColor: '#FFFFFF',
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
   },
   wizardStepCircleCompleted: {
-    backgroundColor: '#FF8228',
-    borderColor: '#FF8228',
+    backgroundColor: '#0F382C',
+    borderColor: '#0F382C',
   },
   wizardStepNumber: {
     fontSize: 12,
@@ -974,7 +974,7 @@ const styles = StyleSheet.create({
     color: '#9CA3AF',
   },
   wizardStepNumberActive: {
-    color: '#FF8228',
+    color: '#0F382C',
   },
   wizardStepLabel: {
     fontSize: 11,
@@ -984,8 +984,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   wizardStepLabelActive: {
-    color: '#FF8228',
-    fontFamily: 'Montserrat_600SemiBold',
+    color: '#0F382C',
+    fontFamily: 'Montserrat_700Bold',
   },
   stepContainer: {
     width: '100%',

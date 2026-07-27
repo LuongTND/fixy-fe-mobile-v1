@@ -396,7 +396,7 @@ export default function ProfileInfoScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   centerContent: {
     flex: 1,
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     zIndex: 10,
   },
   headerButton: {
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#0F382C',
     textAlign: 'center',
   },
   scrollContent: {
@@ -616,6 +616,6 @@ const styles = StyleSheet.create({
   pickerDoneText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#FF8228',
+    color: '#0F382C',
   },
 });

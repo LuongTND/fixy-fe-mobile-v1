@@ -167,7 +167,7 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
 
   const gesture = Gesture.Exclusive(panGesture, tapGesture);
 
-  const bottomMargin = insets.bottom > 0 ? insets.bottom : 12;
+  const bottomMargin = insets.bottom > 0 ? 10 : 8;
 
   return (
     <View style={[styles.floatingBottomBar, { bottom: bottomMargin }]}>

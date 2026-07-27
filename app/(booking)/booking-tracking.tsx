@@ -150,7 +150,7 @@ export default function BookingTrackingScreen() {
           </View>
           {/* Worker marker */}
           <View style={[styles.mapMarker, { top: '40%', left: '30%' }]}>
-            <MaterialIcons name="two-wheeler" size={18} color="#FF8228" />
+            <MaterialIcons name="two-wheeler" size={18} color="#0F382C" />
           </View>
           {/* Destination marker */}
           <View style={[styles.mapMarkerPrimary, { top: '50%', left: '65%' }]}>
@@ -211,7 +211,7 @@ export default function BookingTrackingScreen() {
             <View>
               <Text style={styles.workerName}>{params.workerName ?? 'Nguyễn Văn Thắng'}</Text>
               <View style={styles.workerRatingRow}>
-                <MaterialIcons name="star" size={14} color="#FF8228" />
+                <MaterialIcons name="star" size={14} color="#D4AF37" />
                 <Text style={styles.workerRatingText}>
                   {params.workerRating ?? '4.9'} (đánh giá)
                 </Text>
@@ -320,7 +320,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
     lineHeight: 21,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   etaRow: {
     flexDirection: 'row',
@@ -332,7 +332,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E7F8FC',
+    backgroundColor: '#F2F7F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -346,18 +346,18 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
     lineHeight: 22,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   mapContainer: {
     height: 192,
-    borderRadius: 12,
+    borderRadius: 14,
     overflow: 'hidden',
-    backgroundColor: '#EFEDEC',
+    backgroundColor: '#F4F1EA',
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     position: 'relative',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
@@ -380,10 +380,10 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     backgroundColor: '#ffffff',
     borderWidth: 2,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 4,
@@ -393,10 +393,10 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#9a4600',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.12,
     shadowRadius: 8,
     elevation: 4,
@@ -405,7 +405,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 15,
     lineHeight: 20,
-    color: '#1b1c1c',
+    color: '#1C2526',
     marginBottom: 16,
   },
   timelineItem: {
@@ -420,14 +420,14 @@ const styles = StyleSheet.create({
     top: 24,
     bottom: -4,
     width: 2,
-    backgroundColor: '#DDDDDD',
+    backgroundColor: '#EFECE6',
     zIndex: 0,
   },
   timelineLineDone: {
-    backgroundColor: '#40bb4f',
+    backgroundColor: '#059669',
   },
   timelineLineActive: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   timelineDotContainer: {
     zIndex: 1,
@@ -436,7 +436,7 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#40bb4f',
+    backgroundColor: '#059669',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -444,11 +444,11 @@ const styles = StyleSheet.create({
     width: 24,
     height: 24,
     borderRadius: 12,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 4,
-    borderColor: '#ffdbc9',
+    borderColor: '#C6DFC6',
   },
   timelinePulse: {
     width: 8,

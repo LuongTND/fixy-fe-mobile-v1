@@ -314,7 +314,7 @@ export default function BookingSetupScreen() {
 
       {loading ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <ScrollView
@@ -324,7 +324,7 @@ export default function BookingSetupScreen() {
           {/* Section: Location Address Selection */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="my-location" size={20} color="#FF8228" />
+              <MaterialIcons name="my-location" size={20} color="#0F382C" />
               <Text style={styles.sectionTitle}>Địa chỉ nhận thợ</Text>
             </View>
 
@@ -353,7 +353,7 @@ export default function BookingSetupScreen() {
               <Pressable
                 style={styles.addAddressPrompt}
                 onPress={() => router.push('/saved-addresses' as any)}>
-                <MaterialIcons name="add-location" size={24} color="#FF8228" />
+                <MaterialIcons name="add-location" size={24} color="#0F382C" />
                 <Text style={styles.addAddressPromptText}>Thêm địa chỉ giao nhận thợ</Text>
               </Pressable>
             )}
@@ -363,7 +363,7 @@ export default function BookingSetupScreen() {
           {!paramWorkerProfileId && (
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
-                <MaterialIcons name="build" size={20} color="#FF8228" />
+                <MaterialIcons name="build" size={20} color="#0F382C" />
                 <Text style={styles.sectionTitle}>Chọn dịch vụ cần sửa chữa</Text>
               </View>
               <View style={styles.categoryGrid}>
@@ -400,7 +400,7 @@ export default function BookingSetupScreen() {
           {!paramWorkerProfileId ? (
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
-                <MaterialIcons name="people" size={20} color="#FF8228" />
+                <MaterialIcons name="people" size={20} color="#0F382C" />
                 <Text style={styles.sectionTitle}>Phương thức chọn thợ</Text>
               </View>
 
@@ -426,7 +426,7 @@ export default function BookingSetupScreen() {
                 <View style={styles.workerSelectContainer}>
                   <Text style={styles.fieldLabel}>Chọn kỹ thuật viên:</Text>
                   {loadingWorkers ? (
-                    <ActivityIndicator size="small" color="#FF8228" style={{ marginVertical: 12 }} />
+                    <ActivityIndicator size="small" color="#0F382C" style={{ marginVertical: 12 }} />
                   ) : categoryWorkers.length > 0 ? (
                     <ScrollView
                       horizontal
@@ -448,7 +448,7 @@ export default function BookingSetupScreen() {
                                 {w.fullName}
                               </Text>
                               <View style={styles.workerSelectRatingRow}>
-                                <MaterialIcons name="star" size={14} color="#FFB020" />
+                                <MaterialIcons name="star" size={14} color="#D4AF37" />
                                 <Text style={styles.workerSelectRatingText}>{w.rating.toFixed(1)}</Text>
                               </View>
                               <Text style={styles.workerSelectPrice}>
@@ -468,11 +468,11 @@ export default function BookingSetupScreen() {
           ) : (
             <View style={styles.sectionCard}>
               <View style={styles.sectionHeader}>
-                <MaterialIcons name="assignment-ind" size={20} color="#FF8228" />
+                <MaterialIcons name="assignment-ind" size={20} color="#0F382C" />
                 <Text style={styles.sectionTitle}>Thông tin kỹ thuật viên</Text>
               </View>
               <View style={styles.directWorkerInfoRow}>
-                <MaterialIcons name="verified" size={20} color="#01677d" />
+                <MaterialIcons name="verified" size={20} color="#059669" />
                 <Text style={styles.directWorkerText}>
                   Bạn đang đặt lịch trực tiếp với kỹ thuật viên đã chọn.
                 </Text>
@@ -483,7 +483,7 @@ export default function BookingSetupScreen() {
           {/* Section: Schedule Setting */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="access-time" size={20} color="#FF8228" />
+              <MaterialIcons name="access-time" size={20} color="#0F382C" />
               <Text style={styles.sectionTitle}>Thời gian sửa chữa</Text>
             </View>
 
@@ -558,7 +558,7 @@ export default function BookingSetupScreen() {
           {/* Section: Description of issues */}
           <View style={styles.sectionCard}>
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="description" size={20} color="#FF8228" />
+              <MaterialIcons name="description" size={20} color="#0F382C" />
               <Text style={styles.sectionTitle}>Mô tả sự cố & yêu cầu</Text>
             </View>
 
@@ -576,7 +576,7 @@ export default function BookingSetupScreen() {
             <View style={styles.photoSectionDivider} />
 
             <View style={styles.sectionHeader}>
-              <MaterialIcons name="photo-camera" size={20} color="#FF8228" />
+              <MaterialIcons name="photo-camera" size={20} color="#0F382C" />
               <Text style={styles.sectionTitle}>Hình ảnh hiện trạng sự cố (Tối đa 5)</Text>
             </View>
 
@@ -594,7 +594,7 @@ export default function BookingSetupScreen() {
 
               {selectedImages.length < 5 && (
                 <Pressable style={styles.addImageBtn} onPress={handlePickImage}>
-                  <MaterialIcons name="add-a-photo" size={24} color="#FF8228" />
+                  <MaterialIcons name="add-a-photo" size={24} color="#0F382C" />
                   <Text style={styles.addImageText}>Thêm ảnh</Text>
                 </Pressable>
               )}
@@ -696,7 +696,7 @@ export default function BookingSetupScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#FBF9F5',
   },
   header: {
     height: 96,
@@ -705,7 +705,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     zIndex: 10,
   },
   backButton: {
@@ -716,7 +716,7 @@ const styles = StyleSheet.create({
   },
   brand: {
     marginLeft: 6,
-    color: '#383838',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
   },
@@ -732,9 +732,13 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     padding: 16,
     marginBottom: 16,
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
+    elevation: 2,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -745,16 +749,16 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#383838',
+    color: '#0F382C',
   },
   addressDisplayRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#F4F1EA',
     borderWidth: 1,
-    borderColor: '#efedec',
-    borderRadius: 10,
+    borderColor: '#EFECE6',
+    borderRadius: 12,
     padding: 12,
   },
   addressTextCol: {
@@ -764,7 +768,7 @@ const styles = StyleSheet.create({
   addressLabel: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
-    color: '#383838',
+    color: '#1C2526',
     marginBottom: 2,
   },
   addressDetailText: {
@@ -778,7 +782,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 10,
   },
   changeAddressText: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
   },
@@ -787,21 +791,21 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F4F1EA',
     borderWidth: 1,
-    borderColor: '#FF8228',
-    borderRadius: 10,
+    borderColor: '#0F382C',
+    borderRadius: 12,
     height: 52,
   },
   addAddressPromptText: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
   },
   tabsRow: {
     flexDirection: 'row',
-    backgroundColor: '#efedec',
-    borderRadius: 8,
+    backgroundColor: '#F4F1EA',
+    borderRadius: 10,
     padding: 4,
     height: 48,
     marginBottom: 12,
@@ -810,13 +814,13 @@ const styles = StyleSheet.create({
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    borderRadius: 6,
+    borderRadius: 8,
   },
   tabBtnActive: {
     backgroundColor: '#ffffff',
-    shadowColor: '#000000',
-    shadowOpacity: 0.04,
-    shadowRadius: 2,
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
   },
@@ -826,7 +830,7 @@ const styles = StyleSheet.create({
     color: '#818A91',
   },
   tabBtnTextActive: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
   },
   dateTimeSelectorContainer: {
@@ -835,7 +839,7 @@ const styles = StyleSheet.create({
   fieldLabel: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#383838',
+    color: '#1C2526',
     marginBottom: 10,
   },
   datePickerScroll: {
@@ -845,16 +849,16 @@ const styles = StyleSheet.create({
   dateChip: {
     width: 68,
     height: 60,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   dateChipActive: {
-    backgroundColor: '#FFE6D5',
-    borderColor: '#FF8228',
+    backgroundColor: '#F4F1EA',
+    borderColor: '#0F382C',
   },
   dateChipWeekday: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -864,11 +868,11 @@ const styles = StyleSheet.create({
   dateChipDay: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
-    color: '#383838',
+    color: '#1C2526',
     marginTop: 2,
   },
   dateChipTextActive: {
-    color: '#FF8228',
+    color: '#0F382C',
   },
   timeGrid: {
     flexDirection: 'row',
@@ -878,33 +882,33 @@ const styles = StyleSheet.create({
   timeChip: {
     width: '22%',
     height: 38,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
   },
   timeChipActive: {
-    backgroundColor: '#FFE6D5',
-    borderColor: '#FF8228',
+    backgroundColor: '#F4F1EA',
+    borderColor: '#0F382C',
   },
   timeChipText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#574237',
+    color: '#6B7280',
   },
   timeChipTextActive: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
   },
   issueInput: {
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#F4F1EA',
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 10,
+    borderColor: '#EFECE6',
+    borderRadius: 12,
     padding: 12,
-    color: '#383838',
+    color: '#1C2526',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
     height: 100,
@@ -914,19 +918,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#FBF9F5',
     paddingTop: 12,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderColor: '#efedec',
+    borderColor: '#EFECE6',
   },
   continueButton: {
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#FF8228',
+    height: 52,
+    borderRadius: 22,
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8228',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -939,7 +943,7 @@ const styles = StyleSheet.create({
   },
   continueButtonText: {
     color: '#ffffff',
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
   },
   modalOverlay: {
@@ -949,8 +953,8 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#ffffff',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
     padding: 16,
     maxHeight: '60%',
   },
@@ -960,12 +964,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     paddingBottom: 16,
     borderBottomWidth: 1,
-    borderColor: '#f5f3f2',
+    borderColor: '#EFECE6',
   },
   modalTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#383838',
+    color: '#0F382C',
   },
   modalScroll: {
     paddingVertical: 12,
@@ -975,14 +979,14 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     gap: 10,
   },
   modalAddressItemSelected: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFE6D5',
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
   },
   modalAddressTextCol: {
     flex: 1,
@@ -990,7 +994,7 @@ const styles = StyleSheet.create({
   modalAddressLabel: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
-    color: '#383838',
+    color: '#1C2526',
   },
   modalAddressBody: {
     fontFamily: 'Montserrat_400Regular',
@@ -1005,19 +1009,19 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
-    borderRadius: 10,
+    borderColor: '#0F382C',
+    borderRadius: 12,
     height: 48,
     marginTop: 12,
   },
   modalAddBtnText: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
   },
   photoSectionDivider: {
     height: 1,
-    backgroundColor: '#efedec',
+    backgroundColor: '#EFECE6',
     marginVertical: 16,
   },
   imagesContainer: {
@@ -1037,7 +1041,7 @@ const styles = StyleSheet.create({
     width: '100%',
     height: '100%',
     borderRadius: 8,
-    backgroundColor: '#efedec',
+    backgroundColor: '#EFECE6',
   },
   removeImageBtn: {
     position: 'absolute',
@@ -1059,11 +1063,11 @@ const styles = StyleSheet.create({
   addImageBtn: {
     width: 72,
     height: 72,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#FF8228',
-    backgroundColor: '#FFE6D5',
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
@@ -1071,7 +1075,7 @@ const styles = StyleSheet.create({
   addImageText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 9,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   imageLimitText: {
     fontFamily: 'Montserrat_400Regular',
@@ -1112,7 +1116,7 @@ const styles = StyleSheet.create({
     aspectRatio: 1.0,
     borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#ffffff',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1120,9 +1124,9 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   categoryGridCardActive: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF8F4',
-    shadowColor: '#FF8228',
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.1,
     shadowRadius: 4,
     elevation: 2,
@@ -1141,12 +1145,12 @@ const styles = StyleSheet.create({
   categoryGridText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 11,
-    color: '#574237',
+    color: '#6B7280',
     textAlign: 'center',
     lineHeight: 14,
   },
   categoryGridTextActive: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
   },
   workerSelectContainer: {
@@ -1159,21 +1163,21 @@ const styles = StyleSheet.create({
   workerSelectCard: {
     width: 120,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     borderRadius: 12,
     backgroundColor: '#ffffff',
     padding: 8,
     alignItems: 'center',
   },
   workerSelectCardActive: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF8F4',
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
   },
   workerSelectAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#efedec',
+    backgroundColor: '#EFECE6',
     marginBottom: 6,
   },
   workerSelectInfo: {
@@ -1183,7 +1187,7 @@ const styles = StyleSheet.create({
   workerSelectName: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 12,
-    color: '#383838',
+    color: '#1C2526',
     textAlign: 'center',
   },
   workerSelectRatingRow: {
@@ -1195,12 +1199,12 @@ const styles = StyleSheet.create({
   workerSelectRatingText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 11,
-    color: '#383838',
+    color: '#1C2526',
   },
   workerSelectPrice: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 11,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   noWorkersText: {
     fontFamily: 'Montserrat_400Regular',
@@ -1213,16 +1217,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     gap: 8,
-    backgroundColor: '#E7F8FC',
+    backgroundColor: '#F2F7F2',
     padding: 12,
-    borderRadius: 8,
+    borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#bce4eb',
+    borderColor: '#C6DFC6',
   },
   directWorkerText: {
     flex: 1,
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 12,
-    color: '#004c5c',
+    color: '#0F382C',
   },
 });

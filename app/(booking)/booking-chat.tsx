@@ -609,13 +609,13 @@ export default function BookingChatScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
     gap: 12,
   },
   loadingText: {
@@ -631,9 +631,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#DDDDDD',
+    borderBottomColor: '#EFECE6',
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.05,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
@@ -653,7 +653,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#1b1c1c',
+    color: '#0F382C',
   },
   statusRowHeader: {
     flexDirection: 'row',
@@ -668,7 +668,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#818A91',
   },
   statusDotActive: {
-    backgroundColor: '#39B54A',
+    backgroundColor: '#059669',
   },
   statusTextHeader: {
     fontFamily: 'Montserrat_500Medium',
@@ -711,7 +711,7 @@ const styles = StyleSheet.create({
   partnerAvatarPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -729,7 +729,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    shadowColor: '#000',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.02,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
@@ -739,10 +739,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomLeftRadius: 2,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
   },
   bubbleRight: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     borderBottomRightRadius: 2,
   },
   bubbleImageFrame: {
@@ -756,7 +756,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   messageTextLeft: {
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   messageTextRight: {
     color: '#ffffff',
@@ -765,7 +765,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 150,
     borderRadius: 8,
-    backgroundColor: '#EAE5E3',
+    backgroundColor: '#EFECE6',
   },
   timestampText: {
     fontFamily: 'Montserrat_400Regular',
@@ -804,7 +804,7 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#DDDDDD',
+    borderTopColor: '#EFECE6',
     gap: 12,
   },
   attachBtn: {
@@ -815,9 +815,9 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#F4F1EA',
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingTop: 10,
@@ -825,13 +825,13 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   sendBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
