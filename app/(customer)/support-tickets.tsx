@@ -130,7 +130,7 @@ export default function SupportTicketsScreen() {
       {/* Content */}
       {isLoading ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <FlatList
@@ -178,7 +178,7 @@ export default function SupportTicketsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   centerContent: {
     flex: 1,
@@ -193,7 +193,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     zIndex: 10,
   },
   headerButton: {
@@ -205,14 +205,14 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#0F382C',
     textAlign: 'center',
   },
   tabBar: {
     flexDirection: 'row',
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
   },
   tab: {
     flex: 1,
@@ -222,7 +222,7 @@ const styles = StyleSheet.create({
     borderColor: 'transparent',
   },
   activeTab: {
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
   },
   tabText: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -230,7 +230,8 @@ const styles = StyleSheet.create({
     color: '#818A91',
   },
   activeTabText: {
-    color: '#FF8228',
+    color: '#0F382C',
+    fontFamily: 'Montserrat_700Bold',
   },
   listContent: {
     paddingTop: 16,
@@ -243,9 +244,9 @@ const styles = StyleSheet.create({
     padding: 16,
     marginBottom: 16,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    shadowColor: '#000000',
-    shadowOpacity: 0.02,
+    borderColor: '#EFECE6',
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
@@ -277,13 +278,13 @@ const styles = StyleSheet.create({
   cardSubject: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#1b1c1c',
+    color: '#1C2526',
     marginBottom: 6,
   },
   cardDesc: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 13,
-    color: '#574237',
+    color: '#4B5563',
     lineHeight: 18,
     marginBottom: 12,
   },
@@ -292,7 +293,7 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     borderTopWidth: 1,
-    borderColor: '#efedec',
+    borderColor: '#EFECE6',
     paddingTop: 10,
   },
   categoryInfo: {
@@ -313,7 +314,7 @@ const styles = StyleSheet.create({
   bookingLinkText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 12,
-    color: '#01677d',
+    color: '#0F382C',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -325,7 +326,7 @@ const styles = StyleSheet.create({
     width: 80,
     height: 80,
     borderRadius: 40,
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
     marginBottom: 16,
@@ -333,7 +334,7 @@ const styles = StyleSheet.create({
   emptyTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#383838',
+    color: '#1C2526',
     marginBottom: 6,
   },
   emptySubtitle: {
@@ -345,8 +346,8 @@ const styles = StyleSheet.create({
     marginBottom: 24,
   },
   emptyCta: {
-    backgroundColor: '#FF8228',
-    borderRadius: 12,
+    backgroundColor: '#0F382C',
+    borderRadius: 20,
     paddingVertical: 12,
     paddingHorizontal: 24,
     minHeight: 44,
@@ -364,10 +365,10 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 28,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8228',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.3,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },

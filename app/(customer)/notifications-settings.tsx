@@ -241,14 +241,14 @@ export default function NotificationSettingsScreen() {
                   <Text style={styles.settingLabel}>Tin nhắn SMS</Text>
                 </View>
                 <Text style={styles.settingDescription}>
-                  Gửi mã xác thực OTP và tin bảo mật khẩn cấp.
+                  Gửi mã xác thực OTP & tin nhắn khẩn cấp qua SMS.
                 </Text>
               </View>
               <Switch
                 value={settings?.viaSms ?? false}
                 onValueChange={(val) => handleToggle('viaSms', val)}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={(settings?.viaSms ?? false) ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#dcd9d9', true: '#C6DFC6' }}
+                thumbColor={(settings?.viaSms ?? false) ? '#0F382C' : '#8b7265'}
                 disabled={updateMutation.isPending}
               />
             </View>
@@ -267,7 +267,7 @@ export default function NotificationSettingsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   centerContent: {
     flex: 1,
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     zIndex: 10,
   },
   headerButton: {
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#0F382C',
     textAlign: 'center',
   },
   scrollContent: {
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#1b1c1c',
+    color: '#0F382C',
     marginBottom: 6,
   },
   sectionSubtitle: {
@@ -320,12 +320,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    shadowColor: '#000000',
-    shadowOpacity: 0.02,
+    borderColor: '#EFECE6',
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
+    marginBottom: 20,
   },
   settingRow: {
     flexDirection: 'row',
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 15,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   settingDescription: {
     fontFamily: 'Montserrat_400Regular',
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#efedec',
+    backgroundColor: '#EFECE6',
     marginHorizontal: 12,
   },
   footerInfo: {

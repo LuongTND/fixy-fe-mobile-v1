@@ -157,26 +157,26 @@ export default function HomeScreen() {
   return (
     <View style={styles.screen}>
       {/* Header Bar */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
         <Pressable
           style={styles.locationContainer}
           onPress={updateCurrentCity}
           disabled={currentLocationLoading}>
-          <View style={styles.locationBadge}>
-            <MaterialIcons name="person-pin-circle" size={20} color="#0F382C" />
-          </View>
+          <MaterialIcons name="location-on" size={16} color="#0F382C" />
           <Text style={styles.locationText} numberOfLines={1}>
             {locationLabel}
           </Text>
-          <MaterialIcons name="keyboard-arrow-down" size={20} color="#0F382C" />
+          <MaterialIcons name="keyboard-arrow-down" size={16} color="#0F382C" />
         </Pressable>
 
         <View style={styles.headerRightActions}>
-          <Pressable style={styles.headerIconBtn} onPress={() => router.push('/(booking)/booking-chat' as any)}>
-            <MaterialIcons name="chat-bubble-outline" size={22} color="#0F382C" />
+          <Pressable
+            style={styles.headerIconBtn}
+            onPress={() => router.push('/(booking)/booking-chat' as any)}>
+            <MaterialIcons name="chat-bubble-outline" size={18} color="#0F382C" />
           </Pressable>
           <Pressable style={styles.headerIconBtn} onPress={handleNotificationPress}>
-            <MaterialIcons name="notifications-none" size={24} color="#0F382C" />
+            <MaterialIcons name="notifications-none" size={20} color="#0F382C" />
             {unreadCount > 0 && (
               <View style={styles.notificationBadge}>
                 <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
@@ -333,11 +333,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF9F5',
   },
   header: {
-    height: 90,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingBottom: 10,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
     borderColor: '#EFECE6',
@@ -345,34 +345,27 @@ const styles = StyleSheet.create({
   locationContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 20,
+    borderRadius: 18,
     backgroundColor: '#F4F1EA',
-  },
-  locationBadge: {
-    width: 28,
-    height: 28,
-    borderRadius: 14,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
   locationText: {
     color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 15,
+    fontSize: 13,
+    maxWidth: 140,
   },
   headerRightActions: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
+    gap: 6,
   },
   headerIconBtn: {
-    height: 40,
-    width: 40,
-    borderRadius: 20,
+    height: 36,
+    width: 36,
+    borderRadius: 18,
     backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
@@ -647,35 +640,35 @@ const styles = StyleSheet.create({
   },
   floatingSupportBtn: {
     position: 'absolute',
-    bottom: 84,
+    bottom: 74,
     right: 16,
+    height: 36,
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#0F382C',
-    borderRadius: 24,
-    paddingLeft: 12,
-    paddingRight: 8,
-    paddingVertical: 8,
+    borderRadius: 18,
+    paddingLeft: 10,
+    paddingRight: 6,
     shadowColor: '#000000',
-    shadowOpacity: 0.15,
-    shadowRadius: 10,
+    shadowOpacity: 0.12,
+    shadowRadius: 8,
     elevation: 6,
   },
   supportContent: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
+    gap: 4,
     paddingRight: 6,
   },
   supportText: {
     color: '#ffffff',
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 13,
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
   },
   closeSupportBtn: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     backgroundColor: 'rgba(255, 255, 255, 0.2)',
     alignItems: 'center',
     justifyContent: 'center',

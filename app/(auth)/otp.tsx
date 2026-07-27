@@ -133,7 +133,7 @@ export default function OtpScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
+            <MaterialIcons name="arrow-back" size={26} color="#0F382C" />
           </Pressable>
           <Text style={styles.brand}>Fixy</Text>
         </View>
@@ -226,7 +226,7 @@ const styles = StyleSheet.create({
   },
   brand: {
     marginLeft: 6,
-    color: '#8F3F00',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 20,
   },
@@ -235,7 +235,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   headline: {
-    color: '#1B1C1C',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 26,
     lineHeight: 34,
@@ -250,8 +250,8 @@ const styles = StyleSheet.create({
     textAlign: 'center',
   },
   highlight: {
-    color: '#FF8228',
-    fontFamily: 'Montserrat_600SemiBold',
+    color: '#0F382C',
+    fontFamily: 'Montserrat_700Bold',
   },
   otpRow: {
     flexDirection: 'row',
@@ -262,11 +262,11 @@ const styles = StyleSheet.create({
   otpInput: {
     height: 58,
     width: 46,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     backgroundColor: '#FFFFFF',
-    color: '#1B1C1C',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 20,
     textAlign: 'center',

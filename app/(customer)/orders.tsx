@@ -266,7 +266,7 @@ export default function CustomerOrdersScreen() {
 
       {isLoadingAll ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <FlatList
@@ -304,7 +304,7 @@ export default function CustomerOrdersScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#FBF9F5',
   },
   header: {
     height: 96,
@@ -312,10 +312,10 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
   },
   headerTitle: {
-    color: '#383838',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
   },
@@ -323,7 +323,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#EAE5E3',
+    borderColor: '#EFECE6',
   },
   tabButton: {
     flex: 1,
@@ -333,7 +333,7 @@ const styles = StyleSheet.create({
     borderBottomColor: 'transparent',
   },
   tabButtonActive: {
-    borderBottomColor: '#FF8228',
+    borderBottomColor: '#0F382C',
   },
   tabLabel: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -341,7 +341,7 @@ const styles = StyleSheet.create({
     color: '#818A91',
   },
   tabLabelActive: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
   },
   listContent: {
@@ -357,11 +357,11 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     padding: 16,
     marginBottom: 14,
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
@@ -387,7 +387,7 @@ const styles = StyleSheet.create({
   categoryLabel: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
-    color: '#383838',
+    color: '#1C2526',
   },
   statusBadge: {
     flexDirection: 'row',
@@ -407,15 +407,15 @@ const styles = StyleSheet.create({
   descriptionText: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 13,
-    color: '#574237',
+    color: '#4B5563',
     lineHeight: 18,
     marginBottom: 12,
   },
   workerRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    backgroundColor: '#FFE6D550',
-    borderRadius: 8,
+    backgroundColor: '#F4F1EA',
+    borderRadius: 10,
     padding: 8,
     marginBottom: 12,
   },
@@ -429,7 +429,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#EFECE6',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 10,
@@ -440,7 +440,7 @@ const styles = StyleSheet.create({
   workerName: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 12,
-    color: '#383838',
+    color: '#1C2526',
   },
   workerSubText: {
     fontFamily: 'Montserrat_400Regular',
@@ -453,7 +453,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     borderTopWidth: 1,
-    borderColor: '#f5f3f2',
+    borderColor: '#EFECE6',
     paddingTop: 12,
   },
   dateContainer: {
@@ -469,7 +469,7 @@ const styles = StyleSheet.create({
   priceText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   emptyContainer: {
     alignItems: 'center',
@@ -486,8 +486,8 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   bookNowButton: {
-    backgroundColor: '#FF8228',
-    borderRadius: 10,
+    backgroundColor: '#0F382C',
+    borderRadius: 20,
     paddingVertical: 10,
     paddingHorizontal: 24,
   },

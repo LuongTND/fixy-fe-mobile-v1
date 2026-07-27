@@ -141,7 +141,7 @@ export default function UserWalletScreen() {
 
         {isLoading ? (
           <View style={[{ flex: 1 }, styles.centerContent]}>
-            <ActivityIndicator size="large" color="#FF8228" />
+            <ActivityIndicator size="large" color="#0F382C" />
           </View>
         ) : (
           <ScrollView
@@ -151,13 +151,13 @@ export default function UserWalletScreen() {
               <RefreshControl
                 refreshing={isRefreshing}
                 onRefresh={handleRefresh}
-                tintColor="#FF8228"
+                tintColor="#0F382C"
               />
             }>
             {/* Balance Card */}
             <View style={styles.balanceCardContainer}>
               <LinearGradient
-                colors={['#FF8228', '#F45100']}
+                colors={['#0F382C', '#1A4D3E', '#0A261E']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.balanceCard}>
@@ -295,32 +295,25 @@ export default function UserWalletScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   centerContent: {
     alignItems: 'center',
     justifyContent: 'center',
   },
   header: {
-    height: 64,
+    height: 60,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FBF9F8',
     borderBottomWidth: 1,
-    borderBottomColor: '#DDDDDD',
-  },
-  headerBtn: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    alignItems: 'center',
-    justifyContent: 'center',
+    borderColor: '#EFECE6',
+    backgroundColor: '#ffffff',
   },
   headerTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
     lineHeight: 24,
-    color: '#1b1c1c',
+    color: '#0F382C',
   },
   scrollContent: {
     padding: 16,
@@ -328,9 +321,9 @@ const styles = StyleSheet.create({
     gap: 24,
   },
   balanceCardContainer: {
-    borderRadius: 12,
+    borderRadius: 16,
     overflow: 'hidden',
-    shadowColor: '#000',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.15,
     shadowRadius: 12,
     shadowOffset: { width: 0, height: 6 },
@@ -367,7 +360,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
     lineHeight: 22,
-    color: '#1b1c1c',
+    color: '#0F382C',
     marginBottom: 12,
   },
   topupSection: {
@@ -375,9 +368,9 @@ const styles = StyleSheet.create({
   },
   topupCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     padding: 16,
     gap: 16,
   },
@@ -385,23 +378,23 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 8,
+    borderColor: '#EFECE6',
+    borderRadius: 12,
     paddingHorizontal: 12,
     height: 52,
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#F4F1EA',
   },
   amountInput: {
     flex: 1,
     height: '100%',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   currencyLabel: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#0F382C',
     marginLeft: 8,
   },
   quickSelectors: {
@@ -411,10 +404,10 @@ const styles = StyleSheet.create({
   },
   quickBtn: {
     flex: 1,
-    backgroundColor: '#FFF3EA',
+    backgroundColor: '#F4F1EA',
     borderWidth: 1,
-    borderColor: '#ffcdab',
-    borderRadius: 8,
+    borderColor: '#EFECE6',
+    borderRadius: 10,
     height: 40,
     alignItems: 'center',
     justifyContent: 'center',
@@ -422,17 +415,17 @@ const styles = StyleSheet.create({
   quickBtnText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   topupSubmitBtn: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FF8228',
-    borderRadius: 8,
+    backgroundColor: '#0F382C',
+    borderRadius: 20,
     height: 48,
-    shadowColor: '#FF8228',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.15,
     shadowRadius: 6,
     elevation: 3,
@@ -443,7 +436,7 @@ const styles = StyleSheet.create({
     elevation: 0,
   },
   topupSubmitBtnText: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
     color: '#ffffff',
   },
@@ -458,11 +451,11 @@ const styles = StyleSheet.create({
     justifyContent: 'space-between',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 14,
     padding: 12,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    shadowColor: '#000',
+    borderColor: '#EFECE6',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.03,
     shadowRadius: 8,
     elevation: 1,
@@ -488,7 +481,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
     lineHeight: 21,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   transactionDate: {
     fontFamily: 'Montserrat_400Regular',
@@ -503,7 +496,7 @@ const styles = StyleSheet.create({
     color: '#BA1A1A',
   },
   transactionAmountCredit: {
-    color: '#006E20',
+    color: '#0F382C',
   },
   emptyState: {
     alignItems: 'center',

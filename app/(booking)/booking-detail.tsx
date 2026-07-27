@@ -403,7 +403,7 @@ export default function BookingDetailScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FF8228" />
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
@@ -1438,7 +1438,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     paddingHorizontal: 12,
   },
   smallButtonDisabled: {
@@ -1465,7 +1465,7 @@ const styles = StyleSheet.create({
   chooseVoucherText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   paymentMethodRow: {
     flexDirection: 'row',
@@ -1478,14 +1478,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     borderRadius: 12,
     backgroundColor: '#ffffff',
     padding: 12,
   },
   paymentMethodButtonActive: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF3EA',
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
   },
   paymentMethodTextCol: {
     flex: 1,
@@ -1501,7 +1501,7 @@ const styles = StyleSheet.create({
   paymentMethodTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#383838',
+    color: '#1C2526',
   },
   paymentMethodSubtitle: {
     fontFamily: 'Montserrat_400Regular',
@@ -1535,20 +1535,20 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderColor: '#DDDDDD',
-    shadowColor: '#000000',
+    borderColor: '#EFECE6',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
   },
   primaryActionBtn: {
-    backgroundColor: '#FF8228',
-    borderRadius: 12,
-    height: 56,
+    backgroundColor: '#0F382C',
+    borderRadius: 20,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8228',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -1556,7 +1556,7 @@ const styles = StyleSheet.create({
   },
   primaryActionText: {
     color: '#ffffff',
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
   },
   disabledBtn: {

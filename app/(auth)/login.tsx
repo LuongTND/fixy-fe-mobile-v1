@@ -106,7 +106,7 @@ export default function LoginScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.replace('/')}>
-            <MaterialIcons name="arrow-back" size={26} color="#574237" />
+            <MaterialIcons name="arrow-back" size={26} color="#0F382C" />
           </Pressable>
           <Text style={styles.title}>Đăng nhập</Text>
         </View>
@@ -189,7 +189,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    color: '#1B1C1C',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 22,
   },
@@ -198,7 +198,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   headline: {
-    color: '#383838',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 32,
     lineHeight: 40,
@@ -206,7 +206,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 14,
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 16,
     lineHeight: 24,
@@ -221,7 +221,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   forgotPasswordText: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
   },
@@ -241,13 +241,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   footerText: {
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 15,
   },
   linkText: {
-    color: '#FF8228',
-    fontFamily: 'Montserrat_600SemiBold',
+    color: '#0F382C',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
   },
   dividerRow: {
@@ -259,7 +259,7 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#DDDDDD',
+    backgroundColor: '#EFECE6',
   },
   dividerText: {
     color: '#818A91',
@@ -275,12 +275,12 @@ const styles = StyleSheet.create({
     gap: 14,
     borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#FFFFFF',
   },
   googleText: {
-    color: '#574237',
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 18,
+    color: '#1C2526',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 16,
   },
 });
