@@ -60,8 +60,8 @@ export default function WorkerHomeScreen() {
 
   if (isLoadingProfile) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fbf9f8' }}>
-        <ActivityIndicator size="large" color="#FF8228" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF9F5' }}>
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
@@ -108,12 +108,12 @@ export default function WorkerHomeScreen() {
           <View>
             {profile === null && (
               <View style={styles.bannerCard}>
-                <View style={[styles.bannerIconCircle, { backgroundColor: '#FFF7F2' }]}>
-                  <MaterialIcons name="person-add" size={36} color="#FF8228" />
+                <View style={[styles.bannerIconCircle, { backgroundColor: '#F2F7F2' }]}>
+                  <MaterialIcons name="person-add" size={36} color="#0F382C" />
                 </View>
                 <Text style={styles.bannerTitle}>Hoàn thành thiết lập hồ sơ</Text>
                 <Text style={styles.bannerDesc}>
-                  Chào mừng bạn đến với Fixy! Để bắt đầu nhận các yêu cầu sửa chữa và nâng cao thu nhập, vui lòng cập nhật thông tin cá nhân, định danh CCCD và dịch vụ cung cấp.
+                  Chào mừng bạn đến với Fixy! Để bắt đầu nhận các yêu cầu dịch vụ spa và nâng cao thu nhập, vui lòng cập nhật thông tin cá nhân, định danh CCCD và dịch vụ cung cấp.
                 </Text>
                 <Pressable
                   style={styles.bannerBtn}
@@ -125,8 +125,8 @@ export default function WorkerHomeScreen() {
 
             {profile?.status === 0 && (
               <View style={styles.bannerCard}>
-                <View style={[styles.bannerIconCircle, { backgroundColor: '#FFF7F2' }]}>
-                  <MaterialIcons name="hourglass-empty" size={36} color="#FF8228" />
+                <View style={[styles.bannerIconCircle, { backgroundColor: '#F2F7F2' }]}>
+                  <MaterialIcons name="hourglass-empty" size={36} color="#0F382C" />
                 </View>
                 <Text style={styles.bannerTitle}>Hồ sơ đang chờ duyệt</Text>
                 <Text style={styles.bannerDesc}>
@@ -170,7 +170,7 @@ export default function WorkerHomeScreen() {
                 </View>
                 <Text style={styles.bannerTitle}>Tài khoản tạm khóa</Text>
                 <Text style={styles.bannerDesc}>
-                  Tài khoản đối tác thợ của bạn hiện đang tạm thời bị khóa. Vui lòng liên hệ với bộ phận CSKH hoặc đường dây nóng hotline để được trợ giúp giải đáp thắc mắc.
+                  Tài khoản đối tác kỹ thuật viên của bạn hiện đang tạm thời bị khóa. Vui lòng liên hệ với bộ phận CSKH hoặc đường dây nóng hotline để được trợ giúp giải đáp thắc mắc.
                 </Text>
               </View>
             )}
@@ -180,7 +180,7 @@ export default function WorkerHomeScreen() {
             {/* Earnings Summary */}
             <View style={styles.earningsCardWrapper}>
               <LinearGradient
-                colors={['#FF8228', '#F45100']}
+                colors={['#0F382C', '#164839']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.earningsCard}>
@@ -203,8 +203,8 @@ export default function WorkerHomeScreen() {
               <Switch
                 value={isReady}
                 onValueChange={setIsReady}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={isReady ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#dcd9d9', true: '#C6DFC6' }}
+                thumbColor={isReady ? '#0F382C' : '#818A91'}
               />
             </View>
 
@@ -234,7 +234,7 @@ export default function WorkerHomeScreen() {
                               <MaterialIcons
                                 name={getWorkerCategoryIcon(job.categoryId) as any}
                                 size={24}
-                                color="#FF8228"
+                                color="#0F382C"
                               />
                             </View>
                           )}
@@ -452,7 +452,7 @@ const styles = StyleSheet.create({
   jobPrice: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   jobMetaRow: {
     flexDirection: 'row',
@@ -483,7 +483,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   detailsButtonText: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -551,7 +551,7 @@ const styles = StyleSheet.create({
   },
   bannerBtn: {
     height: 48,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',

@@ -1,18 +1,16 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import * as React from 'react';
 import {
-  Alert,
   Dimensions,
   Image,
-  ImageSourcePropType,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -28,28 +26,24 @@ const SPA_BANNER_CARDS = [
     id: 'health',
     title: 'Sức khoẻ tại nhà',
     subtitle: 'Lấy ráy tai, massage & trị liệu',
-    bgGradient: ['#D98A2B', '#B8721D'],
-    icon: 'spa',
     category: 'suc-khoe',
-    badge: 'Phổ biến nhất',
+    image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1000&q=80',
   },
   {
     id: 'beauty',
     title: 'Làm đẹp tại nhà',
-    subtitle: 'Nails, wax, tẩy tế bào chết, skincare',
-    bgGradient: ['#3D5E3E', '#2A432B'],
-    icon: 'face',
+    subtitle: 'Nails,wax, tẩy tế bào chết',
     category: 'lam-dep',
-    badge: 'Ưu đãi 20%',
+    image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1000&q=80',
   },
   {
     id: 'store',
     title: 'Địa điểm spa',
-    subtitle: 'Ưu đãi giờ thấp điểm tại cửa hàng spa đối tác',
-    tag: '📍 Tại cửa hàng - Trải nghiệm dịch vụ trực tiếp',
-    bgGradient: ['#2C3E35', '#192620'],
-    icon: 'storefront',
+    subtitle: 'Ưu đãi giờ thấp điểm',
+    tag: '📍 Tại cửa hàng',
+    subtag: 'Trải nghiệm dịch vụ\ntrực tiếp tại cửa hàng',
     category: 'dia-diem-spa',
+    image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1000&q=80',
   },
 ];
 
@@ -94,10 +88,8 @@ const FEATURED_TECHNICIANS = [
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [searchQuery, setSearchQuery] = React.useState('');
   const [currentCity, setCurrentCity] = React.useState('');
   const [currentLocationLoading, setCurrentLocationLoading] = React.useState(false);
-  const [supportVisible, setSupportVisible] = React.useState(true);
 
   const { data: apiCategories = [] } = useQuery({
     queryKey: ['categories'],
@@ -187,69 +179,53 @@ export default function HomeScreen() {
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Search Bar */}
-        <View style={styles.searchBar}>
-          <MaterialIcons name="search" size={22} color="#818A91" style={styles.searchIcon} />
-          <TextInput
-            style={styles.searchInput}
-            placeholder="Tìm dịch vụ spa, kỹ thuật viên..."
-            placeholderTextColor="#9A9A9A"
-            value={searchQuery}
-            onChangeText={setSearchQuery}
-          />
-        </View>
-
-        {/* GlowCare Fixy Guarantee Strip */}
-        <View style={styles.glowCareStrip}>
-          <View style={styles.glowCareHeader}>
-            <MaterialIcons name="verified-user" size={18} color="#0F382C" />
-            <Text style={styles.glowCareTitle}>Cam kết Fixy Care</Text>
-          </View>
-          <View style={styles.glowCareBadges}>
-            <View style={styles.glowBadgeItem}>
-              <MaterialIcons name="check-circle" size={14} color="#0F382C" />
-              <Text style={styles.glowBadgeText}>Không tiền tip</Text>
-            </View>
-            <View style={styles.glowBadgeItem}>
-              <MaterialIcons name="check-circle" size={14} color="#0F382C" />
-              <Text style={styles.glowBadgeText}>Không phí di chuyển</Text>
-            </View>
-            <View style={styles.glowBadgeItem}>
-              <MaterialIcons name="check-circle" size={14} color="#0F382C" />
-              <Text style={styles.glowBadgeText}>100% Lành mạnh</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Main Service Banner Cards (Luxury Cards matching Spa Theme) */}
+        {/* Main Service Banner Cards */}
         <View style={styles.bannerCardsContainer}>
           {SPA_BANNER_CARDS.map((card) => (
             <Pressable
               key={card.id}
-              style={[
-                styles.spaBannerCard,
-                card.id === 'health' && { backgroundColor: '#D98A2B' },
-                card.id === 'beauty' && { backgroundColor: '#3D5E3E' },
-                card.id === 'store' && { backgroundColor: '#2C3E35' },
-              ]}
+              style={styles.spaBannerCard}
               onPress={() => handleCategoryPress(card.category, card.title)}>
-              <View style={styles.bannerCardContent}>
-                {card.badge && (
-                  <View style={styles.bannerBadgePill}>
-                    <Text style={styles.bannerBadgeText}>{card.badge}</Text>
+              {/* Full Background Image */}
+              <Image source={{ uri: card.image }} style={styles.bannerCardBgImage} />
+
+              {/* Warm Earth Brown Spa Gradient Overlay */}
+              <LinearGradient
+                colors={[
+                  'rgba(148, 88, 36, 0.97)',
+                  'rgba(148, 88, 36, 0.90)',
+                  'rgba(148, 88, 36, 0.65)',
+                  'rgba(148, 88, 36, 0.15)',
+                  'rgba(148, 88, 36, 0.0)',
+                ]}
+                locations={[0, 0.35, 0.6, 0.85, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+
+              {/* Card Content Layer */}
+              <View style={styles.bannerCardInner}>
+                <View style={styles.bannerCardTextContent}>
+                  <Text style={styles.bannerCardTitle}>{card.title}</Text>
+                  <Text style={styles.bannerCardSubtitle}>{card.subtitle}</Text>
+                </View>
+
+                <View style={styles.bannerCardBottomRow}>
+                  <View style={styles.arrowCircleBtnGlass}>
+                    <MaterialIcons name="arrow-forward" size={22} color="#ffffff" />
                   </View>
-                )}
-                <Text style={styles.bannerCardTitle}>{card.title}</Text>
-                <Text style={styles.bannerCardSubtitle}>{card.subtitle}</Text>
-                {card.tag && (
-                  <View style={styles.bannerTagPill}>
-                    <Text style={styles.bannerTagText}>{card.tag}</Text>
-                  </View>
-                )}
-              </View>
-              <View style={styles.bannerCardAction}>
-                <View style={styles.arrowCircleBtn}>
-                  <MaterialIcons name="arrow-forward" size={20} color="#ffffff" />
+
+                  {card.tag && (
+                    <View style={styles.bannerStoreTagContainer}>
+                      <View style={styles.bannerStoreTagPill}>
+                        <Text style={styles.bannerStoreTagTitle}>{card.tag}</Text>
+                      </View>
+                      {card.subtag && (
+                        <Text style={styles.bannerStoreTagSubtext}>{card.subtag}</Text>
+                      )}
+                    </View>
+                  )}
                 </View>
               </View>
             </Pressable>
@@ -305,21 +281,6 @@ export default function HomeScreen() {
           ))}
         </View>
       </ScrollView>
-
-      {/* Floating Support Button */}
-      {supportVisible && (
-        <View style={styles.floatingSupportBtn}>
-          <Pressable
-            style={styles.supportContent}
-            onPress={() => router.push('/(customer)/create-support-ticket' as any)}>
-            <MaterialIcons name="headset-mic" size={20} color="#ffffff" />
-            <Text style={styles.supportText}>Hỗ trợ</Text>
-          </Pressable>
-          <Pressable style={styles.closeSupportBtn} onPress={() => setSupportVisible(false)}>
-            <MaterialIcons name="close" size={14} color="#ffffff" />
-          </Pressable>
-        </View>
-      )}
 
       {/* Bottom Navigation Tab Bar */}
       <BottomTabBar activeTab="home" />
@@ -391,145 +352,101 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 120,
+    paddingBottom: 100,
   },
-  searchBar: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#E2DEC3',
-    borderRadius: 14,
-    height: 48,
-    paddingHorizontal: 14,
-    marginBottom: 14,
-    shadowColor: '#0F382C',
-    shadowOpacity: 0.04,
-    shadowRadius: 8,
-    elevation: 2,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 14,
-    color: '#1C2526',
-  },
-  glowCareStrip: {
-    backgroundColor: '#F2F7F2',
-    borderWidth: 1,
-    borderColor: '#C6DFC6',
-    borderRadius: 14,
-    padding: 12,
-    marginBottom: 16,
-  },
-  glowCareHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 6,
-    marginBottom: 6,
-  },
-  glowCareTitle: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 13,
-    color: '#0F382C',
-  },
-  glowCareBadges: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  glowBadgeItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  glowBadgeText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 11,
-    color: '#0F382C',
-  },
+
   bannerCardsContainer: {
-    gap: 14,
-    marginBottom: 20,
+    gap: 18,
+    marginBottom: 26,
   },
   spaBannerCard: {
-    borderRadius: 20,
-    padding: 18,
-    minHeight: 140,
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 12,
-    elevation: 4,
+    height: 220,
+    borderRadius: 26,
+    overflow: 'hidden',
+    position: 'relative',
+    shadowColor: '#73411B',
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-  bannerCardContent: {
+  bannerCardBgImage: {
+    ...StyleSheet.absoluteFillObject,
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  bannerCardInner: {
     flex: 1,
-    paddingRight: 12,
+    padding: 22,
+    justifyContent: 'space-between',
+    zIndex: 2,
   },
-  bannerBadgePill: {
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 10,
-    alignSelf: 'flex-start',
-    marginBottom: 8,
-  },
-  bannerBadgeText: {
-    color: '#ffffff',
-    fontSize: 10,
-    fontFamily: 'Montserrat_700Bold',
+  bannerCardTextContent: {
+    maxWidth: '65%',
   },
   bannerCardTitle: {
     color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 20,
-    marginBottom: 4,
+    fontSize: 24,
+    lineHeight: 30,
+    marginBottom: 6,
   },
   bannerCardSubtitle: {
-    color: 'rgba(255, 255, 255, 0.9)',
+    color: 'rgba(255, 255, 255, 0.92)',
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
-    lineHeight: 18,
+    fontSize: 14,
+    lineHeight: 20,
   },
-  bannerTagPill: {
-    backgroundColor: 'rgba(0, 0, 0, 0.2)',
+  bannerCardBottomRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 16,
+  },
+  arrowCircleBtnGlass: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  bannerStoreTagContainer: {
+    marginLeft: 4,
+    marginBottom: 2,
+  },
+  bannerStoreTagPill: {
+    backgroundColor: 'rgba(0, 0, 0, 0.32)',
     borderRadius: 12,
-    paddingHorizontal: 8,
+    paddingHorizontal: 10,
     paddingVertical: 4,
-    marginTop: 8,
     alignSelf: 'flex-start',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
   },
-  bannerTagText: {
+  bannerStoreTagTitle: {
     color: '#ffffff',
     fontSize: 11,
     fontFamily: 'Montserrat_600SemiBold',
   },
-  bannerCardAction: {
-    justifyContent: 'center',
-    alignItems: 'center',
-  },
-  arrowCircleBtn: {
-    width: 44,
-    height: 44,
-    borderRadius: 22,
-    backgroundColor: 'rgba(255, 255, 255, 0.25)',
-    alignItems: 'center',
-    justifyContent: 'center',
+  bannerStoreTagSubtext: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 10,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 3,
+    lineHeight: 13,
   },
   sectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 12,
+    marginBottom: 14,
   },
   sectionTitle: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 17,
+    fontSize: 18,
     color: '#0F382C',
   },
   sectionLink: {
@@ -637,40 +554,5 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
-  },
-  floatingSupportBtn: {
-    position: 'absolute',
-    bottom: 74,
-    right: 16,
-    height: 36,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#0F382C',
-    borderRadius: 18,
-    paddingLeft: 10,
-    paddingRight: 6,
-    shadowColor: '#000000',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 6,
-  },
-  supportContent: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    paddingRight: 6,
-  },
-  supportText: {
-    color: '#ffffff',
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 12,
-  },
-  closeSupportBtn: {
-    width: 18,
-    height: 18,
-    borderRadius: 9,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
   },
 });

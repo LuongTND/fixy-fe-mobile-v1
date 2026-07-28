@@ -612,7 +612,7 @@ export default function WorkerSetupScreen() {
   if (isLoadingProfile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF8228" />
+        <ActivityIndicator size="large" color="#0F382C" />
         <Text style={styles.loadingText}>Đang tải cấu hình thiết lập...</Text>
       </View>
     );
@@ -715,7 +715,7 @@ export default function WorkerSetupScreen() {
             <Text style={styles.subLabel}>Chọn các lĩnh vực sửa chữa và đặt giá sàn:</Text>
 
             {isLoadingCategories ? (
-              <ActivityIndicator size="small" color="#FF8228" />
+              <ActivityIndicator size="small" color="#0F382C" />
             ) : (
               categories.map((cat) => {
                 const isSelected = !!selectedServices[cat.id];
@@ -727,7 +727,7 @@ export default function WorkerSetupScreen() {
                       <MaterialIcons
                         name={isSelected ? 'check-box' : 'check-box-outline-blank'}
                         size={22}
-                        color={isSelected ? '#FF8228' : '#818A91'}
+                        color={isSelected ? '#0F382C' : '#818A91'}
                       />
                       <Text style={styles.catName}>{cat.name}</Text>
                     </Pressable>
@@ -811,7 +811,7 @@ export default function WorkerSetupScreen() {
                 <Pressable
                   style={cccdUris.length === 0 ? styles.cccdSlotUploadBtnFull : styles.cccdSlotUploadBtn}
                   onPress={handleSelectCccdSource}>
-                  <MaterialIcons name="add-a-photo" size={cccdUris.length === 0 ? 32 : 24} color="#FF8228" />
+                  <MaterialIcons name="add-a-photo" size={cccdUris.length === 0 ? 32 : 24} color="#0F382C" />
                   <Text style={cccdUris.length === 0 ? styles.cccdSlotUploadTextFull : styles.cccdSlotUploadText}>
                     {cccdUris.length === 0 ? 'Tải ảnh CCCD (Mặt trước & Mặt sau)' : 'Tải ảnh mặt thứ hai'}
                   </Text>
@@ -895,7 +895,7 @@ export default function WorkerSetupScreen() {
                 </View>
               ) : (
                 <Pressable style={styles.certPhotoBtn} onPress={handlePickCertImage}>
-                  <MaterialIcons name="add-a-photo" size={18} color="#FF8228" />
+                  <MaterialIcons name="add-a-photo" size={18} color="#0F382C" />
                   <Text style={styles.certPhotoBtnText}>Tải ảnh chứng chỉ đính kèm</Text>
                 </Pressable>
               )}
@@ -913,7 +913,7 @@ export default function WorkerSetupScreen() {
                         <Image source={{ uri: c.uri }} style={styles.certThumbnail} />
                       </Pressable>
                     ) : (
-                      <MaterialIcons name="workspace-premium" size={20} color="#FF8228" />
+                      <MaterialIcons name="workspace-premium" size={20} color="#0F382C" />
                     )}
                     <View style={styles.certInfo}>
                       <Text style={styles.certTitleText}>{c.title}</Text>
@@ -994,14 +994,14 @@ export default function WorkerSetupScreen() {
             <Text style={styles.fieldLabel}>Bán kính di chuyển tối đa: {maxDistanceKm} km</Text>
             <Slider
               style={{ width: '100%', height: 40 }}
-              minimumValue={5}
-              maximumValue={100}
-              step={5}
+              minimumValue={10}
+              maximumValue={50}
+              step={1}
               value={maxDistanceKm}
               onValueChange={setMaxDistanceKm}
-              minimumTrackTintColor="#FF8228"
+              minimumTrackTintColor="#0F382C"
               maximumTrackTintColor="#DDDDDD"
-              thumbTintColor="#FF8228"
+              thumbTintColor="#0F382C"
             />
 
             <Text style={styles.sectionTitle}>Hình ảnh hoạt động thực tế (Portfolio)</Text>
@@ -1011,7 +1011,7 @@ export default function WorkerSetupScreen() {
 
             <View style={styles.cccdUploadBox}>
               <Pressable style={styles.uploadBtn} onPress={handlePickPortfolio}>
-                <MaterialIcons name="add-photo-alternate" size={32} color="#FF8228" />
+                <MaterialIcons name="add-photo-alternate" size={32} color="#0F382C" />
                 <Text style={styles.uploadText}>Chọn ảnh thực tế</Text>
               </Pressable>
 
@@ -1059,12 +1059,12 @@ export default function WorkerSetupScreen() {
           <View style={styles.statusBoxContainer}>
             {profile?.status === 0 && (
               <View style={styles.statusBox}>
-                <View style={[styles.statusIconCircle, { backgroundColor: '#FFF7F2' }]}>
-                  <MaterialIcons name="hourglass-empty" size={48} color="#FF8228" />
+                <View style={[styles.statusIconCircle, { backgroundColor: '#F2F7F2' }]}>
+                  <MaterialIcons name="hourglass-empty" size={48} color="#0F382C" />
                 </View>
                 <Text style={styles.statusTitle}>Hồ sơ đang chờ duyệt</Text>
                 <Text style={styles.statusDesc}>
-                  Đội ngũ quản trị viên Fixy đang kiểm tra và đối chiếu tài liệu CCCD/Chứng chỉ của
+                  Đội ngũ quản trị viên Fixy Spa đang kiểm tra và đối chiếu tài liệu CCCD/Chứng chỉ của
                   bạn. Quá trình này sẽ hoàn tất trong vòng 24 - 48 giờ.
                 </Text>
                 <Pressable
@@ -1238,7 +1238,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   wizardDotActive: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   wizardDotText: {
     fontFamily: 'Montserrat_700Bold',
@@ -1255,7 +1255,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   wizardLineActive: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   scrollContent: {
     padding: 16,
@@ -1319,8 +1319,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   catCardSelected: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF7F2',
+    borderColor: '#0F382C',
+    backgroundColor: '#F2F7F2',
   },
   catCardHeader: {
     flexDirection: 'row',
@@ -1334,7 +1334,7 @@ const styles = StyleSheet.create({
   },
   priceContainer: {
     borderTopWidth: 1,
-    borderColor: '#FFD3B8',
+    borderColor: '#C6DFC6',
     paddingTop: 10,
     gap: 6,
   },
@@ -1347,17 +1347,17 @@ const styles = StyleSheet.create({
     height: 44,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     backgroundColor: '#ffffff',
     paddingHorizontal: 12,
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   nextBtn: {
     height: 54,
     borderRadius: 14,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
@@ -1412,11 +1412,11 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF2EA',
+    backgroundColor: '#F2F7F2',
     gap: 6,
   },
   cccdSlotUploadBtnFull: {
@@ -1424,22 +1424,22 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF2EA',
+    backgroundColor: '#F2F7F2',
     gap: 6,
   },
   cccdSlotUploadText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 11,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   cccdSlotUploadTextFull: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   cccdSlotPreviewWrapper: {
     flex: 1,
@@ -1486,7 +1486,7 @@ const styles = StyleSheet.create({
   uploadText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   scanBtn: {
     height: 44,
@@ -1525,20 +1525,20 @@ const styles = StyleSheet.create({
   certPhotoBtnText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 12,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   addCertBtn: {
     height: 40,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
   addCertBtnText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   certList: {
     gap: 8,
@@ -1595,20 +1595,20 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
   backBtnText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   nextBtnHalf: {
     flex: 1.5,
     height: 54,
     borderRadius: 14,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1694,7 +1694,7 @@ const styles = StyleSheet.create({
   },
   refreshBtn: {
     height: 48,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',

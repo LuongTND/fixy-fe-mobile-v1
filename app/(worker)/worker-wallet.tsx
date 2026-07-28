@@ -237,8 +237,8 @@ export default function WorkerWalletScreen() {
 
   if (isLoadingProfile) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fbf9f8' }}>
-        <ActivityIndicator size="large" color="#FF8228" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF9F5' }}>
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
@@ -264,12 +264,12 @@ export default function WorkerWalletScreen() {
         keyboardDismissMode="on-drag"
         nestedScrollEnabled
         refreshControl={
-          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#FF8228" />
+          <RefreshControl refreshing={isRefreshing} onRefresh={handleRefresh} tintColor="#0F382C" />
         }>
         {/* Balance Card */}
         <View style={styles.balanceCardContainer}>
           <LinearGradient
-            colors={['#FF8228', '#F45100']}
+            colors={['#0F382C', '#164839']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 1 }}
             style={styles.balanceCard}>
@@ -346,7 +346,7 @@ export default function WorkerWalletScreen() {
             payoutAccounts.map((acc) => (
               <View key={acc.id} style={styles.bankAccountRow}>
                 <View style={styles.bankInfo}>
-                  <MaterialIcons name="account-balance" size={24} color="#FF8228" />
+                  <MaterialIcons name="account-balance" size={24} color="#0F382C" />
                   <View style={styles.bankDetails}>
                     <Text style={styles.bankNameText}>
                       {acc.bankName} ({acc.bankCode})
@@ -501,7 +501,7 @@ export default function WorkerWalletScreen() {
                           />
                         ) : (
                           <View style={styles.bankPickerLogoFallback}>
-                            <MaterialIcons name="account-balance" size={18} color="#FF8228" />
+                            <MaterialIcons name="account-balance" size={18} color="#0F382C" />
                           </View>
                         )}
                         <View style={styles.bankPickerInfo}>
@@ -509,7 +509,7 @@ export default function WorkerWalletScreen() {
                           <Text style={styles.bankPickerSubtitle}>{bank.code}</Text>
                         </View>
                         {isSelected ? (
-                          <MaterialIcons name="check-circle" size={22} color="#FF8228" />
+                          <MaterialIcons name="check-circle" size={22} color="#0F382C" />
                         ) : null}
                       </Pressable>
                     );
@@ -545,7 +545,7 @@ export default function WorkerWalletScreen() {
                       {selectedBankLogo ? (
                         <Image source={{ uri: selectedBankLogo }} style={styles.bankSelectLogo} />
                       ) : (
-                        <MaterialIcons name="account-balance" size={20} color="#FF8228" />
+                        <MaterialIcons name="account-balance" size={20} color="#0F382C" />
                       )}
                     </View>
                     <View style={styles.bankSelectTextWrap}>
@@ -647,7 +647,7 @@ export default function WorkerWalletScreen() {
                         <MaterialIcons
                           name={isSelected ? 'check-circle' : 'account-balance'}
                           size={22}
-                          color={isSelected ? '#FF8228' : '#818A91'}
+                          color={isSelected ? '#0F382C' : '#818A91'}
                         />
                         <View style={styles.payoutAccountOptionDetails}>
                           <Text style={styles.payoutAccountOptionBank} numberOfLines={1}>
@@ -685,7 +685,7 @@ export default function WorkerWalletScreen() {
                   style={styles.payoutSelectButton}
                   onPress={() => setWithdrawAccountDropdownOpen(true)}>
                   <View style={styles.payoutSelectIcon}>
-                    <MaterialIcons name="account-balance" size={20} color="#FF8228" />
+                    <MaterialIcons name="account-balance" size={20} color="#0F382C" />
                   </View>
                   <View style={styles.payoutSelectDetails}>
                     <Text style={styles.payoutSelectBank} numberOfLines={1}>
@@ -894,7 +894,7 @@ const styles = StyleSheet.create({
   viewAllText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
     flexShrink: 0,
   },
   statCard: {
@@ -1075,7 +1075,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
   },
   bankPickerItemActive: {
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     backgroundColor: '#FFF2EA',
   },
   bankPickerInfo: {
@@ -1316,7 +1316,7 @@ const styles = StyleSheet.create({
   modalSubmitBtn: {
     height: 48,
     borderRadius: 8,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1342,8 +1342,8 @@ const styles = StyleSheet.create({
     marginBottom: 10,
   },
   payoutAccountOptionActive: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFE6D5',
+    borderColor: '#0F382C',
+    backgroundColor: '#F2F7F2',
   },
   payoutAccountOptionDetails: {
     flex: 1,

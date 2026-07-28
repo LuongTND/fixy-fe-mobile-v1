@@ -1,6 +1,7 @@
+import { MaterialIcons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import * as React from 'react';
-import { Dimensions, Image, Pressable, ScrollView, StyleSheet, View } from 'react-native';
+import { Dimensions, Pressable, ScrollView, StyleSheet, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { Text } from '@/components/nativewindui/Text';
@@ -43,28 +44,34 @@ export default function WelcomeScreen() {
         </View>
 
         <View style={[styles.main, { paddingTop: insets.top + 32 }]}>
+          {/* Logo Spa */}
           <View style={styles.logoContainer}>
-            <Image
-              source={require('@/assets/fixy-logo.png')}
-              style={styles.logo}
-              resizeMode="contain"
-            />
+            <View style={styles.logoInner}>
+              <MaterialIcons name="spa" size={56} color="#D4AF37" />
+            </View>
           </View>
 
+          {/* Copy Spa Text */}
           <View style={styles.copy}>
-            <Text style={[styles.headline, styles.darkText]}>Kết nối thợ giỏi</Text>
-            <Text style={[styles.headline, styles.goldText]}>Vạn việc được lo</Text>
+            <Text style={[styles.headline, styles.darkText]}>Chăm sóc sắc đẹp</Text>
+            <Text style={[styles.headline, styles.goldText]}>Trải nghiệm tại nhà</Text>
             <Text style={styles.subtitle}>
-              Đặt thợ sửa chữa, bảo trì nhanh chóng, uy tín, minh bạch.
+              Đặt dịch vụ Spa, Massage & Skincare thư giãn chuyên nghiệp tận nơi nhanh chóng, uy tín.
             </Text>
           </View>
 
+          {/* Họa tiết Spa */}
           <View style={styles.illustration}>
             <View style={styles.illustrationFrame}>
-              <View style={[styles.geoCircle, { top: 16, right: 16 }]} />
-              <View style={[styles.geoBar, { bottom: 32, left: 32 }]} />
-              <View style={[styles.geoSquare, { top: '45%', left: '20%' }]} />
-              <View style={[styles.geoDot, { bottom: 16, right: '30%' }]} />
+              <View style={styles.spaBadgeOuter}>
+                <MaterialIcons name="auto-awesome" size={28} color="#D4AF37" />
+              </View>
+              <View style={[styles.geoCircle, { top: 8, right: 12 }]} />
+              <View style={[styles.geoBar, { bottom: 24, left: 24 }]} />
+              <View style={[styles.geoSquare, { top: '38%', left: '12%' }]}>
+                <MaterialIcons name="local-florist" size={18} color="#0F382C" />
+              </View>
+              <View style={[styles.geoDot, { bottom: 12, right: '25%' }]} />
             </View>
           </View>
         </View>
@@ -91,9 +98,9 @@ export default function WelcomeScreen() {
           </Pressable>
 
           <View style={styles.footerRow}>
-            <Text style={styles.footerText}>Bạn là thợ? </Text>
+            <Text style={styles.footerText}>Bạn là kĩ thuật viên Spa? </Text>
             <Pressable onPress={() => router.push('/register' as any)}>
-              <Text style={styles.footerLink}>Đăng ký làm thợ</Text>
+              <Text style={styles.footerLink}>Đăng ký làm kĩ thuật viên</Text>
             </Pressable>
           </View>
         </View>
@@ -134,33 +141,37 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
   },
   logoContainer: {
-    width: 128,
-    height: 128,
+    width: 112,
+    height: 112,
     alignItems: 'center',
     justifyContent: 'center',
-    padding: 8,
-    borderRadius: 20,
-    backgroundColor: '#ffffff',
+    borderRadius: 56,
+    backgroundColor: '#0F382C',
     shadowColor: '#0F382C',
-    shadowOpacity: 0.12,
-    shadowRadius: 24,
+    shadowOpacity: 0.25,
+    shadowRadius: 20,
     shadowOffset: { width: 0, height: 8 },
     elevation: 8,
+    borderWidth: 2.5,
+    borderColor: '#D4AF37',
   },
-  logo: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 14,
+  logoInner: {
+    width: 96,
+    height: 96,
+    borderRadius: 48,
+    backgroundColor: '#164839',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   copy: {
     alignItems: 'center',
-    marginTop: 32,
+    marginTop: 28,
     paddingHorizontal: 16,
   },
   headline: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 30,
-    lineHeight: 38,
+    fontSize: 28,
+    lineHeight: 36,
     textAlign: 'center',
   },
   darkText: {
@@ -170,7 +181,7 @@ const styles = StyleSheet.create({
     color: '#D4AF37',
   },
   subtitle: {
-    maxWidth: 280,
+    maxWidth: 290,
     marginTop: 12,
     color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
@@ -180,42 +191,56 @@ const styles = StyleSheet.create({
   },
   illustration: {
     width: '100%',
-    height: 180,
+    height: 150,
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 24,
+    marginVertical: 16,
   },
   illustrationFrame: {
     position: 'relative',
-    width: 160,
-    height: 160,
+    width: 150,
+    height: 130,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  spaBadgeOuter: {
+    width: 54,
+    height: 54,
+    borderRadius: 27,
+    backgroundColor: '#F2F7F2',
+    borderWidth: 1.5,
+    borderColor: '#C6DFC6',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   geoCircle: {
     position: 'absolute',
-    width: 48,
-    height: 48,
-    borderRadius: 24,
-    borderWidth: 4,
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    borderWidth: 3,
     borderColor: '#0F382C',
-    opacity: 0.4,
+    opacity: 0.3,
   },
   geoBar: {
     position: 'absolute',
-    width: 64,
-    height: 16,
-    borderRadius: 8,
+    width: 60,
+    height: 14,
+    borderRadius: 7,
     backgroundColor: '#D4AF37',
     transform: [{ rotate: '45deg' }],
-    opacity: 0.8,
+    opacity: 0.7,
   },
   geoSquare: {
     position: 'absolute',
     width: 32,
     height: 32,
-    borderRadius: 6,
-    backgroundColor: '#C6DFC6',
+    borderRadius: 8,
+    backgroundColor: '#EAE6DF',
+    alignItems: 'center',
+    justifyContent: 'center',
     transform: [{ rotate: '12deg' }],
-    opacity: 0.6,
+    opacity: 0.8,
   },
   geoDot: {
     position: 'absolute',
@@ -223,13 +248,13 @@ const styles = StyleSheet.create({
     height: 12,
     borderRadius: 6,
     backgroundColor: '#0F382C',
-    opacity: 0.7,
+    opacity: 0.6,
   },
   actions: {
     width: '100%',
     gap: 12,
     paddingHorizontal: 16,
-    paddingTop: 20,
+    paddingTop: 16,
   },
   footerRow: {
     flexDirection: 'row',

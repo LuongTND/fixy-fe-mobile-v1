@@ -361,7 +361,7 @@ export default function WorkerJobDetailScreen() {
   if (loading || categoriesLoading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FF8228" />
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
@@ -398,7 +398,7 @@ export default function WorkerJobDetailScreen() {
               params: { bookingId: job.id },
             } as any)
           }>
-          <MaterialIcons name="help-outline" size={24} color="#FF8228" />
+          <MaterialIcons name="help-outline" size={24} color="#0F382C" />
         </Pressable>
       </View>
 
@@ -430,7 +430,7 @@ export default function WorkerJobDetailScreen() {
           <Text style={styles.infoCardTitle}>Khách hàng & Địa điểm</Text>
           <View style={styles.customerRow}>
             <View style={styles.customerIconWrapper}>
-              <MaterialIcons name="person" size={24} color="#FF8228" />
+              <MaterialIcons name="person" size={24} color="#0F382C" />
             </View>
             <View style={styles.customerDetails}>
               <Text style={styles.customerName}>{job.workerName || 'Khách hàng Fixy'}</Text>
@@ -452,7 +452,7 @@ export default function WorkerJobDetailScreen() {
                     Alert.alert('Lỗi', 'Chưa có thông tin số điện thoại.');
                   }
                 }}>
-                <MaterialIcons name="phone" size={18} color="#FF8228" />
+                <MaterialIcons name="phone" size={18} color="#0F382C" />
                 <Text style={styles.actionBtnTextCall}>Gọi khách</Text>
               </Pressable>
               <Pressable
@@ -467,7 +467,7 @@ export default function WorkerJobDetailScreen() {
           <View style={styles.divider} />
 
           <View style={styles.locationRow}>
-            <MaterialIcons name="place" size={20} color="#FF8228" style={{ marginTop: 2 }} />
+            <MaterialIcons name="place" size={20} color="#0F382C" style={{ marginTop: 2 }} />
             <View style={styles.locationDetails}>
               <Text style={styles.locationTitle}>Địa chỉ sửa chữa</Text>
               <Text style={styles.locationText}>{job.address}</Text>
@@ -574,7 +574,7 @@ export default function WorkerJobDetailScreen() {
                       key={star}
                       name="star"
                       size={18}
-                      color={star <= bookingReview.rating ? '#FF8228' : '#dcd9d9'}
+                      color={star <= bookingReview.rating ? '#D4AF37' : '#dcd9d9'}
                     />
                   ))}
                 </View>
@@ -583,7 +583,7 @@ export default function WorkerJobDetailScreen() {
 
             {reviewLoading ? (
               <View style={styles.reviewLoadingRow}>
-                <ActivityIndicator size="small" color="#FF8228" />
+                <ActivityIndicator size="small" color="#0F382C" />
                 <Text style={styles.reviewMutedText}>Đang tải đánh giá...</Text>
               </View>
             ) : bookingReview ? (
@@ -596,7 +596,7 @@ export default function WorkerJobDetailScreen() {
                         style={styles.reviewerAvatarImage}
                       />
                     ) : (
-                      <MaterialIcons name="person" size={20} color="#FF8228" />
+                      <MaterialIcons name="person" size={20} color="#0F382C" />
                     )}
                   </View>
                   <View style={styles.reviewerInfo}>
@@ -640,7 +640,7 @@ export default function WorkerJobDetailScreen() {
                       <MaterialIcons
                         name="reply"
                         size={16}
-                        color="#FF8228"
+                        color="#0F382C"
                         style={{ transform: [{ scaleX: -1 }] }}
                       />
                       <Text style={styles.workerReplyTitle}>Phản hồi của bạn</Text>
@@ -864,7 +864,7 @@ export default function WorkerJobDetailScreen() {
 
                 {completionImages.length < 5 && (
                   <Pressable style={styles.addImageBtn} onPress={handlePickImage}>
-                    <MaterialIcons name="add-a-photo" size={22} color="#FF8228" />
+                    <MaterialIcons name="add-a-photo" size={22} color="#0F382C" />
                     <Text style={styles.addImageText}>Thêm ảnh</Text>
                   </Pressable>
                 )}
@@ -1055,7 +1055,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F2F7F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1070,7 +1070,7 @@ const styles = StyleSheet.create({
   customerPhone: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
     marginTop: 2,
   },
   divider: {
@@ -1163,7 +1163,7 @@ const styles = StyleSheet.create({
   invoiceVal: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   reviewCardHeader: {
     flexDirection: 'row',
@@ -1242,7 +1242,7 @@ const styles = StyleSheet.create({
   workerReplyTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   workerReplyText: {
     fontFamily: 'Montserrat_400Regular',
@@ -1254,7 +1254,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     height: 44,
     borderRadius: 8,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1305,12 +1305,12 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
   proposeBtnText: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
   },
@@ -1318,7 +1318,7 @@ const styles = StyleSheet.create({
     flex: 1.5,
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1330,10 +1330,10 @@ const styles = StyleSheet.create({
   primaryActionBtn: {
     height: 52,
     borderRadius: 10,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8228',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.15,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
@@ -1414,7 +1414,7 @@ const styles = StyleSheet.create({
   modalSubmitBtn: {
     height: 52,
     borderRadius: 10,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1451,7 +1451,7 @@ const styles = StyleSheet.create({
   materialTextPrice: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
     flex: 1,
     textAlign: 'right',
     marginRight: 10,
@@ -1483,7 +1483,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 6,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1524,15 +1524,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#FF8228',
-    backgroundColor: '#FFE6D5',
+    borderColor: '#0F382C',
+    backgroundColor: '#F2F7F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
   addImageText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 9,
-    color: '#FF8228',
+    color: '#0F382C',
     marginTop: 2,
   },
   previewOverlay: {
@@ -1575,14 +1575,14 @@ const styles = StyleSheet.create({
   },
   actionBtnCall: {
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     backgroundColor: '#ffffff',
   },
   actionBtnChat: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   actionBtnTextCall: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
   },
