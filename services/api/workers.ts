@@ -67,6 +67,14 @@ export type WorkerProfile = {
     categoryId: string;
     basePrice: number;
     isPrimary?: boolean;
+    options?: {
+      id?: string;
+      workerServiceId?: string;
+      durationMinutes: number;
+      price: number;
+      sortOrder?: number;
+      isActive?: boolean;
+    }[];
   }[];
 };
 
@@ -198,6 +206,14 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
         categoryId: s.categoryId,
         basePrice: s.basePrice,
         isPrimary: s.isPrimary,
+        options: s.options?.map((opt: any) => ({
+          id: opt.id,
+          workerServiceId: opt.workerServiceId,
+          durationMinutes: opt.durationMinutes,
+          price: opt.price,
+          sortOrder: opt.sortOrder,
+          isActive: opt.isActive,
+        })) || [],
       })) || [],
   };
 }
@@ -212,15 +228,32 @@ export async function getWorkersByService(serviceId: string): Promise<WorkerProf
 
 export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerProfile[]> {
   try {
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let resolvedCategoryId = params.CategoryId;
+    if (resolvedCategoryId && !guidRegex.test(resolvedCategoryId)) {
+      resolvedCategoryId = getCategoryGuid(resolvedCategoryId);
+    }
+
+    const queryParams: Record<string, any> = {};
+    if (resolvedCategoryId && guidRegex.test(resolvedCategoryId)) {
+      queryParams.CategoryId = resolvedCategoryId;
+    }
+    if (params.PageNumber) queryParams.PageNumber = params.PageNumber;
+    if (params.PageSize) queryParams.PageSize = params.PageSize;
+    if (params.SearchTerm) queryParams.SearchTerm = params.SearchTerm;
+    if (params.MinPrice) queryParams.MinPrice = params.MinPrice;
+    if (params.MaxPrice) queryParams.MaxPrice = params.MaxPrice;
+    if (params.MinRating) queryParams.MinRating = params.MinRating;
+    if (params.City) queryParams.City = params.City;
+    if (params.IsOnline !== undefined) queryParams.IsOnline = params.IsOnline;
+
     const response = await apiClient.get('/worker-profiles/search', {
-      params: Object.fromEntries(
-        Object.entries(params).filter(([, value]) => value !== undefined && value !== '')
-      ),
+      params: queryParams,
     });
     const resData = response.data;
     const items = resData?.data?.items ?? resData?.data ?? resData;
     if (items && Array.isArray(items)) {
-      return items.map((w: any) => mapBackendWorkerToProfile(w, params.CategoryId));
+      return items.map((w: any) => mapBackendWorkerToProfile(w, resolvedCategoryId));
     }
     return [];
   } catch (error) {
@@ -403,6 +436,18 @@ export async function updateWorkerProfile(profile: Partial<WorkerProfile>): Prom
       formData.append(`Services[${index}].CategoryId`, s.categoryId);
       formData.append(`Services[${index}].BasePrice`, String(s.basePrice));
       formData.append(`Services[${index}].IsPrimary`, s.isPrimary ? 'true' : 'false');
+      if (s.options && s.options.length > 0) {
+        s.options.forEach((opt, optIndex) => {
+          formData.append(`Services[${index}].Options[${optIndex}].DurationMinutes`, String(opt.durationMinutes));
+          formData.append(`Services[${index}].Options[${optIndex}].Price`, String(opt.price));
+          if (opt.sortOrder !== undefined) {
+            formData.append(`Services[${index}].Options[${optIndex}].SortOrder`, String(opt.sortOrder));
+          }
+          if (opt.isActive !== undefined) {
+            formData.append(`Services[${index}].Options[${optIndex}].IsActive`, String(opt.isActive ? 'true' : 'false'));
+          }
+        });
+      }
     });
   }
 
