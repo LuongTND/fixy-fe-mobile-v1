@@ -49,6 +49,19 @@ interface CertificateItem {
   uri?: string;
 }
 
+export interface WorkerServiceFormOption {
+  durationMinutes: number;
+  price: number;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface WorkerServiceFormItem {
+  categoryId: string;
+  basePrice: number;
+  options: WorkerServiceFormOption[];
+}
+
 export default function WorkerSetupScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -85,15 +98,21 @@ export default function WorkerSetupScreen() {
   const [phone, setPhone] = React.useState('');
   const [bio, setBio] = React.useState('');
   const [experienceYears, setExperienceYears] = React.useState('3');
+
   const [selectedServices, setSelectedServices] = React.useState<
-    Record<string, { categoryId: string; basePrice: number }>
+    Record<string, WorkerServiceFormItem>
   >({});
 
   // STEP 2: Credentials Verification
   const [citizenIdNumber, setCitizenIdNumber] = React.useState('');
   const [citizenIdIssueDate, setCitizenIdIssueDate] = React.useState('');
   const [citizenIdIssuePlace, setCitizenIdIssuePlace] = React.useState('');
-  const [cccdUris, setCccdUris] = React.useState<string[]>([]);
+  const [cccdFrontUri, setCccdFrontUri] = React.useState<string | null>(null);
+  const [cccdBackUri, setCccdBackUri] = React.useState<string | null>(null);
+
+  const cccdUris = React.useMemo(() => {
+    return [cccdFrontUri, cccdBackUri].filter(Boolean) as string[];
+  }, [cccdFrontUri, cccdBackUri]);
   const [scanningCccd, setScanningCccd] = React.useState(false);
   const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
 
@@ -101,6 +120,7 @@ export default function WorkerSetupScreen() {
   const [certificates, setCertificates] = React.useState<CertificateItem[]>([]);
   const [certTitle, setCertTitle] = React.useState('');
   const [certIssuedBy, setCertIssuedBy] = React.useState('');
+  const [certIssuedAt, setCertIssuedAt] = React.useState('');
   const [certUri, setCertUri] = React.useState<string | null>(null);
 
   // STEP 3: Address & Portfolio
@@ -133,7 +153,8 @@ export default function WorkerSetupScreen() {
       setCitizenIdNumber(profile.citizenIdNumber || '');
       setCitizenIdIssueDate(profile.citizenIdIssueDate ? profile.citizenIdIssueDate.split('T')[0] : '');
       setCitizenIdIssuePlace(profile.citizenIdIssuePlace || '');
-      setCccdUris(profile.identificationImages?.map((img: any) => img.url) || []);
+      setCccdFrontUri(profile.identificationImages?.[0]?.url || null);
+      setCccdBackUri(profile.identificationImages?.[1]?.url || null);
       setCertificates(
         (profile.certificates || []).map((c: any) => ({
           title: c.title,
@@ -153,9 +174,25 @@ export default function WorkerSetupScreen() {
         setPortfolioUris(profile.portfolioImages.map((img: any) => img.url) || []);
       }
       if (profile.services) {
-        const serviceMap: Record<string, { categoryId: string; basePrice: number }> = {};
+        const serviceMap: Record<string, WorkerServiceFormItem> = {};
         profile.services.forEach((s: any) => {
-          serviceMap[s.categoryId] = { categoryId: s.categoryId, basePrice: s.basePrice };
+          serviceMap[s.categoryId] = {
+            categoryId: s.categoryId,
+            basePrice: s.basePrice || 150000,
+            options:
+              s.options && s.options.length > 0
+                ? s.options.map((opt: any, idx: number) => ({
+                    durationMinutes: opt.durationMinutes || 60,
+                    price: opt.price || 150000,
+                    sortOrder: opt.sortOrder ?? idx + 1,
+                    isActive: opt.isActive ?? true,
+                  }))
+                : [
+                    { durationMinutes: 60, price: s.basePrice || 500000, sortOrder: 1, isActive: true },
+                    { durationMinutes: 90, price: (s.basePrice || 500000) + 150000, sortOrder: 2, isActive: true },
+                    { durationMinutes: 120, price: (s.basePrice || 500000) + 300000, sortOrder: 3, isActive: true },
+                  ],
+          };
         });
         setSelectedServices(serviceMap);
       }
@@ -258,11 +295,28 @@ export default function WorkerSetupScreen() {
   };
 
   // File pickers
-  const handleSelectCccdSource = () => {
-    handlePickCccd();
+  const handlePickCccdSlot = (slot: 'front' | 'back') => {
+    if (slot === 'back' && !cccdFrontUri) {
+      Alert.alert('Yêu cầu', 'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước.');
+      return;
+    }
+
+    const slotTitle = slot === 'front' ? 'Mặt trước CCCD' : 'Mặt sau CCCD';
+
+    Alert.alert('Tải ảnh CCCD', `Chọn phương thức tải ảnh cho ${slotTitle}:`, [
+      {
+        text: 'Chụp ảnh từ Camera',
+        onPress: () => handleCameraCccdSlot(slot),
+      },
+      {
+        text: 'Chọn từ Thư viện ảnh',
+        onPress: () => handleLibraryCccdSlot(slot),
+      },
+      { text: 'Hủy', style: 'cancel' },
+    ]);
   };
 
-  const handleCameraCccd = async () => {
+  const handleCameraCccdSlot = async (slot: 'front' | 'back') => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Quyền truy cập', 'Vui lòng cho phép quyền truy cập camera để chụp ảnh CCCD.');
@@ -275,37 +329,37 @@ export default function WorkerSetupScreen() {
     });
 
     if (!result.canceled && result.assets[0]?.uri) {
-      const newUri = result.assets[0].uri;
-      setCccdUris((prev) => {
-        const next = [...prev, newUri];
-        handleScanCccdSlot(newUri);
-        return next;
-      });
+      const uri = result.assets[0].uri;
+      if (slot === 'front') {
+        setCccdFrontUri(uri);
+        handleScanCccdSlot(uri);
+      } else {
+        setCccdBackUri(uri);
+      }
     }
   };
 
-  const handlePickCccd = async () => {
+  const handleLibraryCccdSlot = async (slot: 'front' | 'back') => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Quyền truy cập', 'Vui lòng cho phép quyền truy cập thư viện ảnh để chọn CCCD.');
       return;
     }
-    const remainingLimit = 2 - cccdUris.length;
-    if (remainingLimit <= 0) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsMultipleSelection: remainingLimit > 1,
-      selectionLimit: remainingLimit,
+      allowsMultipleSelection: false,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets.length > 0) {
-      const newUris = result.assets.map((a) => a.uri);
-      setCccdUris((prev) => {
-        const next = [...prev, ...newUris].slice(0, 2);
-        handleScanCccdSlot(newUris[0]);
-        return next;
-      });
+
+    if (!result.canceled && result.assets[0]?.uri) {
+      const uri = result.assets[0].uri;
+      if (slot === 'front') {
+        setCccdFrontUri(uri);
+        handleScanCccdSlot(uri);
+      } else {
+        setCccdBackUri(uri);
+      }
     }
   };
 
@@ -376,12 +430,13 @@ export default function WorkerSetupScreen() {
     const newItem: CertificateItem = {
       title: certTitle,
       issuedBy: certIssuedBy,
-      issuedAt: new Date().toISOString().split('T')[0],
+      issuedAt: certIssuedAt.trim() || new Date().toISOString().split('T')[0],
       uri: certUri || undefined,
     };
     setCertificates([...certificates, newItem]);
     setCertTitle('');
     setCertIssuedBy('');
+    setCertIssuedAt('');
     setCertUri(null);
   };
 
@@ -410,16 +465,99 @@ export default function WorkerSetupScreen() {
     if (next[catId]) {
       delete next[catId];
     } else {
-      next[catId] = { categoryId: catId, basePrice: 150000 };
+      next[catId] = {
+        categoryId: catId,
+        basePrice: 500000,
+        options: [
+          { durationMinutes: 60, price: 500000, sortOrder: 1, isActive: true },
+          { durationMinutes: 90, price: 650000, sortOrder: 2, isActive: true },
+          { durationMinutes: 120, price: 800000, sortOrder: 3, isActive: true },
+        ],
+      };
     }
     setSelectedServices(next);
   };
 
-  const handleServicePriceChange = (catId: string, priceText: string) => {
+  const handleOptionPriceChange = (catId: string, optIndex: number, priceText: string) => {
     const priceNum = parseInt(priceText.replace(/\D/g, ''), 10) || 0;
+    const currentItem = selectedServices[catId];
+    if (!currentItem) return;
+
+    const newOptions = [...currentItem.options];
+    newOptions[optIndex] = { ...newOptions[optIndex], price: priceNum };
+
+    const minPrice = Math.min(...newOptions.map((o) => o.price));
+
     setSelectedServices({
       ...selectedServices,
-      [catId]: { ...selectedServices[catId], basePrice: priceNum },
+      [catId]: {
+        ...currentItem,
+        basePrice: minPrice > 0 ? minPrice : currentItem.basePrice,
+        options: newOptions,
+      },
+    });
+  };
+
+  const handleOptionDurationChange = (catId: string, optIndex: number, durationText: string) => {
+    const durationNum = parseInt(durationText.replace(/\D/g, ''), 10) || 0;
+    const currentItem = selectedServices[catId];
+    if (!currentItem) return;
+
+    const newOptions = [...currentItem.options];
+    newOptions[optIndex] = { ...newOptions[optIndex], durationMinutes: durationNum };
+
+    setSelectedServices({
+      ...selectedServices,
+      [catId]: {
+        ...currentItem,
+        options: newOptions,
+      },
+    });
+  };
+
+  const handleAddOption = (catId: string) => {
+    const currentItem = selectedServices[catId];
+    if (!currentItem) return;
+
+    const lastOpt = currentItem.options[currentItem.options.length - 1];
+    const nextDuration = lastOpt ? lastOpt.durationMinutes + 30 : 60;
+    const nextPrice = lastOpt ? lastOpt.price + 150000 : 500000;
+
+    const newOptions = [
+      ...currentItem.options,
+      {
+        durationMinutes: nextDuration,
+        price: nextPrice,
+        sortOrder: currentItem.options.length + 1,
+        isActive: true,
+      },
+    ];
+
+    setSelectedServices({
+      ...selectedServices,
+      [catId]: { ...currentItem, options: newOptions },
+    });
+  };
+
+  const handleRemoveOption = (catId: string, optIndex: number) => {
+    const currentItem = selectedServices[catId];
+    if (!currentItem) return;
+
+    if (currentItem.options.length <= 1) {
+      Alert.alert('Lưu ý', 'Mỗi dịch vụ cần có ít nhất 1 gói thời gian & giá.');
+      return;
+    }
+
+    const newOptions = currentItem.options.filter((_, idx) => idx !== optIndex);
+    const minPrice = Math.min(...newOptions.map((o) => o.price));
+
+    setSelectedServices({
+      ...selectedServices,
+      [catId]: {
+        ...currentItem,
+        basePrice: minPrice > 0 ? minPrice : currentItem.basePrice,
+        options: newOptions,
+      },
     });
   };
 
@@ -482,6 +620,17 @@ export default function WorkerSetupScreen() {
       return;
     }
 
+    // Active Certificates (including unsubmitted cert input fields)
+    const activeCertificates = [...certificates];
+    if (certTitle.trim() && certIssuedBy.trim()) {
+      activeCertificates.push({
+        title: certTitle.trim(),
+        issuedBy: certIssuedBy.trim(),
+        issuedAt: certIssuedAt.trim() || new Date().toISOString().split('T')[0],
+        uri: certUri || undefined,
+      });
+    }
+
     if (isEditMode) {
       try {
         const userPayload = {
@@ -507,6 +656,12 @@ export default function WorkerSetupScreen() {
             categoryId: s.categoryId,
             basePrice: Number(s.basePrice) || 0,
             isPrimary: s.categoryId === servicesList[0].categoryId,
+            options: (s.options || []).map((opt, oIdx) => ({
+              durationMinutes: Number(opt.durationMinutes) || 60,
+              price: Number(opt.price) || 0,
+              sortOrder: opt.sortOrder ?? oIdx + 1,
+              isActive: opt.isActive ?? true,
+            })),
           })),
         };
 
@@ -520,7 +675,7 @@ export default function WorkerSetupScreen() {
 
         const certificatesPayload = {
           workerProfileId: profile?.workerProfileId || profile?.id || '',
-          dtos: certificates.map((c) => ({
+          dtos: activeCertificates.map((c) => ({
             title: c.title,
             issuedBy: c.issuedBy,
             issuedAt: formatToIsoDateTime(c.issuedAt),
@@ -542,6 +697,12 @@ export default function WorkerSetupScreen() {
 
     const formData = new FormData();
     formData.append('Target', target || '');
+    if (fullName) {
+      formData.append('FullName', fullName);
+    }
+    if (phone) {
+      formData.append('Phone', phone);
+    }
     formData.append('Bio', bio);
     formData.append('ExperienceYears', experienceYears);
     formData.append('MaxDistanceKm', String(maxDistanceKm));
@@ -563,6 +724,14 @@ export default function WorkerSetupScreen() {
       formData.append(`WorkerService[${idx}].CategoryId`, s.categoryId);
       formData.append(`WorkerService[${idx}].BasePrice`, String(s.basePrice));
       formData.append(`WorkerService[${idx}].IsPrimary`, idx === 0 ? 'true' : 'false');
+      if (s.options && s.options.length > 0) {
+        s.options.forEach((opt, optIdx) => {
+          formData.append(`WorkerService[${idx}].Options[${optIdx}].DurationMinutes`, String(opt.durationMinutes));
+          formData.append(`WorkerService[${idx}].Options[${optIdx}].Price`, String(opt.price));
+          formData.append(`WorkerService[${idx}].Options[${optIdx}].SortOrder`, String(opt.sortOrder || optIdx + 1));
+          formData.append(`WorkerService[${idx}].Options[${optIdx}].IsActive`, 'true');
+        });
+      }
     });
 
     // Identification images
@@ -588,8 +757,8 @@ export default function WorkerSetupScreen() {
     });
 
     // Certificates
-    for (let idx = 0; idx < certificates.length; idx++) {
-      const c = certificates[idx];
+    for (let idx = 0; idx < activeCertificates.length; idx++) {
+      const c = activeCertificates[idx];
       formData.append(`CertificateUploads[${idx}].Title`, c.title);
       formData.append(`CertificateUploads[${idx}].IssuedBy`, c.issuedBy);
       formData.append(`CertificateUploads[${idx}].IssuedAt`, formatToIsoDateTime(c.issuedAt));
@@ -712,7 +881,7 @@ export default function WorkerSetupScreen() {
             </Text>
 
             <Text style={styles.sectionTitle}>Dịch vụ cung cấp</Text>
-            <Text style={styles.subLabel}>Chọn các lĩnh vực sửa chữa và đặt giá sàn:</Text>
+            <Text style={styles.subLabel}>Chọn các dịch vụ Spa & Massage bạn cung cấp và thiết lập gói giá:</Text>
 
             {isLoadingCategories ? (
               <ActivityIndicator size="small" color="#0F382C" />
@@ -734,15 +903,46 @@ export default function WorkerSetupScreen() {
 
                     {isSelected && (
                       <View style={styles.priceContainer}>
-                        <Text style={styles.priceLabel}>Giá cơ bản sàn (VND)</Text>
-                        <TextInput
-                          style={styles.priceInput}
-                          value={String(selectedServices[cat.id]?.basePrice || '')}
-                          onChangeText={(val) => handleServicePriceChange(cat.id, val)}
-                          keyboardType="number-pad"
-                          placeholder="150,000"
-                          placeholderTextColor="#9A9A9A"
-                        />
+                        <Text style={styles.priceLabel}>Các gói thời gian & Giá dịch vụ (VNĐ)</Text>
+                        {selectedServices[cat.id]?.options?.map((opt, optIdx) => (
+                          <View key={optIdx} style={styles.optionItemRow}>
+                            <View style={styles.optionDurationBox}>
+                              <Text style={styles.optionDurationLabel}>Thời gian (phút)</Text>
+                              <TextInput
+                                style={styles.optionDurationInput}
+                                value={String(opt.durationMinutes || '')}
+                                onChangeText={(val) => handleOptionDurationChange(cat.id, optIdx, val)}
+                                keyboardType="number-pad"
+                                placeholder="60"
+                                placeholderTextColor="#9A9A9A"
+                              />
+                            </View>
+                            <View style={styles.optionPriceBox}>
+                              <Text style={styles.optionPriceLabel}>Giá dịch vụ (VNĐ)</Text>
+                              <TextInput
+                                style={styles.optionPriceInput}
+                                value={String(opt.price || '')}
+                                onChangeText={(val) => handleOptionPriceChange(cat.id, optIdx, val)}
+                                keyboardType="number-pad"
+                                placeholder="500,000"
+                                placeholderTextColor="#9A9A9A"
+                              />
+                            </View>
+                            {selectedServices[cat.id]?.options?.length > 1 && (
+                              <Pressable
+                                style={styles.removeOptionBtn}
+                                onPress={() => handleRemoveOption(cat.id, optIdx)}>
+                                <MaterialIcons name="delete-outline" size={20} color="#BA1A1A" />
+                              </Pressable>
+                            )}
+                          </View>
+                        ))}
+                        <Pressable
+                          style={styles.addOptionBtn}
+                          onPress={() => handleAddOption(cat.id)}>
+                          <MaterialIcons name="add-circle-outline" size={18} color="#0F382C" />
+                          <Text style={styles.addOptionText}>Thêm gói thời gian</Text>
+                        </Pressable>
                       </View>
                     )}
                   </View>
@@ -791,32 +991,60 @@ export default function WorkerSetupScreen() {
               Tải ảnh mặt trước/mặt sau của Citizen Identity Card để duyệt xác thực:
             </Text>
 
-            <View style={styles.cccdUploadBoxRow}>
-              {cccdUris.map((uri, idx) => (
-                <View key={uri} style={styles.cccdSlotPreviewWrapper}>
-                  <Pressable
-                    style={{ width: '100%', height: '100%' }}
-                    onPress={() => setActivePreviewImage(uri)}>
-                    <Image source={{ uri }} style={styles.cccdSlotPreview} />
+            <View style={styles.cccdTwoSlotsRow}>
+              {/* Slot 1: Mặt trước */}
+              <View style={styles.cccdSingleSlotWrapper}>
+                <Text style={styles.cccdSlotHeaderLabel}>Mặt trước CCCD *</Text>
+                {cccdFrontUri ? (
+                  <View style={styles.cccdSlotCardFilled}>
+                    <Pressable style={{ flex: 1 }} onPress={() => setActivePreviewImage(cccdFrontUri)}>
+                      <Image source={{ uri: cccdFrontUri }} style={styles.cccdSlotImage} />
+                    </Pressable>
+                    <View style={styles.cccdSlotActionRow}>
+                      <Pressable style={styles.cccdSlotChangeBtn} onPress={() => handlePickCccdSlot('front')}>
+                        <MaterialIcons name="photo-camera" size={14} color="#0F382C" />
+                        <Text style={styles.cccdSlotChangeText}>Đổi ảnh</Text>
+                      </Pressable>
+                      <Pressable style={styles.cccdSlotDeleteIconBtn} onPress={() => setCccdFrontUri(null)}>
+                        <MaterialIcons name="delete" size={16} color="#BA1A1A" />
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <Pressable style={styles.cccdSlotCardEmpty} onPress={() => handlePickCccdSlot('front')}>
+                    <MaterialIcons name="add-a-photo" size={28} color="#0F382C" />
+                    <Text style={styles.cccdSlotEmptyTitle}>Tải Mặt trước</Text>
+                    <Text style={styles.cccdSlotEmptySub}>Chụp hoặc chọn 1 ảnh</Text>
                   </Pressable>
-                  <Pressable
-                    style={styles.cccdSlotDeleteBtn}
-                    onPress={() => setCccdUris((prev) => prev.filter((_, i) => i !== idx))}>
-                    <MaterialIcons name="cancel" size={20} color="#BA1A1A" />
-                  </Pressable>
-                </View>
-              ))}
+                )}
+              </View>
 
-              {cccdUris.length < 2 && (
-                <Pressable
-                  style={cccdUris.length === 0 ? styles.cccdSlotUploadBtnFull : styles.cccdSlotUploadBtn}
-                  onPress={handleSelectCccdSource}>
-                  <MaterialIcons name="add-a-photo" size={cccdUris.length === 0 ? 32 : 24} color="#0F382C" />
-                  <Text style={cccdUris.length === 0 ? styles.cccdSlotUploadTextFull : styles.cccdSlotUploadText}>
-                    {cccdUris.length === 0 ? 'Tải ảnh CCCD (Mặt trước & Mặt sau)' : 'Tải ảnh mặt thứ hai'}
-                  </Text>
-                </Pressable>
-              )}
+              {/* Slot 2: Mặt sau */}
+              <View style={styles.cccdSingleSlotWrapper}>
+                <Text style={styles.cccdSlotHeaderLabel}>Mặt sau CCCD *</Text>
+                {cccdBackUri ? (
+                  <View style={styles.cccdSlotCardFilled}>
+                    <Pressable style={{ flex: 1 }} onPress={() => setActivePreviewImage(cccdBackUri)}>
+                      <Image source={{ uri: cccdBackUri }} style={styles.cccdSlotImage} />
+                    </Pressable>
+                    <View style={styles.cccdSlotActionRow}>
+                      <Pressable style={styles.cccdSlotChangeBtn} onPress={() => handlePickCccdSlot('back')}>
+                        <MaterialIcons name="photo-camera" size={14} color="#0F382C" />
+                        <Text style={styles.cccdSlotChangeText}>Đổi ảnh</Text>
+                      </Pressable>
+                      <Pressable style={styles.cccdSlotDeleteIconBtn} onPress={() => setCccdBackUri(null)}>
+                        <MaterialIcons name="delete" size={16} color="#BA1A1A" />
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <Pressable style={styles.cccdSlotCardEmpty} onPress={() => handlePickCccdSlot('back')}>
+                    <MaterialIcons name="add-a-photo" size={28} color={cccdFrontUri ? "#0F382C" : "#A0A0A0"} />
+                    <Text style={[styles.cccdSlotEmptyTitle, !cccdFrontUri && { color: '#A0A0A0' }]}>Tải Mặt sau</Text>
+                    <Text style={styles.cccdSlotEmptySub}>Chụp hoặc chọn 1 ảnh</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
 
             {cccdUris.length > 0 && (
@@ -869,7 +1097,7 @@ export default function WorkerSetupScreen() {
                 style={styles.textInput}
                 value={certTitle}
                 onChangeText={setCertTitle}
-                placeholder="Tên chứng chỉ (ví dụ: Kỹ thuật điện dân dụng)"
+                placeholder="Tên chứng chỉ (ví dụ: Chứng chỉ Chăm sóc da / Spa)"
                 placeholderTextColor="#9A9A9A"
               />
               <TextInput
@@ -877,6 +1105,13 @@ export default function WorkerSetupScreen() {
                 value={certIssuedBy}
                 onChangeText={setCertIssuedBy}
                 placeholder="Nơi cấp chứng chỉ"
+                placeholderTextColor="#9A9A9A"
+              />
+              <TextInput
+                style={styles.textInput}
+                value={certIssuedAt}
+                onChangeText={setCertIssuedAt}
+                placeholder="Ngày nhận chứng chỉ (yyyy-MM-dd, ví dụ: 2022-05-15)"
                 placeholderTextColor="#9A9A9A"
               />
               {certUri ? (
@@ -917,7 +1152,9 @@ export default function WorkerSetupScreen() {
                     )}
                     <View style={styles.certInfo}>
                       <Text style={styles.certTitleText}>{c.title}</Text>
-                      <Text style={styles.certSubText}>Cấp bởi: {c.issuedBy}</Text>
+                      <Text style={styles.certSubText}>
+                        Cấp bởi: {c.issuedBy} {c.issuedAt ? `• Ngày cấp: ${c.issuedAt}` : ''}
+                      </Text>
                     </View>
                   </View>
                 ))}
@@ -938,11 +1175,12 @@ export default function WorkerSetupScreen() {
                     );
                     return;
                   }
-                  if (cccdUris.length < 2) {
+                  if (!cccdFrontUri || !cccdBackUri) {
                     Alert.alert(
-                      'Cảnh báo',
-                      'Nên cung cấp đủ 2 ảnh mặt trước và sau của CCCD để tránh bị từ chối duyệt.'
+                      'Thiếu ảnh CCCD',
+                      'Vui lòng tải đủ 2 mặt (Mặt trước và Mặt sau) của CCCD để tiếp tục.'
                     );
+                    return;
                   }
                   setCurrentStep(3);
                 }}>
@@ -1006,7 +1244,7 @@ export default function WorkerSetupScreen() {
 
             <Text style={styles.sectionTitle}>Hình ảnh hoạt động thực tế (Portfolio)</Text>
             <Text style={styles.subLabel}>
-              Tải ảnh các công trình đã sửa chữa của bạn để tăng độ tin cậy:
+              Tải ảnh hình ảnh thực tế / Dịch vụ của bạn để tăng độ tin cậy:
             </Text>
 
             <View style={styles.cccdUploadBox}>
@@ -1336,22 +1574,76 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderColor: '#C6DFC6',
     paddingTop: 10,
-    gap: 6,
+    gap: 8,
   },
   priceLabel: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 12,
-    color: '#574237',
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#0F382C',
   },
-  priceInput: {
-    height: 44,
+  optionItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginTop: 4,
+  },
+  optionDurationBox: {
+    width: 110,
+  },
+  optionDurationLabel: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+    color: '#574237',
+    marginBottom: 4,
+  },
+  optionDurationInput: {
+    height: 42,
     borderRadius: 8,
     borderWidth: 1,
     borderColor: '#0F382C',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 15,
+    fontSize: 14,
+    color: '#0F382C',
+    textAlign: 'center',
+  },
+  optionPriceBox: {
+    flex: 1,
+  },
+  optionPriceLabel: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+    color: '#574237',
+    marginBottom: 4,
+  },
+  optionPriceInput: {
+    height: 42,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0F382C',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 10,
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#0F382C',
+  },
+  removeOptionBtn: {
+    height: 42,
+    width: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 6,
+  },
+  addOptionText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
     color: '#0F382C',
   },
   nextBtn: {
@@ -1390,6 +1682,84 @@ const styles = StyleSheet.create({
     backgroundColor: 'rgba(255, 255, 255, 0.25)',
     justifyContent: 'center',
     alignItems: 'center',
+  },
+  cccdTwoSlotsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginBottom: 16,
+  },
+  cccdSingleSlotWrapper: {
+    flex: 1,
+    gap: 6,
+  },
+  cccdSlotHeaderLabel: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#1B1C1C',
+  },
+  cccdSlotCardEmpty: {
+    height: 120,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#0F382C',
+    borderStyle: 'dashed',
+    backgroundColor: '#F2F7F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    gap: 4,
+  },
+  cccdSlotEmptyTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#0F382C',
+    textAlign: 'center',
+  },
+  cccdSlotEmptySub: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 10,
+    color: '#818A91',
+    textAlign: 'center',
+  },
+  cccdSlotCardFilled: {
+    height: 120,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#C6DFC6',
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cccdSlotImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  cccdSlotActionRow: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  cccdSlotChangeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cccdSlotChangeText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+    color: '#0F382C',
+  },
+  cccdSlotDeleteIconBtn: {
+    padding: 2,
   },
   cccdUploadBoxRow: {
     flexDirection: 'row',

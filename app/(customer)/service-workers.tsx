@@ -17,9 +17,11 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { searchWorkers, WorkerProfile } from '@/services/api/workers';
-import { getCategoryGuid } from '@/services/api/categories';
+import { fetchCategories, getCategoryGuid } from '@/services/api/categories';
 import { formatCurrency } from '@/utils/format';
 import { useQuery } from '@tanstack/react-query';
+import { CitySelectorModal } from '@/components/city-selector-modal';
+import { useLocationStore } from '@/store/store';
 
 const WORKERS_PAGE_SIZE = 50;
 const MAX_WORKER_PAGES = 20;
@@ -46,14 +48,31 @@ function formatCompactCurrency(value: number) {
   return `${Math.round(value / 1000)}k`;
 }
 
-async function fetchAllWorkersByCategory(categoryId: string) {
-  if (!categoryId) return [];
-
+async function fetchAllWorkersByCategory(serviceIdOrGuid?: string, city?: string) {
   const workers: WorkerProfile[] = [];
+  const categories = await fetchCategories();
+
+  let categoryId: string | undefined;
+  if (serviceIdOrGuid) {
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    if (guidRegex.test(serviceIdOrGuid)) {
+      categoryId = serviceIdOrGuid;
+    } else {
+      const match = categories.find(
+        (c) =>
+          c.code.toLowerCase() === serviceIdOrGuid.toLowerCase() ||
+          c.name.toLowerCase() === serviceIdOrGuid.toLowerCase()
+      );
+      if (match) {
+        categoryId = match.id;
+      }
+    }
+  }
 
   for (let pageNumber = 1; pageNumber <= MAX_WORKER_PAGES; pageNumber += 1) {
     const page = await searchWorkers({
       CategoryId: categoryId,
+      City: city,
       PageNumber: pageNumber,
       PageSize: WORKERS_PAGE_SIZE,
     });
@@ -205,16 +224,16 @@ export default function ServiceWorkersScreen() {
     updateCurrentCity();
   }, [updateCurrentCity]);
 
-  const categoryId = getCategoryGuid(serviceId || '');
-  const locationLabel = currentCity || 'Đà Nẵng';
+  const { selectedCity } = useLocationStore();
+  const [cityModalVisible, setCityModalVisible] = React.useState(false);
 
   const { data: apiWorkers = [], isLoading: loading } = useQuery<WorkerProfile[]>({
-    queryKey: ['workersByCategory', categoryId],
-    queryFn: () => fetchAllWorkersByCategory(categoryId),
-    enabled: !!serviceId,
+    queryKey: ['workersByCategory', serviceId || 'all', selectedCity],
+    queryFn: () => fetchAllWorkersByCategory(serviceId, selectedCity),
+    enabled: true,
   });
 
-  const workerList = apiWorkers.length > 0 ? apiWorkers : DEFAULT_SPA_KTVS;
+  const workerList = apiWorkers;
 
   const filteredWorkers = React.useMemo(() => {
     const query = searchQuery.trim().toLowerCase();
@@ -279,8 +298,8 @@ export default function ServiceWorkersScreen() {
           <MaterialIcons name="arrow-back" size={24} color="#0F382C" />
         </Pressable>
 
-        <Pressable style={styles.locationDropdown} onPress={updateCurrentCity}>
-          <Text style={styles.locationDropdownText}>{locationLabel}</Text>
+        <Pressable style={styles.locationDropdown} onPress={() => setCityModalVisible(true)}>
+          <Text style={styles.locationDropdownText}>{selectedCity}</Text>
           <MaterialIcons name="keyboard-arrow-down" size={18} color="#0F382C" />
         </Pressable>
 
@@ -342,7 +361,7 @@ export default function ServiceWorkersScreen() {
           ListEmptyComponent={
             <View style={styles.emptyContainer}>
               <MaterialIcons name="person-off" size={48} color="#818A91" />
-              <Text style={styles.emptyText}>Không tìm thấy kỹ thuật viên phù hợp.</Text>
+              <Text style={styles.emptyText}>Chưa có kỹ thuật viên nào tại {selectedCity}.</Text>
             </View>
           }
         />
@@ -401,6 +420,12 @@ export default function ServiceWorkersScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* City Selector Modal */}
+      <CitySelectorModal
+        visible={cityModalVisible}
+        onClose={() => setCityModalVisible(false)}
+      />
     </View>
   );
 }

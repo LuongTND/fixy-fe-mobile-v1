@@ -18,6 +18,9 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBar } from '@/components/layout/bottom-tab-bar';
 import { fetchCategories } from '@/services/api/categories';
 import { getUnreadCount } from '@/services/api/notifications';
+import { searchWorkers, WorkerProfile } from '@/services/api/workers';
+import { CitySelectorModal } from '@/components/city-selector-modal';
+import { useLocationStore } from '@/store/store';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -88,12 +91,19 @@ const FEATURED_TECHNICIANS = [
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
+  const { selectedCity } = useLocationStore();
+  const [cityModalVisible, setCityModalVisible] = React.useState(false);
   const [currentCity, setCurrentCity] = React.useState('');
   const [currentLocationLoading, setCurrentLocationLoading] = React.useState(false);
 
   const { data: apiCategories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => fetchCategories(),
+  });
+
+  const { data: apiWorkers = [] } = useQuery<WorkerProfile[]>({
+    queryKey: ['homeWorkers'],
+    queryFn: () => searchWorkers({ PageSize: 10 }),
   });
 
   const { data: unreadCount = 0 } = useQuery<number>({
@@ -152,11 +162,10 @@ export default function HomeScreen() {
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
         <Pressable
           style={styles.locationContainer}
-          onPress={updateCurrentCity}
-          disabled={currentLocationLoading}>
+          onPress={() => setCityModalVisible(true)}>
           <MaterialIcons name="location-on" size={16} color="#0F382C" />
           <Text style={styles.locationText} numberOfLines={1}>
-            {locationLabel}
+            {selectedCity}
           </Text>
           <MaterialIcons name="keyboard-arrow-down" size={16} color="#0F382C" />
         </Pressable>
@@ -241,7 +250,21 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.technicianList}>
-          {FEATURED_TECHNICIANS.map((ktv) => (
+          {(apiWorkers.length > 0
+            ? apiWorkers.map((w) => ({
+                id: w.id || w.workerProfileId,
+                name: w.fullName,
+                badge: w.rating >= 4.9 ? 'Chất lượng' : 'Mới đến',
+                badgeColor: w.rating >= 4.9 ? '#E68A2E' : '#4A90E2',
+                rating: w.rating || 5.0,
+                reviews: w.reviewsCount || 0,
+                distance: w.distance || '100m',
+                availableTime: 'Sớm nhất 12:00',
+                avatar: w.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
+                specialty: w.bio || 'Chuyên viên Spa & Massage trị liệu',
+              }))
+            : FEATURED_TECHNICIANS
+          ).map((ktv) => (
             <Pressable
               key={ktv.id}
               style={styles.technicianCard}
@@ -284,6 +307,12 @@ export default function HomeScreen() {
 
       {/* Bottom Navigation Tab Bar */}
       <BottomTabBar activeTab="home" />
+
+      {/* City Selector Modal */}
+      <CitySelectorModal
+        visible={cityModalVisible}
+        onClose={() => setCityModalVisible(false)}
+      />
     </View>
   );
 }
