@@ -309,15 +309,15 @@ function RoleSelection({ onSelectRole }: RoleSelectionProps) {
         <RoleCard
           icon="person"
           title="Tôi là Khách hàng"
-          description="Tìm kiếm và đặt dịch vụ thợ nghề đáng tin cậy."
-          benefits={['Đặt dịch vụ nhanh chóng', 'Theo dõi đơn hàng', 'Đánh giá thợ sau dịch vụ']}
+          description="Tìm kiếm và đặt dịch vụ Kỹ thuật viên Spa chuyên nghiệp."
+          benefits={['Đặt dịch vụ nhanh chóng', 'Theo dõi đơn hàng', 'Đánh giá KTV sau dịch vụ']}
           onPress={() => onSelectRole('customer')}
         />
         <RoleCard
-          icon="engineering"
-          title="Tôi là Thợ nghề"
+          icon="spa"
+          title="Tôi là Kỹ thuật viên Spa"
           description="Nhận đơn phù hợp khu vực và quản lý thu nhập minh bạch."
-          benefits={['Nhận đơn linh hoạt', 'Quản lý lịch làm việc', 'Xây dựng uy tín nghề']}
+          benefits={['Nhận đơn linh hoạt', 'Quản lý lịch làm việc', 'Xây dựng thương hiệu Spa']}
           onPress={() => onSelectRole('worker')}
         />
       </View>

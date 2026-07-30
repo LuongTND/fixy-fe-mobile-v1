@@ -909,7 +909,7 @@ export default function WorkerSetupScreen() {
           onPress={() => router.replace('/(worker)/worker-home' as any)}>
           <MaterialIcons name="arrow-back" size={24} color="#383838" />
         </Pressable>
-        <Text style={styles.headerTitle}>Thiết lập hồ sơ thợ</Text>
+        <Text style={styles.headerTitle}>Thiết lập hồ sơ Kỹ thuật viên Spa</Text>
         <Pressable style={styles.logoutBtn} onPress={handleLogout}>
           <MaterialIcons name="logout" size={20} color="#ba1a1a" />
         </Pressable>

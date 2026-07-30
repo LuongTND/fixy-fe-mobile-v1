@@ -52,27 +52,27 @@ const STATUS_MAP: Record<
   { label: string; style: any; icon: React.ComponentProps<typeof MaterialIcons>['name'] }
 > = {
   [BookingStatus.Pending]: {
-    label: 'Chờ thợ phản hồi',
+    label: 'Chờ KTV xác nhận',
     style: { color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
     icon: 'hourglass-empty',
   },
   [BookingStatus.Matching]: {
-    label: 'Đang kết nối thợ',
+    label: 'Đang kết nối KTV',
     style: { color: '#EA580C', bg: '#FFEDD5', border: '#FED7AA' },
     icon: 'sync',
   },
   [BookingStatus.Confirmed]: {
-    label: 'Đã nhận lịch',
+    label: 'KTV đã nhận lịch',
     style: { color: '#059669', bg: '#D1FAE5', border: '#A7F3D0' },
     icon: 'assignment-turned-in',
   },
   [BookingStatus.Traveling]: {
-    label: 'Thợ đang di chuyển',
+    label: 'KTV đang di chuyển',
     style: { color: '#2563EB', bg: '#DBEAFE', border: '#BFDBFE' },
     icon: 'directions-car',
   },
   [BookingStatus.Arrived]: {
-    label: 'Thợ đã đến nơi',
+    label: 'KTV đã đến nơi',
     style: { color: '#4F46E5', bg: '#EEF2FF', border: '#E0E7FF' },
     icon: 'hail',
   },
@@ -105,24 +105,14 @@ const STATUS_MAP: Record<
 
 function getCategoryLabel(categoryId: string): string {
   switch (categoryId) {
-    case 'dien':
-      return 'Điện – Điện tử';
-    case 'nuoc':
-      return 'Nước – Ống nước';
-    case 'dieuhoa':
-      return 'Bảo dưỡng điều hòa';
-    case 'maygiat':
-      return 'Sửa Máy giặt';
-    case 'xemay':
-      return 'Sửa Xe máy – Ô tô';
-    case 'moc':
-      return 'Mộc – Nội thất';
-    case 'son':
-      return 'Sơn – Trần nhà';
-    case 'vesinh':
-      return 'Dọn dẹp Vệ sinh';
+    case 'facial':
+      return 'Chăm sóc da mặt';
+    case 'massage':
+      return 'Massage toàn thân';
+    case 'spa':
+      return 'Spa trị liệu';
     default:
-      return 'Dịch vụ sửa chữa';
+      return 'Dịch vụ Spa';
   }
 }
 
@@ -484,72 +474,13 @@ export default function BookingDetailScreen() {
           </View>
         </View>
 
-        {/* Proposal Card */}
-        {Number(booking.status) === BookingStatus.Pending &&
-          ((booking.workerProposedPrice !== null && booking.workerProposedPrice !== undefined) ||
-            (booking.workerProposedTime !== null && booking.workerProposedTime !== undefined) ||
-            (booking.workerProposedNote !== null &&
-              booking.workerProposedNote !== undefined &&
-              booking.workerProposedNote !== '')) && (
-            <View style={[styles.infoCard, styles.proposalCard]}>
-              <Text style={styles.proposalCardTitle}>Đề xuất mới từ kỹ thuật viên</Text>
-
-              {booking.workerProposedPrice !== undefined &&
-                booking.workerProposedPrice !== null && (
-                  <View style={styles.proposalDetailRow}>
-                    <Text style={styles.proposalDetailLabel}>Giá nhân công đề xuất:</Text>
-                    <Text style={styles.proposalPriceVal}>
-                      {formatCurrency(booking.workerProposedPrice)}
-                    </Text>
-                  </View>
-                )}
-
-              {booking.workerProposedTime !== undefined && booking.workerProposedTime !== null && (
-                <View style={styles.proposalDetailRow}>
-                  <Text style={styles.proposalDetailLabel}>Thời gian thi công đề xuất:</Text>
-                  <Text style={styles.proposalTimeVal}>
-                    {formatDateTime(booking.workerProposedTime)}
-                  </Text>
-                </View>
-              )}
-
-              {booking.workerProposedNote ? (
-                <View style={styles.proposalNoteContainer}>
-                  <Text style={styles.proposalNoteLabel}>Ghi chú từ thợ:</Text>
-                  <Text style={styles.proposalNoteText}>{`"${booking.workerProposedNote}"`}</Text>
-                </View>
-              ) : null}
-
-              <View style={styles.proposalActionsRow}>
-                <Pressable
-                  style={[
-                    styles.proposalDeclineBtn,
-                    respondProposalMutation.isPending && styles.proposalDisabledBtn,
-                  ]}
-                  onPress={() => respondProposalMutation.mutate({ accept: false })}
-                  disabled={respondProposalMutation.isPending}>
-                  <Text style={styles.proposalDeclineBtnText}>Từ chối đề xuất</Text>
-                </Pressable>
-                <Pressable
-                  style={[
-                    styles.proposalAcceptBtn,
-                    respondProposalMutation.isPending && styles.proposalDisabledBtn,
-                  ]}
-                  onPress={() => respondProposalMutation.mutate({ accept: true })}
-                  disabled={respondProposalMutation.isPending}>
-                  <Text style={styles.proposalAcceptBtnText}>Đồng ý & Xác nhận</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-
         {/* Pulse Matching Loader for status == 1 */}
         {Number(booking.status) === BookingStatus.Matching && (
           <View style={styles.matchingContainer}>
             <ActivityIndicator size="large" color="#FF8228" />
-            <Text style={styles.matchingText}>Hệ thống đang tìm kiếm thợ xung quanh...</Text>
+            <Text style={styles.matchingText}>Hệ thống đang tìm kiếm Kỹ thuật viên Spa...</Text>
             <Text style={styles.matchingSub}>
-              Vui lòng giữ kết nối, quá trình thường mất dưới 2 phút.
+              Vui lòng giữ kết nối, quá trình tìm KTV thường mất dưới 2 phút.
             </Text>
           </View>
         )}
@@ -558,7 +489,7 @@ export default function BookingDetailScreen() {
           Number(booking.status) >= BookingStatus.Traveling &&
           Number(booking.status) <= BookingStatus.InProgress && (
             <View style={styles.infoCard}>
-              <Text style={styles.infoCardTitle}>Theo dõi vị trí thợ</Text>
+              <Text style={styles.infoCardTitle}>Theo dõi vị trí KTV</Text>
               <View style={styles.trackingRow}>
                 <View style={styles.trackingIconBox}>
                   <MaterialIcons name="near-me" size={22} color="#FF8228" />
@@ -641,12 +572,12 @@ export default function BookingDetailScreen() {
                     style={[styles.actionBtn, styles.actionBtnCall]}
                     onPress={() =>
                       Alert.alert(
-                        'Gọi thợ',
+                        'Gọi KTV',
                         `Đang kết nối cuộc gọi tới SĐT: ${booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}`
                       )
                     }>
                     <MaterialIcons name="phone" size={18} color="#FF8228" />
-                    <Text style={styles.actionBtnTextCall}>Gọi thợ</Text>
+                    <Text style={styles.actionBtnTextCall}>Gọi KTV</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.actionBtn, styles.actionBtnChat]}
@@ -674,39 +605,24 @@ export default function BookingDetailScreen() {
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Địa chỉ thi công</Text>
+            <Text style={styles.detailLabel}>Địa chỉ dịch vụ</Text>
             <Text style={styles.detailValue}>{booking.address}</Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Nội dung sự cố</Text>
-            <Text style={styles.detailValue}>{booking.description}</Text>
-          </View>
-
-          {(booking.requestImages && booking.requestImages.length > 0) ||
-          (booking.mediaIds && booking.mediaIds.length > 0) ? (
+          {booking.requestImages && booking.requestImages.length > 0 ? (
             <View style={{ marginTop: 12 }}>
               <Text style={styles.detailLabel}>Ảnh mô tả sự cố:</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.photoList}>
-                {booking.requestImages && booking.requestImages.length > 0
-                  ? booking.requestImages.map((img, idx) => (
-                      <Pressable
-                        key={img.id ?? idx}
-                        onPress={() => setActivePreviewImage(img.fileUrl)}>
-                        <Image source={{ uri: img.fileUrl }} style={styles.photoAttachment} />
-                      </Pressable>
-                    ))
-                  : booking.mediaIds.map((mediaId) => {
-                      const uri = getMediaUrl(mediaId);
-                      return (
-                        <Pressable key={mediaId} onPress={() => setActivePreviewImage(uri)}>
-                          <Image source={{ uri }} style={styles.photoAttachment} />
-                        </Pressable>
-                      );
-                    })}
+                {booking.requestImages.map((img, idx) => (
+                  <Pressable
+                    key={img.id ?? idx}
+                    onPress={() => setActivePreviewImage(img.fileUrl)}>
+                    <Image source={{ uri: img.fileUrl }} style={styles.photoAttachment} />
+                  </Pressable>
+                ))}
               </ScrollView>
             </View>
           ) : null}
@@ -813,142 +729,26 @@ export default function BookingDetailScreen() {
           </View>
         )}
 
-        {Number(booking.status) === BookingStatus.PendingPayment && (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Thanh toán đặt lịch</Text>
-
-            <Text style={styles.paymentSectionLabel}>Mã voucher / Khuyến mãi</Text>
-            {selectedVoucher ? (
-              <View style={styles.selectedVoucherBox}>
-                <MaterialIcons name="check-circle" size={20} color="#059669" />
-                <View style={styles.selectedVoucherTextCol}>
-                  <Text style={styles.selectedVoucherCode}>{selectedVoucher.code}</Text>
-                  {discountAmount > 0 && (
-                    <Text style={styles.selectedVoucherDiscount}>
-                      Giảm {formatCurrency(discountAmount)} khi thanh toán
-                    </Text>
-                  )}
-                </View>
-                <Pressable style={styles.removeVoucherButton} onPress={handleRemoveVoucher}>
-                  <MaterialIcons name="close" size={18} color="#059669" />
-                </Pressable>
-              </View>
-            ) : (
-              <>
-                <View style={styles.voucherInputRow}>
-                  <TextInput
-                    value={voucherCode}
-                    onChangeText={(value) => {
-                      setVoucherCode(value.toUpperCase());
-                      if (voucherError) setVoucherError('');
-                    }}
-                    placeholder="Nhập mã voucher..."
-                    placeholderTextColor="#9A9A9A"
-                    autoCapitalize="characters"
-                    editable={!voucherApplying}
-                    style={styles.voucherInput}
-                  />
-                  <Pressable
-                    style={[
-                      styles.applyVoucherButton,
-                      (!voucherCode.trim() || voucherApplying) && styles.smallButtonDisabled,
-                    ]}
-                    onPress={() => handleApplyVoucher()}
-                    disabled={!voucherCode.trim() || voucherApplying}>
-                    {voucherApplying ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={styles.applyVoucherButtonText}>Áp dụng</Text>
-                    )}
-                  </Pressable>
-                </View>
-                {voucherError ? <Text style={styles.voucherErrorText}>{voucherError}</Text> : null}
-                <Pressable
-                  style={styles.chooseVoucherButton}
-                  onPress={() => setVoucherModalOpen(true)}>
-                  <MaterialIcons name="local-activity" size={18} color="#FF8228" />
-                  <Text style={styles.chooseVoucherText}>
-                    {loadingEligible
-                      ? 'Đang tải voucher...'
-                      : `Chọn voucher (${eligibleVouchers.filter((item) => item.isEligible).length} khả dụng)`}
-                  </Text>
-                </Pressable>
-              </>
-            )}
-
-            <Text style={[styles.paymentSectionLabel, { marginTop: 16 }]}>
-              Phương thức thanh toán
-            </Text>
-            <View style={styles.paymentMethodRow}>
-              <Pressable
-                style={[
-                  styles.paymentMethodButton,
-                  selectedPaymentMethod === PaymentMethod.Wallet &&
-                    styles.paymentMethodButtonActive,
-                ]}
-                onPress={() => setSelectedPaymentMethod(PaymentMethod.Wallet)}>
-                <MaterialIcons
-                  name="account-balance-wallet"
-                  size={20}
-                  color={selectedPaymentMethod === PaymentMethod.Wallet ? '#FF8228' : '#818A91'}
-                />
-                <View style={styles.paymentMethodTextCol}>
-                  <Text style={styles.paymentMethodTitle}>Ví Fixy</Text>
-                  <Text style={styles.paymentMethodSubtitle}>
-                    Số dư: {formatCurrency(wallet?.balance ?? 0)}
-                  </Text>
-                </View>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.paymentMethodButton,
-                  selectedPaymentMethod === PaymentMethod.Vnpay && styles.paymentMethodButtonActive,
-                ]}
-                onPress={() => setSelectedPaymentMethod(PaymentMethod.Vnpay)}>
-                <View style={styles.vnpayLogoWrap}>
-                  <SvgCssUri width={54} height={18} uri={VNPAY_LOGO_URI} />
-                </View>
-                <View style={styles.paymentMethodTextCol}>
-                  <Text style={styles.paymentMethodTitle}>VNPay</Text>
-                  <Text style={styles.paymentMethodSubtitle}>ATM / QR Code</Text>
-                </View>
-              </Pressable>
-            </View>
-
-            {walletInsufficient && (
-              <View style={styles.paymentWarningBox}>
-                <MaterialIcons name="info" size={18} color="#BA1A1A" />
-                <Text style={styles.paymentWarningText}>
-                  Ví không đủ số dư để thanh toán {formatCurrency(finalTotalAmount)}. Vui lòng nạp
-                  thêm hoặc chọn VNPay.
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-      </ScrollView>
+        </ScrollView>
 
       {/* Footer Actions */}
       <View style={[styles.footerBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         {Number(booking.status) === BookingStatus.PendingPayment ? (
-          // Pay now button for PendingPayment
-          <Pressable
-            style={[
-              styles.primaryActionBtn,
-              (actionLoading || walletInsufficient) && styles.disabledBtn,
-            ]}
-            onPress={handlePayBill}
-            disabled={actionLoading || walletInsufficient}>
-            {actionLoading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Text style={styles.primaryActionText}>
-                {selectedPaymentMethod === PaymentMethod.Wallet
-                  ? 'Xác nhận thanh toán bằng ví'
-                  : 'Thanh toán qua VNPay'}
-              </Text>
-            )}
-          </Pressable>
+          <View style={{ gap: 10 }}>
+            <Pressable
+              style={[styles.primaryActionBtn, actionLoading && styles.disabledBtn]}
+              onPress={handlePayBill}
+              disabled={actionLoading}>
+              {actionLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryActionText}>Tiếp tục thanh toán qua cổng online</Text>
+              )}
+            </Pressable>
+            <Pressable style={styles.cancelBtn} onPress={handleCancelBooking}>
+              <Text style={styles.cancelBtnText}>Hủy đặt lịch</Text>
+            </Pressable>
+          </View>
         ) : Number(booking.status) === BookingStatus.Pending ||
           Number(booking.status) === BookingStatus.Matching ? (
           // Cancel button for draft/matching statuses

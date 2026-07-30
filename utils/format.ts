@@ -46,3 +46,33 @@ export function formatToIsoDateTime(dateStr: string): string {
 
   return trimmed;
 }
+
+export function formatFullAddress(addr?: {
+  detail?: string | null;
+  ward?: string | null;
+  district?: string | null;
+  city?: string | null;
+} | null): string {
+  if (!addr) return '';
+  const detail = (addr.detail || '').trim();
+  const ward = (addr.ward || '').trim();
+  const district = (addr.district || '').trim();
+  const city = (addr.city || '').trim();
+
+  if (detail && city && detail.toLowerCase().includes(city.toLowerCase())) {
+    return detail;
+  }
+
+  const parts = [detail, ward, district, city].filter(
+    (p) => Boolean(p) && p !== 'undefined' && p !== 'null'
+  );
+
+  const result: string[] = [];
+  parts.forEach((p) => {
+    if (!result.some((existing) => existing.toLowerCase().includes(p.toLowerCase()))) {
+      result.push(p);
+    }
+  });
+
+  return result.join(', ');
+}

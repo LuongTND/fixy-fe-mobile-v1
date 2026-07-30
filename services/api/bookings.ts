@@ -39,14 +39,13 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 
 export type BookingDraftInput = {
   categoryId: string;
-  description: string;
-  mediaIds: string[];
   addressId?: string | null;
   address: string;
   lat: number;
   lng: number;
   scheduledType: BookingScheduledType | number;
   scheduledAt?: string;
+  totalDurationMinutes?: number;
   workerProfileId?: string | null;
   autoMatch: boolean;
 };
@@ -70,8 +69,6 @@ export type BookingWorkerInfo = {
 export type Booking = {
   id: string;
   categoryId: string;
-  description: string;
-  mediaIds: string[];
   addressId?: string | null;
   address: string;
   lat: number;
@@ -89,9 +86,8 @@ export type Booking = {
   estimatedAmount?: number;
   finalAmount?: number;
   finalPrice?: number;
-  workerProposedPrice?: number;
-  workerProposedTime?: string;
-  workerProposedNote?: string;
+  description?: string | null;
+  mediaIds?: string[] | null;
   requestImages?: { id: string; fileUrl: string }[];
   completeImages?: { id: string; fileUrl: string }[];
   worker?: BookingWorkerInfo;
@@ -274,14 +270,13 @@ function normalizeBooking(raw: any): Booking {
 function buildDraftPayload(draft: BookingDraftInput) {
   return {
     categoryId: getCategoryGuid(draft.categoryId),
-    description: draft.description,
-    mediaIds: draft.mediaIds ?? [],
     addressId: draft.addressId ?? null,
     address: draft.address,
     lat: draft.lat,
     lng: draft.lng,
     scheduledType: draft.scheduledType,
     scheduledAt: draft.scheduledAt,
+    totalDurationMinutes: draft.totalDurationMinutes ?? null,
     workerProfileId: draft.workerProfileId ?? null,
     autoMatch: draft.autoMatch,
   };
@@ -563,4 +558,40 @@ export async function markBookingChatRead(bookingId: string): Promise<void> {
 export async function cancelBooking(bookingId: string, reason: string): Promise<Booking> {
   const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/cancel`, { reason });
   return normalizeBooking(unwrapData(response.data));
+}
+
+export type ApiPaymentMethodOption = {
+  name: string;
+  value: number;
+  description?: string;
+};
+
+/** GET /enums/PaymentMethod — Fetch available payment methods from BE */
+export async function fetchPaymentMethodsApi(): Promise<ApiPaymentMethodOption[]> {
+  try {
+    const response = await apiClient.get('/enums/PaymentMethod');
+    const data = unwrapData(response.data);
+    const items = Array.isArray(data) ? data : (data?.items ?? []);
+    if (Array.isArray(items) && items.length > 0) {
+      return items.map((item: any) => {
+        const val = typeof item.value === 'number' ? item.value : (item.Value ?? 5);
+        const label = item.displayName ?? item.DisplayName ?? item.description ?? item.Description ?? PAYMENT_METHOD_LABELS[val as PaymentMethod] ?? item.name;
+        return {
+          name: item.name ?? item.Name ?? String(val),
+          value: val,
+          description: label,
+        };
+      });
+    }
+  } catch (err) {
+    // Silent catch if offline or fallback
+  }
+  return [
+    { name: 'Cash', value: PaymentMethod.Cash, description: 'Tiền mặt' },
+    { name: 'Wallet', value: PaymentMethod.Wallet, description: 'Ví Fixy' },
+    { name: 'Vnpay', value: PaymentMethod.Vnpay, description: 'VNPay' },
+    { name: 'Momo', value: PaymentMethod.Momo, description: 'MoMo' },
+    { name: 'PayOS', value: PaymentMethod.PayOS, description: 'PayOS' },
+    { name: 'Card', value: PaymentMethod.Card, description: 'Thẻ ngân hàng' },
+  ];
 }

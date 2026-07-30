@@ -155,7 +155,7 @@ export default function WorkerJobsScreen() {
                       <View style={styles.jobDetails}>
                         <View style={styles.jobTitleRow}>
                           <Text style={styles.jobTitle} numberOfLines={1}>
-                            {job.description || 'Yêu cầu sửa chữa'}
+                            {job.description || 'Dịch vụ Spa'}
                           </Text>
                           <Text style={styles.jobPrice}>
                             {formatCurrency(job.finalAmount || job.estimatedAmount || 150000)}

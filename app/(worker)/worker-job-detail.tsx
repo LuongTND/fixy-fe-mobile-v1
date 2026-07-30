@@ -69,9 +69,9 @@ const STATUS_MAP: Record<
     icon: 'hail',
   },
   [BookingStatus.InProgress]: {
-    label: 'Đang tiến hành sửa chữa',
+    label: 'Đang thực hiện dịch vụ Spa',
     style: { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-    icon: 'build',
+    icon: 'spa',
   },
   [BookingStatus.Completed]: {
     label: 'Công việc hoàn thành',
@@ -145,23 +145,15 @@ export default function WorkerJobDetailScreen() {
   const category = categories.find((c) => c.id === job?.categoryId || c.code === job?.categoryId);
   const categoryName =
     category?.name ||
-    (job?.categoryId === 'dien'
-      ? 'Điện gia dụng'
-      : job?.categoryId === 'nuoc'
-        ? 'Sửa đường nước'
-        : job?.categoryId === 'dieuhoa'
-          ? 'Bảo dưỡng điều hòa'
-          : job?.categoryId === 'maygiat'
-            ? 'Sửa máy giặt'
-            : job?.categoryId === 'xemay'
-              ? 'Sửa xe máy/ô tô'
-              : job?.categoryId === 'moc'
-                ? 'Đồ gỗ & Nội thất'
-                : job?.categoryId === 'son'
-                  ? 'Sơn & Trát tường'
-                  : job?.categoryId === 'vesinh'
-                    ? 'Vệ sinh nhà cửa'
-                    : 'Dịch vụ sửa chữa');
+    (job?.categoryId === 'facial'
+      ? 'Chăm sóc da mặt'
+      : job?.categoryId === 'massage'
+        ? 'Massage toàn thân'
+        : job?.categoryId === 'body'
+          ? 'Tẩy tế bào chết toàn thân'
+          : job?.categoryId === 'combo'
+            ? 'Gói Spa Chăm sóc toàn diện'
+            : 'Dịch vụ Spa');
 
   // Mutations
   const acceptMutation = useMutation({
@@ -239,7 +231,7 @@ export default function WorkerJobDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
-      Alert.alert('Đã đến nơi', 'Vui lòng khảo sát hiện trạng và sửa chữa.');
+      Alert.alert('Đã đến nơi', 'Vui lòng chuẩn bị và tiến hành dịch vụ Spa.');
     },
     onError: (err) => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
@@ -257,7 +249,7 @@ export default function WorkerJobDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
-      Alert.alert('Bắt đầu sửa chữa', 'Bắt đầu bấm giờ thi công.');
+      Alert.alert('Bắt đầu dịch vụ', 'Bắt đầu bấm giờ dịch vụ Spa.');
     },
     onError: (err) => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
@@ -266,7 +258,7 @@ export default function WorkerJobDetailScreen() {
       if (errMsg.includes('Current status:')) {
         return;
       }
-      Alert.alert('Lỗi', errMsg || 'Không thể bắt đầu sửa chữa.');
+      Alert.alert('Lỗi', errMsg || 'Không thể bắt đầu dịch vụ Spa.');
     },
   });
 
@@ -469,7 +461,7 @@ export default function WorkerJobDetailScreen() {
           <View style={styles.locationRow}>
             <MaterialIcons name="place" size={20} color="#0F382C" style={{ marginTop: 2 }} />
             <View style={styles.locationDetails}>
-              <Text style={styles.locationTitle}>Địa chỉ sửa chữa</Text>
+              <Text style={styles.locationTitle}>Địa chỉ thực hiện dịch vụ</Text>
               <Text style={styles.locationText}>{job.address}</Text>
               {job.lat && job.lng ? (
                 <Pressable style={styles.mapBtn} onPress={openMapDirections}>
@@ -521,7 +513,7 @@ export default function WorkerJobDetailScreen() {
                         <Image source={{ uri: img.fileUrl }} style={styles.photoAttachment} />
                       </Pressable>
                     ))
-                  : job.mediaIds.map((mediaId) => {
+                  : (job.mediaIds || []).map((mediaId: string) => {
                       const uri = getMediaUrl(mediaId);
                       return (
                         <Pressable key={mediaId} onPress={() => setActivePreviewImage(uri)}>
