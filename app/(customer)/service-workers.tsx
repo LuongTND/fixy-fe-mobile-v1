@@ -157,7 +157,7 @@ export default function ServiceWorkersScreen() {
       ? `Dự kiến ${item.estimatedArrivalMinutes} phút`
       : (item.isOnline ? 'Đặt ngay' : '');
 
-    const workerTargetId = item.id || item.workerProfileId;
+    const workerTargetId = item.workerProfileId || item.id;
 
     return (
       <Pressable

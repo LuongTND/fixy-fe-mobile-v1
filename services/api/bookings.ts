@@ -1,6 +1,5 @@
 import { apiClient } from './client';
 import { getCategoryGuid, getCategorySlug } from './categories';
-import { calculateDistanceMatrix } from '@/utils/distance-matrix';
 
 export enum BookingStatus {
   Pending = 0,
@@ -141,10 +140,6 @@ export type BookingTracking = {
     avatarUrl?: string | null;
     ratingAvg?: number;
   };
-  distanceKm?: number;
-  estimatedArrivalMinutes?: number;
-  distanceText?: string;
-  durationText?: string;
 };
 
 export type BookingChatMessage = {
@@ -442,33 +437,9 @@ export async function completeBooking(
   return normalizeBooking(unwrapData(response.data));
 }
 
-export async function getBookingTracking(
-  bookingId: string,
-  customerCoord?: { lat: number; lng: number }
-): Promise<BookingTracking | null> {
+export async function getBookingTracking(bookingId: string): Promise<BookingTracking | null> {
   const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/tracking`);
-  const tracking = unwrapData<BookingTracking>(response.data);
-
-  if (tracking && customerCoord && tracking.workerLat && tracking.workerLng) {
-    try {
-      const results = await calculateDistanceMatrix(
-        { lat: tracking.workerLat, lng: tracking.workerLng },
-        [{ lat: customerCoord.lat, lng: customerCoord.lng }],
-        'motorcycle'
-      );
-
-      if (results.length > 0 && results[0].status === 'OK') {
-        tracking.distanceKm = results[0].distanceKm;
-        tracking.distanceText = results[0].distanceText;
-        tracking.estimatedArrivalMinutes = results[0].estimatedArrivalMinutes;
-        tracking.durationText = results[0].durationText;
-      }
-    } catch (err) {
-      console.warn('[bookings API] Error calculating tracking distance matrix:', err);
-    }
-  }
-
-  return tracking;
+  return unwrapData<BookingTracking>(response.data);
 }
 
 export async function updateWorkerLocation(lat: number, lng: number): Promise<void> {

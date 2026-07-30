@@ -379,10 +379,7 @@ export default function LocationSetupScreen() {
 
   // Save currently selected place as a saved address
   const handleSaveAddress = async () => {
-    if (!selectedCoord) {
-      Alert.alert('Chưa chọn vị trí', 'Vui lòng chọn hoặc tìm kiếm một vị trí trên bản đồ.');
-      return;
-    }
+    if (!selectedCoord || !selectedPlaceInfo) return;
 
     if (!newLabel.trim()) {
       Alert.alert('Nhập nhãn', 'Vui lòng nhập tên nhãn (ví dụ: Nhà riêng, Văn phòng...)');
@@ -391,33 +388,21 @@ export default function LocationSetupScreen() {
 
     setLoading(true);
     try {
-      const city =
-        selectedPlaceInfo?.address_components?.find((c: any) =>
-          c.types.includes('administrative_area_level_1')
-        )?.long_name || 'Thành phố Đà Nẵng';
-
-      const district =
-        selectedPlaceInfo?.address_components?.find((c: any) =>
-          c.types.includes('administrative_area_level_2')
-        )?.long_name || '';
-
-      const ward =
-        selectedPlaceInfo?.address_components?.find((c: any) =>
-          c.types.includes('administrative_area_level_3')
-        )?.long_name || '';
-
-      const detail =
-        newDetail.trim() ||
-        searchQuery.trim() ||
-        selectedPlaceInfo?.formatted_address ||
-        'Địa chỉ đã chọn';
-
       const newAddressData: Omit<Address, 'id'> = {
-        label: newLabel.trim(),
-        city,
-        district,
-        ward,
-        detail,
+        label: newLabel,
+        city:
+          selectedPlaceInfo.address_components?.find((c: any) =>
+            c.types.includes('administrative_area_level_1')
+          )?.long_name || 'Đà Nẵng',
+        district:
+          selectedPlaceInfo.address_components?.find((c: any) =>
+            c.types.includes('administrative_area_level_2')
+          )?.long_name || '',
+        ward:
+          selectedPlaceInfo.address_components?.find((c: any) =>
+            c.types.includes('administrative_area_level_3')
+          )?.long_name || '',
+        detail: newDetail || selectedPlaceInfo.formatted_address || '',
         lat: selectedCoord[1],
         lng: selectedCoord[0],
         isDefault: addresses.length === 0,
@@ -425,25 +410,17 @@ export default function LocationSetupScreen() {
 
       const saved = await createAddress(newAddressData);
       await loadAddresses();
-      if (saved && saved.id) {
+      if (saved.id) {
         setSelectedAddressId(saved.id);
       }
       setShowSaveModal(false);
       setNewLabel('');
       setNewDetail('');
       Alert.alert('Thành công', 'Địa chỉ đã được lưu lại.', [
-        {
-          text: 'OK',
-          onPress: () => {
-            if (router.canGoBack()) {
-              router.back();
-            }
-          },
-        },
+        { text: 'OK', onPress: () => router.back() },
       ]);
-    } catch (err: any) {
-      console.error('[location-setup] Error saving address:', err);
-      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể lưu địa chỉ.');
+    } catch (err) {
+      Alert.alert('Lỗi', 'Không thể lưu địa chỉ.');
     } finally {
       setLoading(false);
     }
@@ -481,10 +458,6 @@ export default function LocationSetupScreen() {
   };
 
   const handleContinue = async () => {
-    if (router.canGoBack()) {
-      router.back();
-      return;
-    }
     setLoading(true);
     try {
       const response = await apiClient.get('/worker-profiles/me');
