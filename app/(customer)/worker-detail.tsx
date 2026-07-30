@@ -172,7 +172,7 @@ export default function WorkerDetailScreen() {
     staleTime: 1000 * 60 * 5,
   });
 
-  const targetWorkerId = worker?.id || worker?.workerProfileId || id || '';
+  const targetWorkerId = worker?.workerProfileId || worker?.id || id || '';
 
   const { data: reviewsData = null } = useQuery({
     queryKey: ['workerReviews', targetWorkerId],

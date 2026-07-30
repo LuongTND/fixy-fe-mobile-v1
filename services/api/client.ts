@@ -61,9 +61,9 @@ function logApiResponseError(error: any) {
     return;
   }
 
-  // Suppress expected 404/403 when checking profile status of a customer or first-time logged-in worker.
-  if (originalRequest?.url?.includes('/worker-profiles/me') && (status === 404 || status === 403)) {
-    console.log(`[API RESPONSE INFO] ${status} ${originalRequest.url} - Profile not yet created or user is a customer.`);
+  // Suppress expected 404 when checking profile status of a first-time logged-in worker.
+  if (originalRequest?.url?.includes('/worker-profiles/me') && status === 404) {
+    console.log(`[API RESPONSE INFO] 404 ${originalRequest.url} - Profile not yet created (needs setup).`);
     return;
   }
 
