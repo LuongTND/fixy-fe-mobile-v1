@@ -4,7 +4,7 @@ export type Address = {
   id?: string;
   label: string;
   city: string;
-  district: string;
+  district?: string;
   ward: string;
   detail: string;
   lat: number;
@@ -48,7 +48,16 @@ export async function getMyAddresses(): Promise<Address[]> {
 }
 
 export async function createAddress(address: Omit<Address, 'id'>): Promise<Address> {
-  const response = await apiClient.post('/addresses', address);
+  const payload = {
+    label: address.label || 'Địa chỉ',
+    city: address.city || 'Thành phố Đà Nẵng',
+    ward: address.ward || address.district || '',
+    detail: address.detail || '',
+    lat: Number(address.lat || 0),
+    lng: Number(address.lng || 0),
+    isDefault: Boolean(address.isDefault),
+  };
+  const response = await apiClient.post('/addresses', payload);
   const resData = response.data;
   return resData?.data ?? resData;
 }
@@ -57,7 +66,16 @@ export async function updateAddress(
   addressId: string,
   address: Omit<Address, 'id'>
 ): Promise<Address> {
-  const response = await apiClient.put(`/addresses/${addressId}`, address);
+  const payload = {
+    label: address.label || 'Địa chỉ',
+    city: address.city || 'Thành phố Đà Nẵng',
+    ward: address.ward || address.district || '',
+    detail: address.detail || '',
+    lat: Number(address.lat || 0),
+    lng: Number(address.lng || 0),
+    isDefault: Boolean(address.isDefault),
+  };
+  const response = await apiClient.put(`/addresses/${addressId}`, payload);
   const resData = response.data;
   return resData?.data ?? resData;
 }

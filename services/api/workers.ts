@@ -2,6 +2,7 @@ import { apiClient } from './client';
 import { prepareUploadFile } from './media';
 import { getCategoryGuid, getCategorySlug } from './categories';
 import { formatToIsoDateTime } from '@/utils/format';
+import { calculateDistanceMatrix } from '@/utils/distance-matrix';
 import {
   normalizeAvailabilityResponse,
   normalizeScheduleExceptions,
@@ -270,7 +271,41 @@ export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerP
     const resData = response.data;
     const items = resData?.data?.items ?? resData?.data ?? resData;
     if (items && Array.isArray(items)) {
-      return items.map((w: any) => mapBackendWorkerToProfile(w, resolvedCategoryId));
+      const workers: WorkerProfile[] = items.map((w: any) => mapBackendWorkerToProfile(w, resolvedCategoryId));
+
+      // Auto-fill missing distanceKm & estimatedArrivalMinutes via Goong Distance Matrix API v2 if customer GPS is available
+      if (params.CustomerLat !== undefined && params.CustomerLng !== undefined) {
+        const missingMatrixWorkers = workers.filter(
+          (w) => (w.distanceKm == null || w.estimatedArrivalMinutes == null) && w.address?.lat && w.address?.lng
+        );
+
+        if (missingMatrixWorkers.length > 0) {
+          try {
+            const matrixResults = await calculateDistanceMatrix(
+              { lat: params.CustomerLat, lng: params.CustomerLng },
+              missingMatrixWorkers.map((w) => ({ lat: w.address!.lat, lng: w.address!.lng })),
+              'motorcycle'
+            );
+
+            missingMatrixWorkers.forEach((w, index) => {
+              const res = matrixResults[index];
+              if (res && res.status === 'OK') {
+                if (w.distanceKm == null && res.distanceKm > 0) {
+                  w.distanceKm = res.distanceKm;
+                  w.distance = res.distanceKm < 1 ? `${Math.round(res.distanceKm * 1000)}m` : `${res.distanceKm.toFixed(1)} km`;
+                }
+                if (w.estimatedArrivalMinutes == null && res.estimatedArrivalMinutes > 0) {
+                  w.estimatedArrivalMinutes = res.estimatedArrivalMinutes;
+                }
+              }
+            });
+          } catch (err) {
+            console.warn('[workers API] Failed to enrich distance matrix:', err);
+          }
+        }
+      }
+
+      return workers;
     }
     return [];
   } catch (error) {

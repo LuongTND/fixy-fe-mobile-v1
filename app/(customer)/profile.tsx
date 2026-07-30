@@ -185,6 +185,18 @@ export default function ProfileScreen() {
 
             <Pressable
               style={styles.menuItemRow}
+              onPress={() => router.push('/(customer)/saved-addresses' as any)}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="location-on" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Địa chỉ của tôi</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItemRow}
               onPress={() =>
                 Alert.alert('Ngôn ngữ', 'Chọn ngôn ngữ hiển thị ứng dụng', [
                   { text: 'Tiếng Việt', onPress: () => setSelectedLanguage('Tiếng Việt') },
