@@ -156,8 +156,12 @@ export default function BookingDetailScreen() {
   const categoryName = category?.name || (booking ? getCategoryLabel(booking.categoryId) : '');
 
   const { data: tracking = null } = useQuery<BookingTracking | null>({
-    queryKey: ['bookingTracking', bookingId],
-    queryFn: () => getBookingTracking(bookingId || ''),
+    queryKey: ['bookingTracking', bookingId, booking?.lat, booking?.lng],
+    queryFn: () =>
+      getBookingTracking(
+        bookingId || '',
+        booking && booking.lat && booking.lng ? { lat: booking.lat, lng: booking.lng } : undefined
+      ),
     enabled:
       !!bookingId &&
       booking !== null &&
@@ -568,17 +572,17 @@ export default function BookingDetailScreen() {
                     {tracking.workerInfo?.fullName ||
                       booking.worker?.fullName ||
                       booking.workerName ||
-                      'Kỹ thuật viên'}
-                    đang cập nhật vị trí
+                      'Kỹ thuật viên'}{' '}
+                    đang di chuyển đến
                   </Text>
-                  <Text style={styles.trackingMeta}>
-                    {tracking.workerLat && tracking.workerLng
-                      ? `${tracking.workerLat.toFixed(5)}, ${tracking.workerLng.toFixed(5)}`
-                      : 'Chưa có tọa độ mới'}
-                  </Text>
+                  {tracking.durationText && tracking.distanceText && (
+                    <Text style={{ fontSize: 13, fontWeight: '700', color: '#16A34A', marginTop: 3 }}>
+                      ⏱️ Dự kiến đến trong {tracking.durationText} ({tracking.distanceText})
+                    </Text>
+                  )}
                   {tracking.locationUpdatedAt && (
                     <Text style={styles.trackingMeta}>
-                      Cập nhật: {formatTime(tracking.locationUpdatedAt)}
+                      Cập nhật vị trí: {formatTime(tracking.locationUpdatedAt)}
                     </Text>
                   )}
                 </View>
