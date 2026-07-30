@@ -3,6 +3,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import {
   ActivityIndicator,
+  Dimensions,
   Image,
   Modal,
   Pressable,
@@ -13,59 +14,154 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { getWorkerDetails, getWeeklySchedule, WorkerProfile } from '@/services/api/workers';
-import { getWorkerReviews } from '@/services/api/reviews';
+import { getWorkerDetails, WorkerProfile } from '@/services/api/workers';
+import { getWorkerReviews, Review } from '@/services/api/reviews';
 import { fetchCategories } from '@/services/api/categories';
 import { formatDateOnly } from '@/utils/date';
 import { formatCurrency } from '@/utils/format';
 import { useQuery } from '@tanstack/react-query';
 
-const SAMPLE_REVIEWS = [
-  {
-    id: 'rev-1',
-    reviewerName: '.....99',
-    rating: 5,
-    date: '21/07/2026',
-    comment: 'goooooooooooooood',
-    isTranslated: false,
-  },
-  {
-    id: 'rev-2',
-    reviewerName: 'charlie_cat',
-    rating: 5,
-    date: '18/07/2026',
-    comment: 'good',
-    isTranslated: false,
-  },
-  {
-    id: 'rev-3',
-    reviewerName: '.....66',
-    rating: 5,
-    date: '15/07/2026',
-    comment: 'cô ấy ở ngoài dễ thương xinh xắn hơn trong hình nhé, nói chuyện vui vẻ thân thiện, massage rất tốt, 10đ nhé',
-    isTranslated: false,
-  },
-  {
-    id: 'rev-4',
-    reviewerName: 'từ',
-    rating: 5,
-    date: '11/07/2026',
-    comment: 'tốt',
-    isTranslated: false,
-  },
-];
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
-const KTV_SERVICES = [
-  { id: 's1', name: 'Massage Dầu', duration: '60 phút', price: 500000 },
-  { id: 's2', name: 'Massage Thái', duration: '60 phút', price: 550000 },
-  { id: 's3', name: 'Massage Đá Nóng', duration: '75 phút', price: 600000 },
-  { id: 's4', name: 'Combo Cạo mặt + Masa mặt + Ráy tai', duration: '60 phút', price: 450000 },
-];
+const BADGE_CONFIG: Record<number, { text: string; color: string }> = {
+  0: { text: 'Mới đến', color: '#3B82F6' },
+  1: { text: 'Cập nhật', color: '#10B981' },
+  2: { text: 'Chất lượng', color: '#EA580C' },
+  3: { text: 'Thợ Vàng', color: '#D97706' },
+};
+
+const HeroImageCarousel = React.memo(({
+  imagesList,
+  ktvAvatar,
+  badge,
+  insets,
+  onBack,
+}: {
+  imagesList: string[];
+  ktvAvatar?: string;
+  badge: { text: string; color: string };
+  insets: any;
+  onBack: () => void;
+}) => {
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const scrollViewRef = React.useRef<ScrollView>(null);
+
+  const displayImages = React.useMemo(() => {
+    if (imagesList && imagesList.length > 0) return imagesList;
+    if (ktvAvatar) return [ktvAvatar];
+    return [];
+  }, [imagesList, ktvAvatar]);
+
+  const handleScroll = React.useCallback(
+    (e: any) => {
+      const offsetX = e.nativeEvent.contentOffset.x;
+      if (SCREEN_WIDTH > 0) {
+        const newIndex = Math.round(offsetX / SCREEN_WIDTH);
+        if (newIndex >= 0 && newIndex < displayImages.length) {
+          setActiveIndex((prev) => (prev !== newIndex ? newIndex : prev));
+        }
+      }
+    },
+    [displayImages.length]
+  );
+
+  return (
+    <View style={styles.heroContainer}>
+      {displayImages.length > 1 ? (
+        <>
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled={true}
+            directionalLockEnabled={true}
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={SCREEN_WIDTH}
+            snapToAlignment="center"
+            disableIntervalMomentum={true}
+            onScroll={handleScroll}
+            onMomentumScrollEnd={handleScroll}
+            style={{ width: SCREEN_WIDTH, height: 380 }}>
+            {displayImages.map((imgUri, index) => (
+              <Image
+                key={`hero-img-${index}`}
+                source={{ uri: imgUri }}
+                style={[styles.heroImage, { width: SCREEN_WIDTH, height: 380 }]}
+              />
+            ))}
+          </ScrollView>
+
+          {/* Chevron Navigation Controls for Instant Photo Switching */}
+          {activeIndex > 0 ? (
+            <Pressable
+              style={styles.carouselChevronLeft}
+              hitSlop={12}
+              onPress={() => {
+                const prev = activeIndex - 1;
+                setActiveIndex(prev);
+                scrollViewRef.current?.scrollTo({ x: prev * SCREEN_WIDTH, animated: true });
+              }}>
+              <MaterialIcons name="chevron-left" size={24} color="#ffffff" />
+            </Pressable>
+          ) : null}
+
+          {activeIndex < displayImages.length - 1 ? (
+            <Pressable
+              style={styles.carouselChevronRight}
+              hitSlop={12}
+              onPress={() => {
+                const next = activeIndex + 1;
+                setActiveIndex(next);
+                scrollViewRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
+              }}>
+              <MaterialIcons name="chevron-right" size={24} color="#ffffff" />
+            </Pressable>
+          ) : null}
+        </>
+      ) : displayImages.length === 1 ? (
+        <Image source={{ uri: displayImages[0] }} style={styles.heroImage} />
+      ) : (
+        <View style={[styles.heroImage, styles.heroPlaceholder]}>
+          <MaterialIcons name="person" size={80} color="#A0AEC0" />
+        </View>
+      )}
+
+      {/* Floating Actions Header */}
+      <View style={[styles.topActionsRow, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
+        <Pressable style={styles.floatingCircleBtn} onPress={onBack} hitSlop={12}>
+          <MaterialIcons name="chevron-left" size={26} color="#1C2526" />
+        </Pressable>
+        <View style={styles.topRightActions} pointerEvents="box-none">
+          <Pressable style={styles.floatingCircleBtn} hitSlop={12}>
+            <MaterialIcons name="favorite-border" size={20} color="#1C2526" />
+          </Pressable>
+          <Pressable style={styles.floatingCircleBtn} hitSlop={12}>
+            <MaterialIcons name="share" size={20} color="#1C2526" />
+          </Pressable>
+        </View>
+      </View>
+
+      {/* Badge & Carousel Page Indicator */}
+      <View style={[styles.badgeQualityOverlay, { backgroundColor: badge.color }]} pointerEvents="none">
+        <Text style={styles.badgeQualityText}>{badge.text}</Text>
+      </View>
+
+      {displayImages.length > 1 ? (
+        <View style={styles.pageIndicatorPill} pointerEvents="none">
+          <Text style={styles.pageIndicatorText}>
+            {activeIndex + 1}/{displayImages.length}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+});
 
 export default function WorkerDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
-  const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
   const [showFullBio, setShowFullBio] = React.useState(false);
   const [translatedReviews, setTranslatedReviews] = React.useState<Record<string, boolean>>({});
 
@@ -73,40 +169,117 @@ export default function WorkerDetailScreen() {
     queryKey: ['worker', id],
     queryFn: () => getWorkerDetails(id || ''),
     enabled: !!id,
+    staleTime: 1000 * 60 * 5,
   });
 
+  const targetWorkerId = worker?.workerProfileId || worker?.id || id || '';
+
   const { data: reviewsData = null } = useQuery({
-    queryKey: ['workerReviews', worker?.workerProfileId],
-    queryFn: () => getWorkerReviews(worker?.workerProfileId || ''),
-    enabled: !!worker?.workerProfileId,
+    queryKey: ['workerReviews', targetWorkerId],
+    queryFn: () => getWorkerReviews(targetWorkerId),
+    enabled: !!targetWorkerId,
+    staleTime: 1000 * 60 * 5,
   });
 
   const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => fetchCategories(),
+    staleTime: 1000 * 60 * 15,
   });
 
-  const toggleTranslate = (reviewId: string) => {
+  const toggleTranslate = React.useCallback((reviewId: string) => {
     setTranslatedReviews((prev) => ({
       ...prev,
       [reviewId]: !prev[reviewId],
     }));
-  };
+  }, []);
 
-  const ktvName = worker?.fullName || 'Kim Hằng';
-  const ktvAvatar = worker?.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=600&q=80';
-  const ktvRating = worker?.rating || 4.9;
-  const ktvReviewsCount = worker?.reviewsCount || 135;
+  const handleBack = React.useCallback(() => {
+    router.back();
+  }, []);
 
-  const handleBookNow = () => {
-    const defaultCategory = categories.find((c) => c.code === 'dien');
+  const imagesList = React.useMemo(() => {
+    const list: string[] = [];
+    if (worker?.avatarUrl) {
+      list.push(worker.avatarUrl);
+    }
+    if (worker?.portfolioImages && worker.portfolioImages.length > 0) {
+      worker.portfolioImages.forEach((img) => {
+        if (img.url && !list.includes(img.url)) {
+          list.push(img.url);
+        }
+      });
+    }
+    return list;
+  }, [worker]);
+
+  const servicesList = React.useMemo(() => {
+    if (!worker?.services || worker.services.length === 0) {
+      return categories.slice(0, 4).map((cat) => ({
+        id: cat.id,
+        categoryId: cat.id,
+        name: cat.name,
+        duration: '60 phút',
+        price: worker?.basePrice || 150000,
+      }));
+    }
+
+    return worker.services.map((srv, index) => {
+      const matchedCat = categories.find((c) => c.id === srv.categoryId);
+      const name = matchedCat?.name || `Dịch vụ ${index + 1}`;
+      const firstOpt = srv.options?.[0];
+      const duration = firstOpt?.durationMinutes ? `${firstOpt.durationMinutes} phút` : '60 phút';
+      const price = firstOpt?.price || srv.basePrice || worker?.basePrice || 150000;
+      return {
+        id: srv.categoryId || `srv-${index}`,
+        categoryId: srv.categoryId,
+        name,
+        duration,
+        price,
+      };
+    });
+  }, [worker, categories]);
+
+  const reviewsList: Review[] = reviewsData?.items || [];
+  const totalReviewsCount = reviewsData?.totalCount ?? worker?.reviewsCount ?? reviewsList.length;
+
+  const starBreakdown = React.useMemo(() => {
+    if (reviewsList.length === 0) {
+      return [
+        { star: 5, pct: '100%' },
+        { star: 4, pct: '0%' },
+        { star: 3, pct: '0%' },
+        { star: 2, pct: '0%' },
+        { star: 1, pct: '0%' },
+      ];
+    }
+    const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
+    reviewsList.forEach((r) => {
+      const s = Math.min(5, Math.max(1, Math.round(r.rating || 5)));
+      counts[s as 1 | 2 | 3 | 4 | 5] += 1;
+    });
+    const total = reviewsList.length;
+    return [5, 4, 3, 2, 1].map((star) => {
+      const cnt = counts[star as 1 | 2 | 3 | 4 | 5];
+      const pct = Math.round((cnt / total) * 100);
+      return { star, pct: `${pct}%` };
+    });
+  }, [reviewsList]);
+
+  const ktvName = worker?.fullName || 'Kỹ thuật viên';
+  const ktvAvatar = worker?.avatarUrl;
+  const ktvRating = typeof worker?.rating === 'number' && worker.rating > 0 ? worker.rating.toFixed(1) : '5.0';
+  const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
+
+  const handleBookNow = (selectedCategoryId?: string) => {
+    const targetCatId = selectedCategoryId || worker?.services?.[0]?.categoryId || categories[0]?.id || 'dien';
     router.push({
       pathname: '/booking-setup',
       params: {
-        workerProfileId: worker?.workerProfileId || worker?.id || 'ktv-1',
-        workerUserId: worker?.id || 'ktv-1',
+        workerProfileId: worker?.workerProfileId || worker?.id || id,
+        workerUserId: worker?.id || id,
         autoMatch: 'false',
-        categoryId: worker?.specialties?.[0] || defaultCategory?.id || 'dien',
+        categoryId: targetCatId,
       },
     } as any);
   };
@@ -121,55 +294,39 @@ export default function WorkerDetailScreen() {
 
   return (
     <View style={styles.screen}>
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Hero Image Carousel Matching Image 5 */}
-        <View style={styles.heroContainer}>
-          <Image source={{ uri: ktvAvatar }} style={styles.heroImage} />
-
-          {/* Floating Actions Header */}
-          <View style={[styles.topActionsRow, { paddingTop: insets.top + 8 }]}>
-            <Pressable style={styles.floatingCircleBtn} onPress={() => router.back()}>
-              <MaterialIcons name="chevron-left" size={26} color="#1C2526" />
-            </Pressable>
-            <View style={styles.topRightActions}>
-              <Pressable style={styles.floatingCircleBtn}>
-                <MaterialIcons name="favorite-border" size={20} color="#1C2526" />
-              </Pressable>
-              <Pressable style={styles.floatingCircleBtn}>
-                <MaterialIcons name="share" size={20} color="#1C2526" />
-              </Pressable>
-            </View>
-          </View>
-
-          {/* Badge & Carousel Page Indicator */}
-          <View style={styles.badgeQualityOverlay}>
-            <Text style={styles.badgeQualityText}>Chất lượng</Text>
-          </View>
-
-          <View style={styles.pageIndicatorPill}>
-            <Text style={styles.pageIndicatorText}>1/7</Text>
-          </View>
-        </View>
+      <ScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}>
+        {/* Hero Image Carousel */}
+        <HeroImageCarousel
+          imagesList={imagesList}
+          ktvAvatar={ktvAvatar}
+          badge={badge}
+          insets={insets}
+          onBack={handleBack}
+        />
 
         {/* Profile Info Header */}
         <View style={styles.profileSection}>
           <Text style={styles.ktvNameTitle}>{ktvName}</Text>
           <View style={styles.subInfoRow}>
             <MaterialIcons name="near-me" size={14} color="#818A91" />
-            <Text style={styles.distanceText}>100m</Text>
+            <Text style={styles.distanceText}>
+              {worker?.distance || worker?.city || 'Đà Nẵng'}
+            </Text>
             <Text style={styles.dotDivider}>|</Text>
-            <MaterialIcons name="star" size={16} color="#D4AF37" />
+            <MaterialIcons name="star" size={16} color="#F59E0B" />
             <Text style={styles.ratingScore}>{ktvRating}</Text>
-            <Text style={styles.reviewsCount}>({ktvReviewsCount} đánh giá)</Text>
+            <Text style={styles.reviewsCount}>({totalReviewsCount} đánh giá)</Text>
           </View>
 
-          {/* GlowCare Trust Box Matching Image 5 */}
+          {/* Fixy Trust Box */}
           <View style={styles.glowCareBox}>
             <View style={styles.glowCareBrand}>
               <View style={styles.glowCheckCircle}>
                 <MaterialIcons name="check" size={16} color="#ffffff" />
               </View>
-              <Text style={styles.glowCareBrandText}>GlowCare</Text>
+              <Text style={styles.glowCareBrandText}>Fixy</Text>
             </View>
 
             <View style={styles.glowCareCommitments}>
@@ -179,7 +336,7 @@ export default function WorkerDetailScreen() {
               </View>
               <View style={styles.commitmentLine}>
                 <MaterialIcons name="check-box" size={18} color="#0F382C" />
-                <Text style={styles.commitmentText}>Không cung cấp nhạy cảm</Text>
+                <Text style={styles.commitmentText}>Cam kết chất lượng dịch vụ minh bạch</Text>
               </View>
             </View>
           </View>
@@ -187,30 +344,27 @@ export default function WorkerDetailScreen() {
           {/* KTV Bio Description */}
           <View style={styles.bioContainer}>
             <Text style={styles.bioText} numberOfLines={showFullBio ? undefined : 3}>
-              {worker?.bio ||
-                'Kinh nghiệm 5 năm làm việc, các bài massage dầu, thái, đá nóng, Giác hơi, combo cạo mặt, masa mặt, lấy Ráy tai, Giác hơi lửa, tẩy tế bào chết toàn thân.'}
+              {worker?.bio || 'Kỹ thuật viên chuyên nghiệp đã được xác thực bởi Fixy.'}
             </Text>
 
-            <Text style={styles.multilingualText}>
-              5년 경력, 오일 마사지, 타이 마사지, 핫스톤 마사지, 흡입, 얼굴...
-            </Text>
-
-            <Pressable style={styles.expandBioBtn} onPress={() => setShowFullBio(!showFullBio)}>
-              <Text style={styles.expandBioText}>{showFullBio ? 'Thu gọn' : 'Hiển thị thêm'}</Text>
-            </Pressable>
+            {worker?.bio && worker.bio.length > 100 ? (
+              <Pressable style={styles.expandBioBtn} onPress={() => setShowFullBio(!showFullBio)}>
+                <Text style={styles.expandBioText}>{showFullBio ? 'Thu gọn' : 'Hiển thị thêm'}</Text>
+              </Pressable>
+            ) : null}
           </View>
 
           {/* Services Section */}
           <View style={styles.servicesSection}>
             <Text style={styles.sectionHeading}>Dịch vụ của tôi</Text>
             <View style={styles.serviceList}>
-              {KTV_SERVICES.map((srv) => (
+              {servicesList.map((srv) => (
                 <View key={srv.id} style={styles.serviceRowItem}>
                   <View style={styles.serviceRowInfo}>
                     <Text style={styles.serviceNameText}>{srv.name}</Text>
                     <Text style={styles.serviceDurationText}>⏱ {srv.duration} | {formatCurrency(srv.price)}</Text>
                   </View>
-                  <Pressable style={styles.selectServiceBtn} onPress={handleBookNow}>
+                  <Pressable style={styles.selectServiceBtn} onPress={() => handleBookNow(srv.categoryId)}>
                     <MaterialIcons name="add" size={20} color="#0F382C" />
                   </Pressable>
                 </View>
@@ -218,31 +372,25 @@ export default function WorkerDetailScreen() {
             </View>
           </View>
 
-          {/* Rating Breakdown Section Matching Image 4 */}
+          {/* Rating Breakdown Section */}
           <View style={styles.ratingSection}>
             <View style={styles.ratingSummaryCard}>
               <View style={styles.leftScoreBox}>
                 <Text style={styles.bigScoreText}>{ktvRating} / 5</Text>
                 <View style={styles.starRow}>
                   {[1, 2, 3, 4, 5].map((s) => (
-                    <MaterialIcons key={s} name="star" size={16} color="#D4AF37" />
+                    <MaterialIcons key={s} name="star" size={16} color="#F59E0B" />
                   ))}
                 </View>
-                <Text style={styles.totalReviewsMuted}>({ktvReviewsCount} đánh giá)</Text>
+                <Text style={styles.totalReviewsMuted}>({totalReviewsCount} đánh giá)</Text>
               </View>
 
               {/* Star breakdown bars */}
               <View style={styles.rightBreakdownBars}>
-                {[
-                  { star: 5, pct: '98%' },
-                  { star: 4, pct: '0%' },
-                  { star: 3, pct: '0%' },
-                  { star: 2, pct: '0%' },
-                  { star: 1, pct: '2%' },
-                ].map((item) => (
+                {starBreakdown.map((item) => (
                   <View key={item.star} style={styles.barRow}>
                     <Text style={styles.starNum}>{item.star}</Text>
-                    <MaterialIcons name="star" size={12} color="#D4AF37" />
+                    <MaterialIcons name="star" size={12} color="#F59E0B" />
                     <View style={styles.barTrack}>
                       <View style={[styles.barFill, { width: item.pct as any }]} />
                     </View>
@@ -252,45 +400,64 @@ export default function WorkerDetailScreen() {
               </View>
             </View>
 
-            {/* Review List Matching Image 4 */}
+            {/* Review List */}
             <View style={styles.reviewsListContainer}>
-              {SAMPLE_REVIEWS.map((rev) => {
-                const translated = translatedReviews[rev.id];
-                return (
-                  <View key={rev.id} style={styles.reviewItem}>
-                    <View style={styles.reviewerHeader}>
-                      <View style={styles.avatarPlaceholderCircle}>
-                        <MaterialIcons name="person" size={20} color="#818A91" />
-                      </View>
-                      <View style={styles.reviewerMeta}>
-                        <Text style={styles.reviewerName}>{rev.reviewerName}</Text>
-                        <View style={styles.starRowSmall}>
-                          {[...Array(rev.rating)].map((_, i) => (
-                            <MaterialIcons key={i} name="star" size={14} color="#D4AF37" />
-                          ))}
+              {reviewsList.length > 0 ? (
+                reviewsList.map((rev) => {
+                  const translated = translatedReviews[rev.id];
+                  const reviewerName = rev.customer?.fullName || 'Khách hàng Fixy';
+                  return (
+                    <View key={rev.id} style={styles.reviewItem}>
+                      <View style={styles.reviewerHeader}>
+                        {rev.customer?.avatarUrl ? (
+                          <Image source={{ uri: rev.customer.avatarUrl }} style={styles.avatarPlaceholderCircle} />
+                        ) : (
+                          <View style={styles.avatarPlaceholderCircle}>
+                            <MaterialIcons name="person" size={20} color="#818A91" />
+                          </View>
+                        )}
+                        <View style={styles.reviewerMeta}>
+                          <Text style={styles.reviewerName}>{reviewerName}</Text>
+                          <View style={styles.starRowSmall}>
+                            {[...Array(Math.min(5, Math.max(1, Math.round(rev.rating || 5))))].map((_, i) => (
+                              <MaterialIcons key={i} name="star" size={14} color="#F59E0B" />
+                            ))}
+                          </View>
                         </View>
+                        <Text style={styles.reviewDate}>{rev.createdAt ? formatDateOnly(rev.createdAt) : ''}</Text>
                       </View>
-                      <Text style={styles.reviewDate}>{rev.date}</Text>
-                    </View>
 
-                    <Text style={styles.reviewComment}>
-                      {translated ? `[Dịch]: ${rev.comment}` : rev.comment}
-                    </Text>
-
-                    <Pressable
-                      style={styles.translateToggleBtn}
-                      onPress={() => toggleTranslate(rev.id)}>
-                      <MaterialIcons name="g-translate" size={16} color="#4B5563" />
-                      <Text style={styles.translateToggleText}>
-                        {translated ? 'Đang hiển thị bản dịch' : 'Đang hiển thị bản gốc '}
-                        <Text style={{ fontFamily: 'Montserrat_700Bold', textDecorationLine: 'underline' }}>
-                          Dịch
-                        </Text>
+                      <Text style={styles.reviewComment}>
+                        {translated ? `[Dịch]: ${rev.comment}` : rev.comment}
                       </Text>
-                    </Pressable>
-                  </View>
-                );
-              })}
+
+                      {rev.workerReply ? (
+                        <View style={styles.workerReplyBox}>
+                          <Text style={styles.workerReplyTitle}>Phản hồi từ thợ:</Text>
+                          <Text style={styles.workerReplyText}>{rev.workerReply}</Text>
+                        </View>
+                      ) : null}
+
+                      <Pressable
+                        style={styles.translateToggleBtn}
+                        onPress={() => toggleTranslate(rev.id)}>
+                        <MaterialIcons name="g-translate" size={16} color="#4B5563" />
+                        <Text style={styles.translateToggleText}>
+                          {translated ? 'Đang hiển thị bản dịch' : 'Đang hiển thị bản gốc '}
+                          <Text style={{ fontFamily: 'Montserrat_700Bold', textDecorationLine: 'underline' }}>
+                            Dịch
+                          </Text>
+                        </Text>
+                      </Pressable>
+                    </View>
+                  );
+                })
+              ) : (
+                <View style={styles.emptyReviewsContainer}>
+                  <MaterialIcons name="rate-review" size={32} color="#CBD5E1" />
+                  <Text style={styles.emptyReviewsText}>Chưa có đánh giá nào cho thợ này</Text>
+                </View>
+              )}
             </View>
           </View>
         </View>
@@ -298,7 +465,7 @@ export default function WorkerDetailScreen() {
 
       {/* Fixed Bottom Booking Button Bar */}
       <View style={[styles.bottomBarFixed, { paddingBottom: insets.bottom > 0 ? insets.bottom : 14 }]}>
-        <Pressable style={styles.primaryBookBtn} onPress={handleBookNow}>
+        <Pressable style={styles.primaryBookBtn} onPress={() => handleBookNow()}>
           <Text style={styles.primaryBookBtnText}>Đặt ngay</Text>
         </Pressable>
       </View>
@@ -683,5 +850,69 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
+  },
+  heroPlaceholder: {
+    backgroundColor: '#EDF2F7',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  workerReplyBox: {
+    backgroundColor: '#F8FAFC',
+    borderRadius: 8,
+    padding: 10,
+    marginTop: 6,
+    marginBottom: 8,
+    borderLeftWidth: 3,
+    borderLeftColor: '#0F382C',
+  },
+  workerReplyTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 12,
+    color: '#0F382C',
+    marginBottom: 2,
+  },
+  workerReplyText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 13,
+    color: '#334155',
+  },
+  emptyReviewsContainer: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 30,
+    gap: 8,
+  },
+  emptyReviewsText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 14,
+    color: '#94A3B8',
+  },
+  carouselChevronLeft: {
+    position: 'absolute',
+    left: 12,
+    top: '50%',
+    marginTop: -16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    elevation: 5,
+  },
+  carouselChevronRight: {
+    position: 'absolute',
+    right: 12,
+    top: '50%',
+    marginTop: -16,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    alignItems: 'center',
+    justifyContent: 'center',
+    zIndex: 20,
+    elevation: 5,
   },
 });

@@ -252,7 +252,7 @@ export default function HomeScreen() {
         <View style={styles.technicianList}>
           {(apiWorkers.length > 0
             ? apiWorkers.map((w) => ({
-                id: w.id || w.workerProfileId,
+                id: w.workerProfileId || w.id,
                 name: w.fullName,
                 badge: w.rating >= 4.9 ? 'Chất lượng' : 'Mới đến',
                 badgeColor: w.rating >= 4.9 ? '#E68A2E' : '#4A90E2',

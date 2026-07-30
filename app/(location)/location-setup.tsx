@@ -390,7 +390,10 @@ export default function LocationSetupScreen() {
     try {
       const newAddressData: Omit<Address, 'id'> = {
         label: newLabel,
-        city: 'Hà Nội',
+        city:
+          selectedPlaceInfo.address_components?.find((c: any) =>
+            c.types.includes('administrative_area_level_1')
+          )?.long_name || 'Đà Nẵng',
         district:
           selectedPlaceInfo.address_components?.find((c: any) =>
             c.types.includes('administrative_area_level_2')

@@ -48,7 +48,7 @@ function formatCompactCurrency(value: number) {
   return `${Math.round(value / 1000)}k`;
 }
 
-async function fetchAllWorkersByCategory(serviceIdOrGuid?: string, city?: string) {
+async function fetchAllWorkersByCategory(serviceIdOrGuid?: string, city?: string, customerLat?: number, customerLng?: number) {
   const workers: WorkerProfile[] = [];
   const categories = await fetchCategories();
 
@@ -73,6 +73,8 @@ async function fetchAllWorkersByCategory(serviceIdOrGuid?: string, city?: string
     const page = await searchWorkers({
       CategoryId: categoryId,
       City: city,
+      CustomerLat: customerLat,
+      CustomerLng: customerLng,
       PageNumber: pageNumber,
       PageSize: WORKERS_PAGE_SIZE,
     });
@@ -87,98 +89,7 @@ async function fetchAllWorkersByCategory(serviceIdOrGuid?: string, city?: string
   return workers;
 }
 
-const DEFAULT_SPA_KTVS: WorkerProfile[] = [
-  {
-    id: 'ktv-1',
-    workerProfileId: 'ktv-1',
-    userId: 'ktv-user-1',
-    fullName: 'Kim Hằng',
-    bio: '5 năm kinh nghiệm làm việc, các bài massage dầu, thái, đá nóng, Giác hơi, combo cạo mặt, masa mặt, lấy Ráy tai, Giác hơi lửa, tẩy tế bào chết toàn thân',
-    rating: 4.9,
-    reviewsCount: 135,
-    completedJobsCount: 240,
-    hourlyRate: 500000,
-    avatarUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
-    specialties: ['Massage Dầu', 'Massage Thái', 'Giác hơi lửa'],
-    isOnline: true,
-    badgeText: 'Chất lượng',
-    badgeColor: '#E68A2E',
-    distanceText: '100m',
-    availableTime: 'Sớm nhất 12:00',
-  } as any,
-  {
-    id: 'ktv-2',
-    workerProfileId: 'ktv-2',
-    userId: 'ktv-user-2',
-    fullName: 'Thanh Trần',
-    bio: 'Chuyên viên chăm sóc da & массаж trị liệu',
-    rating: 5.0,
-    reviewsCount: 2,
-    completedJobsCount: 18,
-    hourlyRate: 450000,
-    avatarUrl: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&q=80',
-    specialties: ['Chăm sóc da mặt', 'Massage body'],
-    isOnline: true,
-    badgeText: 'Mới đến',
-    badgeColor: '#4A90E2',
-    distanceText: '1 km',
-    availableTime: 'Sớm nhất 12:00',
-  } as any,
-  {
-    id: 'ktv-3',
-    workerProfileId: 'ktv-3',
-    userId: 'ktv-user-3',
-    fullName: 'Như Ý',
-    bio: 'KTV làm đẹp & Nails chuyên nghiệp tại nhà',
-    rating: 5.0,
-    reviewsCount: 1,
-    completedJobsCount: 12,
-    hourlyRate: 350000,
-    avatarUrl: 'https://images.unsplash.com/photo-1544005313-94ddf0286df2?auto=format&fit=crop&w=300&q=80',
-    specialties: ['Nails', 'Wax lông'],
-    isOnline: true,
-    badgeText: 'Mới đến',
-    badgeColor: '#4A90E2',
-    distanceText: '1 km',
-    availableTime: 'Sớm nhất 12:00',
-  } as any,
-  {
-    id: 'ktv-4',
-    workerProfileId: 'ktv-4',
-    userId: 'ktv-user-4',
-    fullName: 'Phương Nguyễn',
-    bio: 'KTV Spa & Trị liệu cổ vai gáy',
-    rating: 5.0,
-    reviewsCount: 3,
-    completedJobsCount: 45,
-    hourlyRate: 400000,
-    avatarUrl: 'https://images.unsplash.com/photo-1573497019940-1c28c88b4f3e?auto=format&fit=crop&w=300&q=80',
-    specialties: ['Trị liệu cổ vai gáy', 'Bấm huyệt'],
-    isOnline: true,
-    badgeText: 'Mới đến',
-    badgeColor: '#4A90E2',
-    distanceText: '1 km',
-    availableTime: 'Sớm nhất 12:00',
-  } as any,
-  {
-    id: 'ktv-5',
-    workerProfileId: 'ktv-5',
-    userId: 'ktv-user-5',
-    fullName: 'Lyly',
-    bio: 'Top KTV Spa cao cấp với 600+ lượt đánh giá 5 sao',
-    rating: 5.0,
-    reviewsCount: 667,
-    completedJobsCount: 890,
-    hourlyRate: 600000,
-    avatarUrl: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=300&q=80',
-    specialties: ['Massage đá nóng', 'Tẩy tế bào chết'],
-    isOnline: true,
-    badgeText: 'Mới cập nhật',
-    badgeColor: '#E05297',
-    distanceText: '1 km',
-    availableTime: 'Sớm nhất 12:00',
-  } as any,
-];
+
 
 export default function ServiceWorkersScreen() {
   const insets = useSafeAreaInsets();
@@ -192,44 +103,31 @@ export default function ServiceWorkersScreen() {
   const [activeFilterChip, setActiveFilterChip] = React.useState<'near' | 'popular' | 'all'>('near');
   const [priceRange, setPriceRange] = React.useState(PRICE_RANGE_OPTIONS[1]);
   const [minRating, setMinRating] = React.useState(4.5);
-  const [currentCity, setCurrentCity] = React.useState('');
-  const [currentLocationLoading, setCurrentLocationLoading] = React.useState(false);
+  const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
 
-  const updateCurrentCity = React.useCallback(async () => {
-    setCurrentLocationLoading(true);
-    try {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status !== 'granted') {
-        setCurrentCity('');
-        return;
-      }
-
-      const position = await Location.getCurrentPositionAsync({
-        accuracy: Location.Accuracy.Balanced,
-      });
-      const [place] = await Location.reverseGeocodeAsync({
-        latitude: position.coords.latitude,
-        longitude: position.coords.longitude,
-      });
-      setCurrentCity((place?.city || place?.subregion || place?.region || '').trim());
-    } catch (error) {
-      console.warn('[service-workers] Unable to get current city', error);
-      setCurrentCity('');
-    } finally {
-      setCurrentLocationLoading(false);
-    }
-  }, []);
-
+  // Get device GPS coordinates for distance calculations
   React.useEffect(() => {
-    updateCurrentCity();
-  }, [updateCurrentCity]);
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        }
+      } catch (err) {
+        console.warn('[service-workers] GPS location error:', err);
+      }
+    })();
+  }, []);
 
   const { selectedCity } = useLocationStore();
   const [cityModalVisible, setCityModalVisible] = React.useState(false);
 
   const { data: apiWorkers = [], isLoading: loading } = useQuery<WorkerProfile[]>({
-    queryKey: ['workersByCategory', serviceId || 'all', selectedCity],
-    queryFn: () => fetchAllWorkersByCategory(serviceId, selectedCity),
+    queryKey: ['workersByCategory', serviceId || 'all', selectedCity, userLocation?.lat, userLocation?.lng],
+    queryFn: () => fetchAllWorkersByCategory(serviceId, selectedCity, userLocation?.lat, userLocation?.lng),
     enabled: true,
   });
 
@@ -243,46 +141,68 @@ export default function ServiceWorkersScreen() {
     });
   }, [workerList, searchQuery]);
 
+  // Badge enum mapping: 0=NewArrival, 1=Updated, 2=Quality, 3=Gold
+  const BADGE_CONFIG: Record<number, { text: string; color: string }> = {
+    0: { text: 'Mới đến', color: '#4A90E2' },
+    1: { text: 'Mới cập nhật', color: '#E05297' },
+    2: { text: 'Chất lượng', color: '#E68A2E' },
+    3: { text: 'Vàng', color: '#D4AF37' },
+  };
+
   const renderKTVItem = ({ item }: { item: WorkerProfile | any }) => {
-    const badgeText = item.badgeText || (item.rating >= 4.9 ? 'Chất lượng' : 'Mới đến');
-    const badgeColor = item.badgeColor || (item.rating >= 4.9 ? '#E68A2E' : '#4A90E2');
+    const badge = BADGE_CONFIG[item.badge] || BADGE_CONFIG[0];
+
+    // Arrival time label
+    const arrivalLabel = item.estimatedArrivalMinutes != null
+      ? `Dự kiến ${item.estimatedArrivalMinutes} phút`
+      : (item.isOnline ? 'Đặt ngay' : '');
+
+    const workerTargetId = item.workerProfileId || item.id;
 
     return (
       <Pressable
         style={styles.ktvCard}
-        onPress={() => router.push(`/(customer)/worker-detail?id=${item.id}` as any)}>
+        onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
         <View style={styles.ktvAvatarWrapper}>
-          <Image
-            source={{ uri: item.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80' }}
-            style={styles.ktvAvatar}
-          />
-          <View style={[styles.badgePill, { backgroundColor: badgeColor }]}>
-            <Text style={styles.badgePillText}>{badgeText}</Text>
+          {item.avatarUrl ? (
+            <Image
+              source={{ uri: item.avatarUrl }}
+              style={styles.ktvAvatar}
+            />
+          ) : (
+            <View style={[styles.ktvAvatar, styles.ktvAvatarPlaceholder]}>
+              <MaterialIcons name="person" size={32} color="#A0AEC0" />
+            </View>
+          )}
+          <View style={[styles.badgePill, { backgroundColor: badge.color }]}>
+            <Text style={styles.badgePillText}>{badge.text}</Text>
           </View>
         </View>
 
         <View style={styles.ktvMainDetails}>
-          <View style={styles.ktvHeaderRow}>
-            <Text style={styles.ktvName}>{item.fullName}</Text>
-            <Text style={styles.ktvAvailability}>{item.availableTime || 'Sớm nhất 12:00'}</Text>
-          </View>
+          <Text style={styles.ktvName} numberOfLines={1}>{item.fullName}</Text>
 
           <View style={styles.ratingDistanceRow}>
-            <MaterialIcons name="star" size={15} color="#D4AF37" />
-            <Text style={styles.ratingText}>{item.rating || 5.0}</Text>
-            <Text style={styles.reviewsText}>({item.reviewsCount || 10} đánh giá)</Text>
+            <MaterialIcons name="star" size={16} color="#F59E0B" />
+            <Text style={styles.ratingText}>{item.rating > 0 ? item.rating.toFixed(1) : '5.0'}</Text>
+            <Text style={styles.reviewsText}>({item.reviewsCount} đánh giá)</Text>
           </View>
 
           <View style={styles.locationRow}>
             <MaterialIcons name="near-me" size={14} color="#818A91" />
-            <Text style={styles.distanceText}>{item.distanceText || '100m'}</Text>
+            <Text style={styles.distanceText} numberOfLines={1}>
+              {item.distance || item.city || item.address?.city || selectedCity || 'Đà Nẵng'}
+            </Text>
           </View>
         </View>
 
-        <View style={styles.actionColumn}>
+        <View style={styles.rightColumn}>
+          {arrivalLabel ? (
+            <Text style={styles.ktvAvailability}>{arrivalLabel}</Text>
+          ) : <View />}
           <Pressable
             style={styles.bookActionBtn}
-            onPress={() => router.push(`/(customer)/worker-detail?id=${item.id}` as any)}>
+            onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
             <Text style={styles.bookActionText}>Đặt</Text>
           </Pressable>
         </View>
@@ -560,6 +480,11 @@ const styles = StyleSheet.create({
     height: 80,
     borderRadius: 14,
   },
+  ktvAvatarPlaceholder: {
+    backgroundColor: '#EDF2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
   badgePill: {
     position: 'absolute',
     top: 0,
@@ -602,7 +527,7 @@ const styles = StyleSheet.create({
   ratingText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
-    color: '#1C2526',
+    color: '#F59E0B',
   },
   reviewsText: {
     fontFamily: 'Montserrat_400Regular',
@@ -619,8 +544,11 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#6B7280',
   },
-  actionColumn: {
-    justifyContent: 'center',
+  rightColumn: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    paddingVertical: 2,
   },
   bookActionBtn: {
     backgroundColor: '#0F382C',

@@ -17,9 +17,13 @@ import {
   View,
   Image,
 } from 'react-native';
+import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { vietnamProvincesApi, matchAddressOption, cleanSearchText } from '@/services/api/provinces';
+
+const GOONG_API_KEY = Constants.expoConfig?.extra?.goongApiKey || '';
 
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
 import { useAuthStore } from '@/store/store';
@@ -245,6 +249,119 @@ export default function WorkerProfileScreen() {
   const [addrDetail, setAddrDetail] = React.useState('');
   const [addrCity, setAddrCity] = React.useState('');
   const [addrWard, setAddrWard] = React.useState('');
+  const [latitude, setLatitude] = React.useState<number>(16.0749);
+  const [longitude, setLongitude] = React.useState<number>(108.2291);
+
+  // Goong Place AutoComplete & GPS states
+  const [autoCompleteResults, setAutoCompleteResults] = React.useState<any[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = React.useState(false);
+  const [showAutoCompleteDropdown, setShowAutoCompleteDropdown] = React.useState(false);
+  const [isGpsLoading, setIsGpsLoading] = React.useState(false);
+
+  const autoCompleteTimeoutRef = React.useRef<any>(null);
+
+  const fetchAddressAutoComplete = (query: string) => {
+    if (autoCompleteTimeoutRef.current) {
+      clearTimeout(autoCompleteTimeoutRef.current);
+    }
+    if (!query.trim() || query.trim().length < 2) {
+      setAutoCompleteResults([]);
+      setShowAutoCompleteDropdown(false);
+      return;
+    }
+
+    autoCompleteTimeoutRef.current = setTimeout(async () => {
+      setIsSearchingAddress(true);
+      try {
+        const url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${GOONG_API_KEY}&input=${encodeURIComponent(query)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.predictions && data.predictions.length > 0) {
+          setAutoCompleteResults(data.predictions);
+          setShowAutoCompleteDropdown(true);
+        } else {
+          setAutoCompleteResults([]);
+          setShowAutoCompleteDropdown(false);
+        }
+      } catch (err) {
+        console.warn('[worker-profile] AutoComplete error:', err);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 350);
+  };
+
+  const handleSelectAutoCompletePlace = async (item: any) => {
+    setShowAutoCompleteDropdown(false);
+    const mainText = item.structured_formatting?.main_text || item.description;
+    setAddrDetail(mainText);
+
+    if (item.place_id) {
+      try {
+        const url = `https://rsapi.goong.io/Place/Detail?api_key=${GOONG_API_KEY}&place_id=${item.place_id}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.result && data.result.geometry?.location) {
+          const { lat, lng } = data.result.geometry.location;
+          setLatitude(lat);
+          setLongitude(lng);
+
+          const comps = data.result.address_components || [];
+          const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
+          const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+
+          if (cityComp) setAddrCity(cityComp);
+          if (wardComp) setAddrWard(wardComp);
+        }
+      } catch (err) {
+        console.warn('[worker-profile] Place Detail error:', err);
+      }
+    }
+  };
+
+  const handleGetCurrentGpsLocation = async () => {
+    setIsGpsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền vị trí', 'Vui lòng cấp quyền truy cập vị trí GPS cho ứng dụng.');
+        return;
+      }
+
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      setLatitude(lat);
+      setLongitude(lng);
+
+      const url = `https://rsapi.goong.io/Geocode?latlng=${lat},${lng}&api_key=${GOONG_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.results && data.results.length > 0) {
+        const first = data.results[0];
+        setAddrDetail(first.formatted_address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+
+        const comps = first.address_components || [];
+        const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
+        const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+
+        if (cityComp) setAddrCity(cityComp);
+        if (wardComp) setAddrWard(wardComp);
+
+        Alert.alert('Thành công', 'Đã tự động lấy vị trí GPS hiện tại!');
+      } else {
+        setAddrDetail(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      }
+    } catch (err) {
+      console.warn('[worker-profile] GPS Error:', err);
+      Alert.alert('Lỗi', 'Không thể lấy vị trí GPS hiện tại.');
+    } finally {
+      setIsGpsLoading(false);
+    }
+  };
 
   const [selectedProvinceCode, setSelectedProvinceCode] = React.useState<number | null>(null);
 
@@ -373,8 +490,8 @@ export default function WorkerProfileScreen() {
           district: null,
           ward: addrWard,
           detail: addrDetail,
-          lat: profile?.address?.lat || 16,
-          lng: profile?.address?.lng || 108,
+          lat: latitude || profile?.address?.lat || 16.0749,
+          lng: longitude || profile?.address?.lng || 108.2291,
           isDefault: true,
         } as any,
       });
@@ -986,14 +1103,58 @@ export default function WorkerProfileScreen() {
                 <ScrollView
                   className="max-h-[420px] w-full"
                   keyboardShouldPersistTaps="handled">
-                  <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Địa chỉ chi tiết (Số nhà, Tên đường):</Text>
-                  <TextInput
-                    className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
-                    placeholder="Ví dụ: 305 Trần Hưng Đạo"
-                    placeholderTextColor="#9A9A9A"
-                    value={addrDetail}
-                    onChangeText={setAddrDetail}
-                  />
+                  <View className="flex-row justify-between items-center mb-0.5">
+                    <Text className="font-montserrat-semibold text-xs text-gray-500">Địa chỉ chi tiết (Số nhà, Tên đường):</Text>
+                    <Pressable
+                      className="flex-row items-center gap-1 py-1"
+                      onPress={handleGetCurrentGpsLocation}
+                      disabled={isGpsLoading}>
+                      {isGpsLoading ? (
+                        <ActivityIndicator size="small" color="#0F382C" />
+                      ) : (
+                        <MaterialIcons name="my-location" size={14} color="#0F382C" />
+                      )}
+                      <Text className="font-montserrat-semibold text-xs text-[#0F382C]">
+                        Lấy GPS
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  <View className="relative z-50 mb-4">
+                    <TextInput
+                      className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838]"
+                      placeholder="Ví dụ: 305 Trần Hưng Đạo (Hoặc nhập để gợi ý)"
+                      placeholderTextColor="#9A9A9A"
+                      value={addrDetail}
+                      onChangeText={(text) => {
+                        setAddrDetail(text);
+                        fetchAddressAutoComplete(text);
+                      }}
+                    />
+
+                    {showAutoCompleteDropdown && autoCompleteResults.length > 0 && (
+                      <View className="absolute top-13 left-0 right-0 bg-white rounded-xl border border-gray-200 shadow-lg z-50 max-h-48">
+                        <ScrollView keyboardShouldPersistTaps="handled">
+                          {autoCompleteResults.map((item, idx) => (
+                            <Pressable
+                              key={item.place_id || idx}
+                              className="flex-row items-start p-2.5 border-b border-gray-100"
+                              onPress={() => handleSelectAutoCompletePlace(item)}>
+                              <MaterialIcons name="location-on" size={16} color="#0F382C" className="mr-2 mt-0.5" />
+                              <View className="flex-1">
+                                <Text className="font-montserrat-semibold text-xs text-gray-800">
+                                  {item.structured_formatting?.main_text || item.description}
+                                </Text>
+                                <Text className="font-montserrat text-[10px] text-gray-500 mt-0.5" numberOfLines={1}>
+                                  {item.structured_formatting?.secondary_text || item.description}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
 
                   <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Tỉnh / Thành phố:</Text>
                   <Pressable
