@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import {
   ActivityIndicator,
   Alert,
@@ -41,6 +42,8 @@ import { formatCurrency, formatToIsoDateTime } from '@/utils/format';
 
 type PickerType = 'province' | 'ward';
 type AddressPickerOption = { name: string; code?: number };
+
+const GOONG_API_KEY = Constants.expoConfig?.extra?.goongApiKey || '';
 
 interface CertificateItem {
   title: string;
@@ -140,6 +143,117 @@ export default function WorkerSetupScreen() {
 
   // Date picker states
   const [showDatePicker, setShowDatePicker] = React.useState(false);
+
+  // Goong Place AutoComplete & GPS states
+  const [autoCompleteResults, setAutoCompleteResults] = React.useState<any[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = React.useState(false);
+  const [showAutoCompleteDropdown, setShowAutoCompleteDropdown] = React.useState(false);
+  const [isGpsLoading, setIsGpsLoading] = React.useState(false);
+
+  const autoCompleteTimeoutRef = React.useRef<any>(null);
+
+  const fetchAddressAutoComplete = (query: string) => {
+    if (autoCompleteTimeoutRef.current) {
+      clearTimeout(autoCompleteTimeoutRef.current);
+    }
+    if (!query.trim() || query.trim().length < 2) {
+      setAutoCompleteResults([]);
+      setShowAutoCompleteDropdown(false);
+      return;
+    }
+
+    autoCompleteTimeoutRef.current = setTimeout(async () => {
+      setIsSearchingAddress(true);
+      try {
+        const url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${GOONG_API_KEY}&input=${encodeURIComponent(query)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.predictions && data.predictions.length > 0) {
+          setAutoCompleteResults(data.predictions);
+          setShowAutoCompleteDropdown(true);
+        } else {
+          setAutoCompleteResults([]);
+          setShowAutoCompleteDropdown(false);
+        }
+      } catch (err) {
+        console.warn('[worker-setup] AutoComplete error:', err);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 350);
+  };
+
+  const handleSelectAutoCompletePlace = async (item: any) => {
+    setShowAutoCompleteDropdown(false);
+    const mainText = item.structured_formatting?.main_text || item.description;
+    setAddrDetail(mainText);
+
+    if (item.place_id) {
+      try {
+        const url = `https://rsapi.goong.io/Place/Detail?api_key=${GOONG_API_KEY}&place_id=${item.place_id}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.result && data.result.geometry?.location) {
+          const { lat, lng } = data.result.geometry.location;
+          setLatitude(lat);
+          setLongitude(lng);
+
+          const comps = data.result.address_components || [];
+          const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
+          const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+
+          if (cityComp) setAddrCity(cityComp);
+          if (wardComp) setAddrWard(wardComp);
+        }
+      } catch (err) {
+        console.warn('[worker-setup] Place Detail error:', err);
+      }
+    }
+  };
+
+  const handleGetCurrentGpsLocation = async () => {
+    setIsGpsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền vị trí', 'Vui lòng cấp quyền truy cập vị trí GPS cho ứng dụng.');
+        return;
+      }
+
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      setLatitude(lat);
+      setLongitude(lng);
+
+      const url = `https://rsapi.goong.io/Geocode?latlng=${lat},${lng}&api_key=${GOONG_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.results && data.results.length > 0) {
+        const first = data.results[0];
+        setAddrDetail(first.formatted_address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+
+        const comps = first.address_components || [];
+        const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
+        const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+
+        if (cityComp) setAddrCity(cityComp);
+        if (wardComp) setAddrWard(wardComp);
+
+        Alert.alert('Thành công', 'Đã tự động lấy vị trí GPS hiện tại!');
+      } else {
+        setAddrDetail(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      }
+    } catch (err) {
+      console.warn('[worker-setup] GPS Error:', err);
+      Alert.alert('Lỗi', 'Không thể lấy vị trí GPS hiện tại.');
+    } finally {
+      setIsGpsLoading(false);
+    }
+  };
 
 
 
@@ -1220,14 +1334,56 @@ export default function WorkerSetupScreen() {
               <MaterialIcons name="arrow-drop-down" size={24} color="#574237" />
             </Pressable>
 
-            <Text style={styles.fieldLabel}>Địa chỉ chi tiết (Số nhà, đường...)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={addrDetail}
-              onChangeText={setAddrDetail}
-              placeholder="Ví dụ: 36 Nguyễn Hữu Thọ"
-              placeholderTextColor="#9A9A9A"
-            />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.fieldLabel}>Địa chỉ chi tiết (Số nhà, đường...)</Text>
+              <Pressable
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 }}
+                onPress={handleGetCurrentGpsLocation}
+                disabled={isGpsLoading}>
+                {isGpsLoading ? (
+                  <ActivityIndicator size="small" color="#0F382C" />
+                ) : (
+                  <MaterialIcons name="my-location" size={16} color="#0F382C" />
+                )}
+                <Text style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 12, color: '#0F382C' }}>
+                  Lấy GPS
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={{ position: 'relative', zIndex: 100 }}>
+              <TextInput
+                style={styles.textInput}
+                value={addrDetail}
+                onChangeText={(text) => {
+                  setAddrDetail(text);
+                  fetchAddressAutoComplete(text);
+                }}
+                placeholder="Ví dụ: 36 Nguyễn Hữu Thọ (Hoặc nhập để gợi ý)"
+                placeholderTextColor="#9A9A9A"
+              />
+
+              {showAutoCompleteDropdown && autoCompleteResults.length > 0 && (
+                <View style={styles.autoCompleteContainer}>
+                  {autoCompleteResults.map((item, idx) => (
+                    <Pressable
+                      key={item.place_id || idx}
+                      style={styles.autoCompleteRow}
+                      onPress={() => handleSelectAutoCompletePlace(item)}>
+                      <MaterialIcons name="location-on" size={18} color="#0F382C" style={{ marginRight: 8, marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.autoCompleteMainText}>
+                          {item.structured_formatting?.main_text || item.description}
+                        </Text>
+                        <Text style={styles.autoCompleteSubText} numberOfLines={1}>
+                          {item.structured_formatting?.secondary_text || item.description}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
 
             <Text style={styles.fieldLabel}>Bán kính di chuyển tối đa: {maxDistanceKm} km</Text>
             <Slider
@@ -2147,5 +2303,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#818A91',
     marginVertical: 20,
+  },
+  autoCompleteContainer: {
+    position: 'absolute',
+    top: 52,
+    left: 0,
+    right: 0,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    maxHeight: 220,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    zIndex: 999,
+  },
+  autoCompleteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDF2F7',
+  },
+  autoCompleteMainText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#2D3748',
+  },
+  autoCompleteSubText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 11,
+    color: '#718096',
+    marginTop: 2,
   },
 });

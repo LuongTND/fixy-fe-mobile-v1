@@ -20,12 +20,16 @@ export type WorkerProfile = {
   id: string;
   workerProfileId?: string;
   fullName: string;
-  avatarUrl: string;
+  avatarUrl?: string;
   phone: string;
+  badge: number; // 0: NewArrival, 1: Updated, 2: Quality, 3: Gold
   rating: number;
   reviewsCount: number;
   completedJobs: number;
   distance: string;
+  distanceKm?: number | null;
+  city?: string;
+  estimatedArrivalMinutes?: number | null;
   basePrice: number;
   isOnline?: boolean;
   isPro: boolean;
@@ -142,16 +146,26 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
     }
   }
 
+  // Format distance label from distanceKm
+  const distanceKm = typeof w.distanceKm === 'number' ? w.distanceKm : null;
+  const distanceLabel = distanceKm != null
+    ? (distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)} km`)
+    : '';
+
   return {
     id: w.userId || w.id,
-    workerProfileId: w.id,
+    workerProfileId: w.id || w.workerProfileId,
     fullName: w.fullName || 'Kỹ thuật viên',
-    avatarUrl: w.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-    phone: w.phone || '0987654321',
-    rating: w.ratingAvg || 5,
-    reviewsCount: w.totalReviews || 0,
-    completedJobs: w.totalOrders || 0,
-    distance: '1.5 km',
+    avatarUrl: w.avatarUrl || undefined,
+    phone: w.phone || '',
+    badge: typeof w.badge === 'number' ? w.badge : (typeof w.badge === 'string' ? ({'NewArrival': 0, 'Updated': 1, 'Quality': 2, 'Gold': 3} as Record<string, number>)[w.badge] ?? 0 : 0),
+    rating: typeof w.ratingAvg === 'number' && w.ratingAvg > 0 ? w.ratingAvg : 5.0,
+    reviewsCount: typeof w.totalReviews === 'number' ? w.totalReviews : 0,
+    completedJobs: typeof w.totalOrders === 'number' ? w.totalOrders : 0,
+    distance: distanceLabel,
+    distanceKm,
+    city: w.city || w.address?.city || '',
+    estimatedArrivalMinutes: typeof w.estimatedArrivalMinutes === 'number' ? w.estimatedArrivalMinutes : null,
     basePrice: getWorkerBasePrice(w, categoryId),
     isOnline: w.isOnline ?? w.online ?? w.isAvailableOnline,
     isPro: w.experienceYears >= 5 || w.isPro || false,
@@ -246,6 +260,9 @@ export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerP
     if (params.MinRating) queryParams.MinRating = params.MinRating;
     if (params.City) queryParams.City = params.City;
     if (params.IsOnline !== undefined) queryParams.IsOnline = params.IsOnline;
+    if (params.CustomerLat !== undefined) queryParams.CustomerLat = params.CustomerLat;
+    if (params.CustomerLng !== undefined) queryParams.CustomerLng = params.CustomerLng;
+    if (params.RadiusKm !== undefined) queryParams.RadiusKm = params.RadiusKm;
 
     const response = await apiClient.get('/worker-profiles/search', {
       params: queryParams,
@@ -263,13 +280,29 @@ export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerP
 }
 
 export async function getWorkerDetails(id: string): Promise<WorkerProfile | null> {
-  const response = await apiClient.get(`/worker-profiles/${id}/public`);
-  const resData = response.data;
-  const data = resData?.data ?? resData;
-  if (data && (data.id || data.userId)) {
-    return mapBackendWorkerToProfile(data);
+  try {
+    if (!id) return null;
+    try {
+      const response = await apiClient.get(`/worker-profiles/${id}/public`);
+      const resData = response.data;
+      const data = resData?.data ?? resData;
+      if (data && (data.id || data.userId)) {
+        return mapBackendWorkerToProfile(data);
+      }
+    } catch {
+      // Fallback: look up in search if endpoint by GUID failed
+      const searchRes = await apiClient.get('/worker-profiles/search', { params: { PageSize: 50 } });
+      const searchData = searchRes.data?.data?.items ?? searchRes.data?.items ?? [];
+      const match = searchData.find((w: any) => w.id === id || w.userId === id);
+      if (match) {
+        return mapBackendWorkerToProfile(match);
+      }
+    }
+    return null;
+  } catch (error) {
+    console.warn('[workers API] Error getting worker details:', error);
+    return null;
   }
-  return null;
 }
 
 // ================= Worker Types =================

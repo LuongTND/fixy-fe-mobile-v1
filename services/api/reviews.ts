@@ -60,12 +60,18 @@ export async function getWorkerReviews(
   workerId: string,
   params?: { PageNumber?: number; PageSize?: number }
 ): Promise<{ items: Review[]; totalCount: number }> {
-  const response = await apiClient.get(`/reviews/worker/${workerId}/paged`, { params });
-  const data = unwrapData<any>(response.data);
-  return {
-    items: data?.items ?? (Array.isArray(data) ? data : []),
-    totalCount: data?.totalCount ?? 0,
-  };
+  try {
+    if (!workerId) return { items: [], totalCount: 0 };
+    const response = await apiClient.get(`/reviews/worker/${workerId}/paged`, { params });
+    const data = unwrapData<any>(response.data);
+    return {
+      items: data?.items ?? (Array.isArray(data) ? data : []),
+      totalCount: data?.totalCount ?? 0,
+    };
+  } catch (error) {
+    console.warn('[reviews API] Error getting worker reviews:', error);
+    return { items: [], totalCount: 0 };
+  }
 }
 
 /** POST /reviews/{reviewId}/reply — Worker replies to a review */
