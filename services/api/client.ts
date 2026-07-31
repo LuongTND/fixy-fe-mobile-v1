@@ -67,6 +67,12 @@ function logApiResponseError(error: any) {
     return;
   }
 
+  // Suppress expected 404/400 when fetching enums with fallback
+  if (originalRequest?.url?.includes('/enums/') && (status === 404 || status === 400)) {
+    console.log(`[API RESPONSE INFO] ${status} ${originalRequest.url} - Enum fallback used.`);
+    return;
+  }
+
   console.error(`[API RESPONSE ERROR] ${status} ${originalRequest?.url}`, {
     message: error.message,
     data: error.response?.data,

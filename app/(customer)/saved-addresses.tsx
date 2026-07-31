@@ -16,6 +16,8 @@ import { Address, deleteAddress, getMyAddresses, updateAddress } from '@/service
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { formatFullAddress } from '@/utils/format';
+
 export default function SavedAddressesScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
@@ -129,7 +131,7 @@ export default function SavedAddressesScreen() {
                     )}
                   </View>
                   <Text style={styles.addressBody}>
-                    {item.detail}, {item.ward}, {item.district}, {item.city}
+                    {formatFullAddress(item)}
                   </Text>
                 </View>
 

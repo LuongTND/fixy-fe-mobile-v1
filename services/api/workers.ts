@@ -216,19 +216,22 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
         })
       ),
     services:
-      w.services?.map((s: any) => ({
-        categoryId: s.categoryId,
-        basePrice: s.basePrice,
-        isPrimary: s.isPrimary,
-        options: s.options?.map((opt: any) => ({
-          id: opt.id,
-          workerServiceId: opt.workerServiceId,
-          durationMinutes: opt.durationMinutes,
-          price: opt.price,
-          sortOrder: opt.sortOrder,
-          isActive: opt.isActive,
-        })) || [],
-      })) || [],
+      (w.services || w.Services || [])?.map((s: any) => {
+        const rawOpts = s.options || s.Options || [];
+        return {
+          categoryId: s.categoryId || s.CategoryId,
+          basePrice: s.basePrice ?? s.BasePrice,
+          isPrimary: s.isPrimary ?? s.IsPrimary,
+          options: rawOpts.map((opt: any) => ({
+            id: opt.id || opt.Id,
+            workerServiceId: opt.workerServiceId || opt.WorkerServiceId,
+            durationMinutes: typeof opt.durationMinutes === 'number' ? opt.durationMinutes : (typeof opt.DurationMinutes === 'number' ? opt.DurationMinutes : 60),
+            price: typeof opt.price === 'number' ? opt.price : (typeof opt.Price === 'number' ? opt.Price : (s.basePrice ?? 500000)),
+            sortOrder: opt.sortOrder ?? opt.SortOrder ?? 1,
+            isActive: opt.isActive ?? opt.IsActive ?? true,
+          })),
+        };
+      }) || [],
   };
 }
 

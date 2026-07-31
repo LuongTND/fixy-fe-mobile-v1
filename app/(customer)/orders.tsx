@@ -30,7 +30,7 @@ const STATUS_MAP: Record<
   }
 > = {
   [BookingStatus.Pending]: {
-    label: 'Chờ thợ phản hồi',
+    label: 'Chờ KTV xác nhận',
     color: '#D97706',
     bg: '#FEF3C7',
     border: '#FDE68A',
@@ -44,28 +44,28 @@ const STATUS_MAP: Record<
     icon: 'payment',
   },
   [BookingStatus.Matching]: {
-    label: 'Đang kết nối thợ',
+    label: 'Đang kết nối KTV',
     color: '#EA580C',
     bg: '#FFEDD5',
     border: '#FED7AA',
     icon: 'sync',
   },
   [BookingStatus.Confirmed]: {
-    label: 'Đã nhận lịch',
+    label: 'KTV đã nhận lịch',
     color: '#059669',
     bg: '#D1FAE5',
     border: '#A7F3D0',
     icon: 'assignment-turned-in',
   },
   [BookingStatus.Traveling]: {
-    label: 'Thợ đang di chuyển',
+    label: 'KTV đang di chuyển',
     color: '#2563EB',
     bg: '#DBEAFE',
     border: '#BFDBFE',
     icon: 'directions-car',
   },
   [BookingStatus.Arrived]: {
-    label: 'Thợ đã đến nơi',
+    label: 'KTV đã đến nơi',
     color: '#4F46E5',
     bg: '#EEF2FF',
     border: '#E0E7FF',
@@ -76,7 +76,7 @@ const STATUS_MAP: Record<
     color: '#7C3AED',
     bg: '#F5F3FF',
     border: '#DDD6FE',
-    icon: 'build',
+    icon: 'spa',
   },
   [BookingStatus.Completed]: {
     label: 'Hoàn thành',
@@ -105,14 +105,10 @@ const CATEGORIES_INFO: Record<
   string,
   { label: string; icon: React.ComponentProps<typeof MaterialIcons>['name']; color: string }
 > = {
-  dien: { label: 'Điện – Điện tử', icon: 'flash-on', color: '#FF8228' },
-  nuoc: { label: 'Nước – Ống nước', icon: 'opacity', color: '#5BC0DE' },
-  dieuhoa: { label: 'Điện lạnh - Điều hòa', icon: 'ac-unit', color: '#2CAAD2' },
-  maygiat: { label: 'Máy giặt', icon: 'local-laundry-service', color: '#4B7BEC' },
-  xemay: { label: 'Sửa xe máy/ô tô', icon: 'directions-car', color: '#FFB020' },
-  moc: { label: 'Mộc & Nội thất', icon: 'weekend', color: '#A55EEA' },
-  son: { label: 'Sơn & Xây trát', icon: 'brush', color: '#20BF6B' },
-  vesinh: { label: 'Vệ sinh công nghiệp', icon: 'clean-hands', color: '#EB3B5A' },
+  facial: { label: 'Chăm sóc da mặt', icon: 'face', color: '#0F382C' },
+  massage: { label: 'Massage toàn thân', icon: 'spa', color: '#E11D48' },
+  body: { label: 'Tẩy tế bào chết toàn thân', icon: 'self-improvement', color: '#D97706' },
+  combo: { label: 'Gói Spa Chăm sóc toàn diện', icon: 'auto-awesome', color: '#7C3AED' },
 };
 
 export default function CustomerOrdersScreen() {
@@ -152,8 +148,8 @@ export default function CustomerOrdersScreen() {
     const code = category?.code || item.categoryId;
     const mappedInfo = CATEGORIES_INFO[code];
     const catInfo = {
-      label: category?.name || mappedInfo?.label || 'Dịch vụ sửa chữa',
-      icon: mappedInfo?.icon || 'build',
+      label: category?.name || mappedInfo?.label || 'Dịch vụ Spa',
+      icon: mappedInfo?.icon || 'spa',
       color: mappedInfo?.color || '#FF8228',
     };
     const statusInfo = STATUS_MAP[Number(item.status)] || {
@@ -207,10 +203,6 @@ export default function CustomerOrdersScreen() {
             <Text style={[styles.statusText, { color: statusInfo.color }]}>{statusInfo.label}</Text>
           </View>
         </View>
-
-        <Text style={styles.descriptionText} numberOfLines={2}>
-          {item.description || 'Không có mô tả chi tiết.'}
-        </Text>
 
         {item.worker && (
           <View style={styles.workerRow}>

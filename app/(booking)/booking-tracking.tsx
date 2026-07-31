@@ -9,7 +9,7 @@ import { BookingStatus } from '@/services/api/bookings';
 
 const TIMELINE_STEPS = [
   { key: 'confirmed', label: 'Chờ xác nhận', statusThreshold: BookingStatus.Confirmed },
-  { key: 'traveling', label: 'Thợ đang đến', statusThreshold: BookingStatus.Traveling },
+  { key: 'traveling', label: 'KTV đang di chuyển', statusThreshold: BookingStatus.Traveling },
   { key: 'arrived', label: 'Đã đến nơi', statusThreshold: BookingStatus.Arrived },
   { key: 'inprogress', label: 'Đang thực hiện', statusThreshold: BookingStatus.InProgress },
   { key: 'completed', label: 'Hoàn thành', statusThreshold: BookingStatus.Completed },
@@ -68,7 +68,7 @@ export default function BookingTrackingScreen() {
     if (params.workerPhone) {
       Linking.openURL(`tel:${params.workerPhone}`);
     } else {
-      Alert.alert('Thông báo', 'Không có số điện thoại của thợ.');
+      Alert.alert('Thông báo', 'Không có số điện thoại của KTV.');
     }
   };
 
@@ -127,7 +127,7 @@ export default function BookingTrackingScreen() {
           </View>
           <View style={[styles.detailRow, styles.detailRowBorder]}>
             <Text style={styles.detailLabel}>Dịch vụ</Text>
-            <Text style={styles.detailValuePrimary}>{params.categoryName ?? 'Sửa chữa điện'}</Text>
+            <Text style={styles.detailValuePrimary}>{params.categoryName ?? 'Dịch vụ Spa'}</Text>
           </View>
           <View style={styles.etaRow}>
             <View style={styles.etaIcon}>
@@ -239,7 +239,7 @@ export default function BookingTrackingScreen() {
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.messageBtnGradient}>
-              <Text style={styles.messageBtnText}>Nhắn tin cho thợ</Text>
+              <Text style={styles.messageBtnText}>Nhắn tin KTV</Text>
             </LinearGradient>
           </Pressable>
         </View>
