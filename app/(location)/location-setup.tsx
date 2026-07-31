@@ -29,6 +29,13 @@ import {
   updateAddress,
 } from '@/services/api/addresses';
 import { apiClient } from '@/services/api/client';
+import {
+  cleanSearchText,
+  ProvinceOption,
+  vietnamProvincesApi,
+  WardOption,
+} from '@/services/api/provinces';
+import { useQuery } from '@tanstack/react-query';
 
 // Safe Dynamic Imports & Fallbacks for Mapping Modules
 let MapLibreGL: any = null;
@@ -170,6 +177,43 @@ export default function LocationSetupScreen() {
   const [newLabel, setNewLabel] = React.useState('');
   const [newDetail, setNewDetail] = React.useState('');
   const [loading, setLoading] = React.useState(false);
+
+  // Vietnam Provinces API state
+  const { data: provinces = [] } = useQuery<ProvinceOption[]>({
+    queryKey: ['provincesList'],
+    queryFn: vietnamProvincesApi.getProvinces,
+  });
+
+  const [pickerMode, setPickerMode] = React.useState<'form' | 'province' | 'ward'>('form');
+  const [selectedProvinceCode, setSelectedProvinceCode] = React.useState<number | null>(null);
+  const [selectedProvinceName, setSelectedProvinceName] = React.useState('Thành phố Đà Nẵng');
+  const [ward, setWard] = React.useState('');
+  const [provinceSearch, setProvinceSearch] = React.useState('');
+  const [wardSearch, setWardSearch] = React.useState('');
+
+  const { data: wards = [], isLoading: isLoadingWards } = useQuery<WardOption[]>({
+    queryKey: ['wardsList', selectedProvinceCode],
+    queryFn: () => (selectedProvinceCode ? vietnamProvincesApi.getWardsForProvince(selectedProvinceCode) : []),
+    enabled: !!selectedProvinceCode,
+  });
+
+  React.useEffect(() => {
+    if (provinces.length > 0 && !selectedProvinceCode) {
+      const daNang = provinces.find((p) => cleanSearchText(p.name).includes('da nang')) || provinces[0];
+      if (daNang) {
+        setSelectedProvinceCode(daNang.code);
+        setSelectedProvinceName(daNang.name);
+      }
+    }
+  }, [provinces]);
+
+  const filteredProvinces = provinces.filter((p) =>
+    cleanSearchText(p.name).includes(cleanSearchText(provinceSearch))
+  );
+
+  const filteredWards = wards.filter((w) =>
+    cleanSearchText(w.name).includes(cleanSearchText(wardSearch))
+  );
 
   // Load addresses on mount
   React.useEffect(() => {
@@ -379,8 +423,6 @@ export default function LocationSetupScreen() {
 
   // Save currently selected place as a saved address
   const handleSaveAddress = async () => {
-    if (!selectedCoord || !selectedPlaceInfo) return;
-
     if (!newLabel.trim()) {
       Alert.alert('Nhập nhãn', 'Vui lòng nhập tên nhãn (ví dụ: Nhà riêng, Văn phòng...)');
       return;
@@ -389,22 +431,17 @@ export default function LocationSetupScreen() {
     setLoading(true);
     try {
       const newAddressData: Omit<Address, 'id'> = {
-        label: newLabel,
-        city:
-          selectedPlaceInfo.address_components?.find((c: any) =>
-            c.types.includes('administrative_area_level_1')
-          )?.long_name || 'Đà Nẵng',
-        district:
-          selectedPlaceInfo.address_components?.find((c: any) =>
-            c.types.includes('administrative_area_level_2')
-          )?.long_name || '',
-        ward:
-          selectedPlaceInfo.address_components?.find((c: any) =>
-            c.types.includes('administrative_area_level_3')
-          )?.long_name || '',
-        detail: newDetail || selectedPlaceInfo.formatted_address || '',
-        lat: selectedCoord[1],
-        lng: selectedCoord[0],
+        label: newLabel.trim(),
+        city: selectedProvinceName || 'Thành phố Đà Nẵng',
+        district: '',
+        ward: ward.trim() || 'Phường Hải Châu 1',
+        detail:
+          newDetail.trim() ||
+          searchQuery.trim() ||
+          selectedPlaceInfo?.formatted_address ||
+          'Địa chỉ mới',
+        lat: selectedCoord ? selectedCoord[1] : 0,
+        lng: selectedCoord ? selectedCoord[0] : 0,
         isDefault: addresses.length === 0,
       };
 
@@ -416,11 +453,12 @@ export default function LocationSetupScreen() {
       setShowSaveModal(false);
       setNewLabel('');
       setNewDetail('');
-      Alert.alert('Thành công', 'Địa chỉ đã được lưu lại.', [
-        { text: 'OK', onPress: () => router.back() },
-      ]);
-    } catch (err) {
-      Alert.alert('Lỗi', 'Không thể lưu địa chỉ.');
+      setWard('');
+      setPickerMode('form');
+      Alert.alert('Thành công', 'Địa chỉ đã được lưu lại.');
+    } catch (err: any) {
+      console.error('[location-setup] Save address error:', err);
+      Alert.alert('Lỗi', err?.response?.data?.message || 'Không thể lưu địa chỉ.');
     } finally {
       setLoading(false);
     }
@@ -552,13 +590,6 @@ export default function LocationSetupScreen() {
             </View>
           )}
 
-          {/* Floating Save Location Button */}
-          {selectedCoord && (
-            <Pressable style={styles.floatingSaveBtn} onPress={() => setShowSaveModal(true)}>
-              <MaterialIcons name="bookmark-outline" size={22} color="#ffffff" />
-              <Text style={styles.floatingSaveText}>Lưu địa chỉ</Text>
-            </Pressable>
-          )}
         </View>
       ) : isReactNativeMapsSupported ? (
         /* Giao diện bản đồ tương tác react-native-maps trên di động (Expo Go / Dev Build) */
@@ -619,13 +650,6 @@ export default function LocationSetupScreen() {
             </View>
           )}
 
-          {/* Floating Save Location Button */}
-          {selectedCoord && (
-            <Pressable style={styles.floatingSaveBtn} onPress={() => setShowSaveModal(true)}>
-              <MaterialIcons name="bookmark-outline" size={22} color="#ffffff" />
-              <Text style={styles.floatingSaveText}>Lưu địa chỉ</Text>
-            </Pressable>
-          )}
         </View>
       ) : (
         /* Giao diện bản đồ giả lập trên Web hoặc khi không có native module nào */
@@ -679,13 +703,7 @@ export default function LocationSetupScreen() {
             </View>
           )}
 
-          {/* Floating Save Location Button */}
-          {selectedCoord && (
-            <Pressable style={styles.floatingSaveBtn} onPress={() => setShowSaveModal(true)}>
-              <MaterialIcons name="bookmark-outline" size={22} color="#ffffff" />
-              <Text style={styles.floatingSaveText}>Lưu địa chỉ</Text>
-            </Pressable>
-          )}
+
         </View>
       )}
 
@@ -748,7 +766,13 @@ export default function LocationSetupScreen() {
 
           {/* Address List CRUD */}
           <View style={styles.addressListContainer}>
-            <Text style={styles.sectionTitle}>Địa chỉ đã lưu</Text>
+            <View style={styles.sectionHeaderRow}>
+              <Text style={styles.sectionTitle}>Địa chỉ đã lưu</Text>
+              <Pressable style={styles.addManualBtn} onPress={() => setShowSaveModal(true)}>
+                <MaterialIcons name="edit" size={16} color="#0F382C" />
+                <Text style={styles.addManualBtnText}>+ Nhập thủ công</Text>
+              </Pressable>
+            </View>
 
             {addresses.map((item) => (
               <Pressable
@@ -817,51 +841,179 @@ export default function LocationSetupScreen() {
 
       {/* Modal Dialog for saving an address */}
       <Modal visible={showSaveModal} transparent animationType="fade">
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView
+          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowSaveModal(false)} />
           <View style={styles.modalContent}>
-            <Text style={styles.modalTitle}>Lưu địa chỉ mới</Text>
+            {pickerMode === 'form' ? (
+              /* VIEW 1: FORM NHẬP */
+              <>
+                <View style={styles.modalHeader}>
+                  <Text style={styles.modalTitle}>Lưu địa chỉ mới</Text>
+                  <Pressable onPress={() => setShowSaveModal(false)} style={styles.modalCloseBtn}>
+                    <MaterialIcons name="close" size={22} color="#6B7280" />
+                  </Pressable>
+                </View>
 
-            <View style={styles.modalForm}>
-              <Text style={styles.modalLabel}>Nhãn địa chỉ</Text>
-              <TextInput
-                style={styles.modalInput}
-                placeholder="Ví dụ: Nhà riêng, Công ty, Bố mẹ..."
-                placeholderTextColor="#9A9A9A"
-                value={newLabel}
-                onChangeText={setNewLabel}
-              />
+                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                  <Text style={styles.inputLabel}>Tên nhãn địa chỉ *</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Ví dụ: Nhà riêng, Công ty, Căn hộ..."
+                    placeholderTextColor="#9CA3AF"
+                    value={newLabel}
+                    onChangeText={setNewLabel}
+                  />
 
-              <Text style={styles.modalLabel}>Địa chỉ chi tiết (tùy chọn)</Text>
-              <TextInput
-                style={[styles.modalInput, styles.modalInputArea]}
-                multiline
-                numberOfLines={3}
-                placeholder="Số nhà, ngõ ngách, tên tòa nhà..."
-                placeholderTextColor="#9A9A9A"
-                value={newDetail}
-                onChangeText={setNewDetail}
-              />
-            </View>
+                  {/* Province Selector Button */}
+                  <Text style={styles.inputLabel}>Tỉnh / Thành phố *</Text>
+                  <Pressable style={styles.selectorBtn} onPress={() => setPickerMode('province')}>
+                    <Text style={[styles.selectorBtnText, !selectedProvinceName && { color: '#9CA3AF' }]}>
+                      {selectedProvinceName || 'Chọn Tỉnh / Thành phố'}
+                    </Text>
+                    <MaterialIcons name="chevron-right" size={22} color="#6B7280" />
+                  </Pressable>
 
-            <View style={styles.modalFooter}>
-              <Pressable
-                style={[styles.modalBtn, styles.modalBtnCancel]}
-                onPress={() => setShowSaveModal(false)}>
-                <Text style={styles.modalBtnCancelText}>Hủy</Text>
-              </Pressable>
-              <Pressable
-                style={[styles.modalBtn, styles.modalBtnSave]}
-                onPress={handleSaveAddress}
-                disabled={loading}>
-                {loading ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
+                  {/* Ward Selector Button */}
+                  <Text style={styles.inputLabel}>Phường / Xã</Text>
+                  <Pressable
+                    style={[styles.selectorBtn, !selectedProvinceCode && { opacity: 0.5 }]}
+                    onPress={() => {
+                      if (!selectedProvinceCode) {
+                        Alert.alert('Thông báo', 'Vui lòng chọn Tỉnh / Thành phố trước.');
+                        return;
+                      }
+                      setPickerMode('ward');
+                    }}>
+                    <Text style={[styles.selectorBtnText, !ward && { color: '#9CA3AF' }]}>
+                      {ward || 'Chọn Phường / Xã'}
+                    </Text>
+                    <MaterialIcons name="chevron-right" size={22} color="#6B7280" />
+                  </Pressable>
+
+                  <Text style={styles.inputLabel}>Chi tiết số nhà, tên đường</Text>
+                  <TextInput
+                    style={styles.textInput}
+                    placeholder="Ví dụ: 123 Nguyễn Văn Linh"
+                    placeholderTextColor="#9CA3AF"
+                    value={newDetail}
+                    onChangeText={setNewDetail}
+                  />
+
+                  <Pressable
+                    style={[styles.saveModalBtn, loading && styles.saveModalBtnDisabled]}
+                    onPress={handleSaveAddress}
+                    disabled={loading}>
+                    {loading ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <Text style={styles.saveModalBtnText}>Lưu địa chỉ</Text>
+                    )}
+                  </Pressable>
+                </ScrollView>
+              </>
+            ) : pickerMode === 'province' ? (
+              /* VIEW 2: CHỌN TỈNH / THÀNH PHỐ */
+              <>
+                <View style={styles.modalHeader}>
+                  <Pressable onPress={() => setPickerMode('form')} style={styles.backPickerBtn}>
+                    <MaterialIcons name="arrow-back" size={22} color="#0F382C" />
+                  </Pressable>
+                  <Text style={styles.modalTitle}>Chọn Tỉnh / Thành phố</Text>
+                  <View style={{ width: 24 }} />
+                </View>
+
+                <View style={styles.searchBox}>
+                  <MaterialIcons name="search" size={20} color="#9CA3AF" style={{ marginRight: 6 }} />
+                  <TextInput
+                    style={styles.modalSearchInput}
+                    placeholder="Tìm Tỉnh / Thành phố..."
+                    placeholderTextColor="#9CA3AF"
+                    value={provinceSearch}
+                    onChangeText={setProvinceSearch}
+                  />
+                </View>
+
+                <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 350 }}>
+                  {filteredProvinces.map((p) => (
+                    <Pressable
+                      key={p.code}
+                      style={styles.pickerItemRow}
+                      onPress={() => {
+                        setSelectedProvinceCode(p.code);
+                        setSelectedProvinceName(p.name);
+                        setWard('');
+                        setPickerMode('form');
+                        setProvinceSearch('');
+                      }}>
+                      <Text
+                        style={[
+                          styles.pickerItemText,
+                          selectedProvinceCode === p.code && styles.pickerItemActive,
+                        ]}>
+                        {p.name}
+                      </Text>
+                      {selectedProvinceCode === p.code && (
+                        <MaterialIcons name="check" size={20} color="#0F382C" />
+                      )}
+                    </Pressable>
+                  ))}
+                </ScrollView>
+              </>
+            ) : (
+              /* VIEW 3: CHỌN PHƯỜNG / XÃ */
+              <>
+                <View style={styles.modalHeader}>
+                  <Pressable onPress={() => setPickerMode('form')} style={styles.backPickerBtn}>
+                    <MaterialIcons name="arrow-back" size={22} color="#0F382C" />
+                  </Pressable>
+                  <Text style={styles.modalTitle}>Chọn Phường / Xã</Text>
+                  <View style={{ width: 24 }} />
+                </View>
+
+                <View style={styles.searchBox}>
+                  <MaterialIcons name="search" size={20} color="#9CA3AF" style={{ marginRight: 6 }} />
+                  <TextInput
+                    style={styles.modalSearchInput}
+                    placeholder="Tìm Phường / Xã..."
+                    placeholderTextColor="#9CA3AF"
+                    value={wardSearch}
+                    onChangeText={setWardSearch}
+                  />
+                </View>
+
+                {isLoadingWards ? (
+                  <View style={{ padding: 20, alignItems: 'center' }}>
+                    <ActivityIndicator size="small" color="#0F382C" />
+                  </View>
                 ) : (
-                  <Text style={styles.modalBtnSaveText}>Lưu lại</Text>
+                  <ScrollView showsVerticalScrollIndicator={false} style={{ maxHeight: 350 }}>
+                    {filteredWards.map((w) => (
+                      <Pressable
+                        key={w.code}
+                        style={styles.pickerItemRow}
+                        onPress={() => {
+                          setWard(w.name);
+                          setPickerMode('form');
+                          setWardSearch('');
+                        }}>
+                        <Text
+                          style={[
+                            styles.pickerItemText,
+                            ward === w.name && styles.pickerItemActive,
+                          ]}>
+                          {w.name}
+                        </Text>
+                        {ward === w.name && <MaterialIcons name="check" size={20} color="#0F382C" />}
+                      </Pressable>
+                    ))}
+                  </ScrollView>
                 )}
-              </Pressable>
-            </View>
+              </>
+            )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Persistent Bottom bar */}
@@ -1146,11 +1298,32 @@ const styles = StyleSheet.create({
   addressListContainer: {
     marginTop: 8,
   },
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
   sectionTitle: {
     color: '#383838',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    marginBottom: 14,
+  },
+  addManualBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E6F0EB',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#B8D4C8',
+  },
+  addManualBtnText: {
+    color: '#0F382C',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
   },
   addressCard: {
     flexDirection: 'row',
@@ -1325,5 +1498,104 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 16,
+    paddingBottom: 12,
+    borderBottomWidth: 1,
+    borderColor: '#F3F4F6',
+  },
+  modalCloseBtn: {
+    padding: 4,
+  },
+  backPickerBtn: {
+    padding: 4,
+    marginRight: 8,
+  },
+  inputLabel: {
+    color: '#374151',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    marginBottom: 6,
+    marginTop: 10,
+  },
+  textInput: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    color: '#111827',
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 14,
+  },
+  selectorBtn: {
+    height: 48,
+    borderRadius: 12,
+    backgroundColor: '#F9FAFB',
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  selectorBtnText: {
+    color: '#111827',
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 14,
+  },
+  saveModalBtn: {
+    height: 50,
+    borderRadius: 20,
+    backgroundColor: '#0F382C',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 24,
+    marginBottom: 8,
+  },
+  saveModalBtnDisabled: {
+    opacity: 0.6,
+  },
+  saveModalBtnText: {
+    color: '#ffffff',
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
+  },
+  searchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F3F4F6',
+    borderRadius: 12,
+    paddingHorizontal: 12,
+    height: 42,
+    marginBottom: 12,
+  },
+  modalSearchInput: {
+    flex: 1,
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 14,
+    color: '#1F2937',
+  },
+  pickerItemRow: {
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderColor: '#F3F4F6',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  pickerItemText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 14,
+    color: '#374151',
+  },
+  pickerItemActive: {
+    fontFamily: 'Montserrat_700Bold',
+    color: '#0F382C',
   },
 });

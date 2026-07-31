@@ -432,9 +432,55 @@ export async function completeBooking(
   return normalizeBooking(unwrapData(response.data));
 }
 
+export async function cancelBooking(bookingId: string, reason?: string): Promise<Booking> {
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/cancel`, {
+    reason: reason || 'Khách hàng hủy đơn',
+  });
+  return normalizeBooking(unwrapData(response.data));
+}
+
+export async function reorderBooking(bookingId: string): Promise<BookingDraft> {
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/reorder`);
+  return normalizeDraft(unwrapData(response.data));
+}
+
+export async function reportBookingIssue(
+  bookingId: string,
+  payload: { category: number; subject: string; description: string; priority: number }
+): Promise<any> {
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/report-issue`, payload);
+  return unwrapData(response.data);
+}
+
+export async function getMatchingQueue(bookingId: string): Promise<any> {
+  const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/matching-queue`);
+  return unwrapData(response.data);
+}
+
 export async function getBookingTracking(bookingId: string): Promise<BookingTracking | null> {
-  const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/tracking`);
-  return unwrapData<BookingTracking>(response.data);
+  try {
+    const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/tracking`);
+    const data = unwrapData(response.data);
+    if (!data) return null;
+
+    const rawLat =
+      data.workerLat ?? data.WorkerLat ?? data.lat ?? data.Lat ?? data.latitude ?? data.Latitude;
+    const rawLng =
+      data.workerLng ?? data.WorkerLng ?? data.lng ?? data.Lng ?? data.longitude ?? data.Longitude;
+
+    return {
+      ...data,
+      bookingId: data.bookingId ?? data.BookingId ?? bookingId,
+      status: data.status ?? data.Status,
+      workerLat: rawLat !== undefined && rawLat !== null && !isNaN(Number(rawLat)) ? Number(rawLat) : undefined,
+      workerLng: rawLng !== undefined && rawLng !== null && !isNaN(Number(rawLng)) ? Number(rawLng) : undefined,
+      locationUpdatedAt: data.locationUpdatedAt ?? data.LocationUpdatedAt,
+      workerInfo: data.workerInfo ?? data.WorkerInfo,
+    };
+  } catch (error) {
+    console.warn('[bookings API] Error getting booking tracking', error);
+    return null;
+  }
 }
 
 export async function updateWorkerLocation(lat: number, lng: number): Promise<void> {
@@ -552,12 +598,6 @@ export async function sendBookingChatMessage(
 
 export async function markBookingChatRead(bookingId: string): Promise<void> {
   await apiClient.post(`${BOOKING_PATH}/${bookingId}/chat/mark-read`);
-}
-
-/** POST /bookings/{id}/cancel — Cancel a booking with a reason */
-export async function cancelBooking(bookingId: string, reason: string): Promise<Booking> {
-  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/cancel`, { reason });
-  return normalizeBooking(unwrapData(response.data));
 }
 
 export type ApiPaymentMethodOption = {
