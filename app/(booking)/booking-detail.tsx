@@ -45,6 +45,7 @@ import {
   formatVoucherIneligibleReason,
   getVoucherDiscount,
 } from '@/services/api/voucher-utils';
+import { getDistanceAndDuration } from '@/services/api/goong';
 
 // Map status enum values to string keys and styles
 const STATUS_MAP: Record<
@@ -158,6 +159,41 @@ export default function BookingDetailScreen() {
       if (!data) return false;
       return 5000;
     },
+  });
+
+  const originLat =
+    tracking?.workerLat ??
+    (tracking as any)?.WorkerLat ??
+    (tracking as any)?.lat ??
+    (tracking as any)?.latitude;
+  const originLng =
+    tracking?.workerLng ??
+    (tracking as any)?.WorkerLng ??
+    (tracking as any)?.lng ??
+    (tracking as any)?.longitude;
+
+  const destLat = booking?.lat ? Number(booking.lat) : 16.074988;
+  const destLng = booking?.lng ? Number(booking.lng) : 108.228981;
+
+  const { data: etaData = null } = useQuery({
+    queryKey: ['bookingGoongEta', originLat, originLng, destLat, destLng],
+    queryFn: () =>
+      getDistanceAndDuration(
+        { lat: Number(originLat), lng: Number(originLng) },
+        { lat: destLat, lng: destLng },
+        'motorcycle'
+      ),
+    enabled:
+      originLat !== undefined &&
+      originLat !== null &&
+      originLng !== undefined &&
+      originLng !== null &&
+      !isNaN(Number(originLat)) &&
+      !isNaN(Number(originLng)) &&
+      booking !== null &&
+      Number(booking.status) >= BookingStatus.Traveling &&
+      Number(booking.status) <= BookingStatus.InProgress,
+    staleTime: 1000 * 30,
   });
 
   const { data: wallet = null } = useQuery<WalletOverview | null>({
@@ -500,7 +536,9 @@ export default function BookingDetailScreen() {
                       booking.worker?.fullName ||
                       booking.workerName ||
                       'Kỹ thuật viên'}
-                    đang cập nhật vị trí
+                    {Number(booking.status) === BookingStatus.Traveling
+                      ? ' đang di chuyển tới vị trí của bạn'
+                      : ' đang cập nhật vị trí'}
                   </Text>
                   <Text style={styles.trackingMeta}>
                     {tracking.workerLat && tracking.workerLng
@@ -514,6 +552,28 @@ export default function BookingDetailScreen() {
                   )}
                 </View>
               </View>
+
+              {/* Goong Distance Matrix ETA & Distance Card */}
+              {etaData && (
+                <View style={styles.etaCardContainer}>
+                  <View style={styles.etaItem}>
+                    <MaterialIcons name="two-wheeler" size={20} color="#0F382C" />
+                    <View style={{ marginLeft: 8 }}>
+                      <Text style={styles.etaLabel}>Khoảng cách</Text>
+                      <Text style={styles.etaValue}>{etaData.distanceText}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.etaDivider} />
+                  <View style={styles.etaItem}>
+                    <MaterialIcons name="schedule" size={20} color="#FF8228" />
+                    <View style={{ marginLeft: 8 }}>
+                      <Text style={styles.etaLabel}>Thời gian dự kiến</Text>
+                      <Text style={styles.etaValue}>{etaData.durationText}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
               <Pressable
                 style={styles.trackingMapButton}
                 onPress={() =>
@@ -526,6 +586,10 @@ export default function BookingDetailScreen() {
                       workerPhone: booking.worker?.phone || booking.workerPhone || '',
                       workerRating: String(booking.worker?.rating || '4.8'),
                       categoryName: categoryName,
+                      workerLat: tracking.workerLat ? String(tracking.workerLat) : '',
+                      workerLng: tracking.workerLng ? String(tracking.workerLng) : '',
+                      customerLat: booking.lat ? String(booking.lat) : '',
+                      customerLng: booking.lng ? String(booking.lng) : '',
                     },
                   } as any)
                 }>
@@ -1688,5 +1752,36 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
     color: '#FF8228',
+  },
+  etaCardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  etaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  etaDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: '#E5E7EB',
+  },
+  etaLabel: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  etaValue: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#111827',
   },
 });

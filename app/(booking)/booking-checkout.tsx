@@ -191,33 +191,28 @@ export default function BookingCheckoutScreen() {
       }
     },
     onSuccess: async (data) => {
+      const targetUrl = `/booking-detail?bookingId=${data.bookingId}` as any;
       if (data.type === 'wallet') {
         Alert.alert(
           'Đặt lịch & Thanh toán thành công',
-          'Đơn dịch vụ Spa của bạn đã được thanh toán bằng ví và đang chờ Kỹ thuật viên xác nhận.',
-          [
-            {
-              text: 'Theo dõi đơn',
-              onPress: () => router.replace(`/booking-detail?bookingId=${data.bookingId}` as any),
-            },
-          ]
+          'Đơn dịch vụ Spa của bạn đã được thanh toán bằng ví và đang chờ Kỹ thuật viên xác nhận.'
         );
+        router.replace(targetUrl);
       } else if (data.type === 'cash') {
         Alert.alert(
           'Đặt lịch thành công',
-          'Yêu cầu dịch vụ Spa của bạn đã được gửi tới Kỹ thuật viên. Quý khách vui lòng thanh toán bằng tiền mặt sau khi hoàn thành dịch vụ.',
-          [
-            {
-              text: 'Theo dõi đơn',
-              onPress: () => router.replace(`/booking-detail?bookingId=${data.bookingId}` as any),
-            },
-          ]
+          'Yêu cầu dịch vụ Spa của bạn đã được gửi tới Kỹ thuật viên. Quý khách vui lòng thanh toán bằng tiền mặt sau khi hoàn thành dịch vụ.'
         );
+        router.replace(targetUrl);
       } else if (data.type === 'online') {
         if (data.paymentUrl) {
-          await Linking.openURL(data.paymentUrl);
+          try {
+            await Linking.openURL(data.paymentUrl);
+          } catch (e) {
+            console.warn('Could not open payment URL', e);
+          }
         }
-        router.replace(`/booking-detail?bookingId=${data.bookingId}` as any);
+        router.replace(targetUrl);
       }
     },
     onError: (error: any) => {

@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getUserProfile, UserProfile } from '@/services/api/user';
+import { Address, getMyAddresses } from '@/services/api/addresses';
 import { useAuthStore } from '@/store/store';
 
 export default function ProfileScreen() {
@@ -25,6 +26,7 @@ export default function ProfileScreen() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
+  const [addresses, setAddresses] = React.useState<Address[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
@@ -39,10 +41,14 @@ export default function ProfileScreen() {
 
       async function fetchProfile() {
         try {
-          const response = await getUserProfile();
+          const [response, addressesData] = await Promise.all([
+            getUserProfile(),
+            getMyAddresses().catch(() => []),
+          ]);
           if (response.isSuccess) {
             setProfile(response.data);
           }
+          setAddresses(addressesData || []);
         } catch {
           // Offline fallback
         } finally {
@@ -53,6 +59,8 @@ export default function ProfileScreen() {
       fetchProfile();
     }, [isAuthenticated])
   );
+
+  const defaultAddress = addresses.find((a) => a.isDefault) || addresses[0];
 
   function handleLogout() {
     setLogoutConfirmOpen(true);
@@ -179,6 +187,23 @@ export default function ProfileScreen() {
                 <Text style={styles.menuItemText}>Thông tin cá nhân</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() => router.push('/(customer)/saved-addresses' as any)}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="location-on" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Địa chỉ đã lưu</Text>
+              </View>
+              <View style={styles.menuRightValue}>
+                <Text style={styles.valueText} numberOfLines={1}>
+                  {defaultAddress ? defaultAddress.label : '+ Thêm địa chỉ'}
+                </Text>
+                <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+              </View>
             </Pressable>
 
             <View style={styles.menuDivider} />

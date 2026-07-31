@@ -5,7 +5,10 @@ import * as React from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import { BookingStatus } from '@/services/api/bookings';
+import { useQuery } from '@tanstack/react-query';
+
+import { BookingStatus, getBookingTracking } from '@/services/api/bookings';
+import { getDistanceAndDuration } from '@/services/api/goong';
 
 const TIMELINE_STEPS = [
   { key: 'confirmed', label: 'Chờ xác nhận', statusThreshold: BookingStatus.Confirmed },
@@ -46,9 +49,42 @@ export default function BookingTrackingScreen() {
     workerPhone?: string;
     workerRating?: string;
     categoryName?: string;
+    workerLat?: string;
+    workerLng?: string;
+    customerLat?: string;
+    customerLng?: string;
   }>();
 
   const currentStatusNum = Number(params.status ?? BookingStatus.Traveling);
+
+  const { data: liveTracking = null } = useQuery({
+    queryKey: ['bookingTracking', params.bookingId],
+    queryFn: () => getBookingTracking(params.bookingId || ''),
+    enabled: !!params.bookingId,
+    refetchInterval: 5000,
+  });
+
+  const parsedWLat = params.workerLat ? Number(params.workerLat) : undefined;
+  const parsedWLng = params.workerLng ? Number(params.workerLng) : undefined;
+  const parsedCLat = params.customerLat ? Number(params.customerLat) : undefined;
+  const parsedCLng = params.customerLng ? Number(params.customerLng) : undefined;
+
+  const liveWorkerLat = parsedWLat && !isNaN(parsedWLat) ? parsedWLat : liveTracking?.workerLat;
+  const liveWorkerLng = parsedWLng && !isNaN(parsedWLng) ? parsedWLng : liveTracking?.workerLng;
+  const liveCustomerLat = parsedCLat && !isNaN(parsedCLat) ? parsedCLat : 16.074988;
+  const liveCustomerLng = parsedCLng && !isNaN(parsedCLng) ? parsedCLng : 108.228981;
+
+  const { data: etaData = null } = useQuery({
+    queryKey: ['trackingGoongEta', liveWorkerLat, liveWorkerLng, liveCustomerLat, liveCustomerLng],
+    queryFn: () =>
+      getDistanceAndDuration(
+        { lat: liveWorkerLat!, lng: liveWorkerLng! },
+        { lat: liveCustomerLat!, lng: liveCustomerLng! },
+        'motorcycle'
+      ),
+    enabled: !!liveWorkerLat && !!liveWorkerLng && !!liveCustomerLat && !!liveCustomerLng,
+    staleTime: 1000 * 30,
+  });
 
   const getStepState = (stepThreshold: number): StepState => {
     if (currentStatusNum > stepThreshold) return 'done';
@@ -136,7 +172,11 @@ export default function BookingTrackingScreen() {
             <View>
               <Text style={styles.etaLabel}>Dự kiến đến</Text>
               <Text style={styles.etaValue}>
-                {currentStatusNum >= BookingStatus.Arrived ? 'Đã đến nơi' : '5 phút nữa'}
+                {currentStatusNum >= BookingStatus.Arrived
+                  ? 'Đã đến nơi'
+                  : etaData
+                  ? `${etaData.durationText} (${etaData.distanceText})`
+                  : 'Đang cập nhật...'}
               </Text>
             </View>
           </View>
