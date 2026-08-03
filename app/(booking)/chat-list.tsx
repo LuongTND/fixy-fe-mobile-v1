@@ -123,18 +123,20 @@ export default function ChatListScreen() {
             if (isWorker) {
               partnerName = b.customerName || 'Khách hàng';
               partnerPhone = b.customerPhone || '';
-              partnerAvatar = b.customerAvatarUrl
-                ? b.customerAvatarUrl.startsWith('http')
-                  ? b.customerAvatarUrl
-                  : getMediaUrl(b.customerAvatarUrl)
+              const rawCustAvatar = b.customerAvatarUrl || (b as any).CustomerAvatarUrl;
+              partnerAvatar = rawCustAvatar
+                ? rawCustAvatar.startsWith('http')
+                  ? rawCustAvatar
+                  : getMediaUrl(rawCustAvatar)
                 : null;
             } else {
               partnerName = b.worker?.fullName || b.workerName || 'Kỹ thuật viên';
               partnerPhone = b.worker?.phone || b.workerPhone || '';
-              partnerAvatar = b.worker?.avatarUrl || b.workerAvatarUrl
-                ? (b.worker?.avatarUrl || b.workerAvatarUrl)!.startsWith('http')
-                  ? (b.worker?.avatarUrl || b.workerAvatarUrl)!
-                  : getMediaUrl((b.worker?.avatarUrl || b.workerAvatarUrl)!)
+              const rawWorkerAvatar = b.workerAvatarUrl || (b as any).WorkerAvatarUrl || b.worker?.avatarUrl;
+              partnerAvatar = rawWorkerAvatar
+                ? rawWorkerAvatar.startsWith('http')
+                  ? rawWorkerAvatar
+                  : getMediaUrl(rawWorkerAvatar)
                 : null;
             }
 
