@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import {
   ActivityIndicator,
@@ -21,6 +21,12 @@ import { formatFullAddress } from '@/utils/format';
 export default function SavedAddressesScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['addresses'] });
+    }, [queryClient])
+  );
 
   const { data: addresses = [], isLoading } = useQuery<Address[]>({
     queryKey: ['addresses'],

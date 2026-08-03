@@ -422,11 +422,18 @@ export default function WorkerJobDetailScreen() {
           <Text style={styles.infoCardTitle}>Khách hàng & Địa điểm</Text>
           <View style={styles.customerRow}>
             <View style={styles.customerIconWrapper}>
-              <MaterialIcons name="person" size={24} color="#0F382C" />
+              {job.customerAvatarUrl ? (
+                <Image
+                  source={{ uri: job.customerAvatarUrl }}
+                  style={{ width: 44, height: 44, borderRadius: 22 }}
+                />
+              ) : (
+                <MaterialIcons name="person" size={24} color="#0F382C" />
+              )}
             </View>
             <View style={styles.customerDetails}>
-              <Text style={styles.customerName}>{job.workerName || 'Khách hàng Fixy'}</Text>
-              <Text style={styles.customerPhone}>SĐT: {job.workerPhone || '0987654321'}</Text>
+              <Text style={styles.customerName}>{job.customerName || 'Khách hàng Fixy'}</Text>
+              <Text style={styles.customerPhone}>SĐT: {job.customerPhone || 'Chưa cập nhật'}</Text>
             </View>
           </View>
 
@@ -435,7 +442,7 @@ export default function WorkerJobDetailScreen() {
               <Pressable
                 style={[styles.actionBtn, styles.actionBtnCall]}
                 onPress={() => {
-                  const phone = job.workerPhone || '';
+                  const phone = job.customerPhone || '';
                   if (phone) {
                     Linking.openURL(`tel:${phone}`).catch(() => {
                       Alert.alert('Lỗi', 'Không thể khởi chạy ứng dụng gọi điện.');
@@ -492,10 +499,7 @@ export default function WorkerJobDetailScreen() {
             </Text>
           </View>
 
-          <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Mô tả vấn đề:</Text>
-            <Text style={styles.detailValueText}>{job.description}</Text>
-          </View>
+
 
           {(job.requestImages && job.requestImages.length > 0) ||
           (job.mediaIds && job.mediaIds.length > 0) ? (

@@ -16,6 +16,7 @@ export default function WorkerLayout() {
         <Stack.Screen name="worker-wallet" options={{ animation: 'none' }} />
         <Stack.Screen name="worker-profile" options={{ animation: 'none' }} />
         <Stack.Screen name="worker-job-detail" options={{ animation: 'none' }} />
+        <Stack.Screen name="notifications" options={{ animation: 'none' }} />
       </Stack>
     </ProtectedScreen>
   );

@@ -93,7 +93,7 @@ export default function WorkerHomeScreen() {
 
         <Pressable
           style={styles.notificationButton}
-          onPress={() => router.push('/(customer)/notifications' as any)}>
+          onPress={() => router.push('/(worker)/notifications' as any)}>
           <MaterialIcons name="notifications-none" size={26} color="#383838" />
           {unreadCount > 0 && (
             <View style={styles.notificationBadge}>
@@ -241,7 +241,7 @@ export default function WorkerHomeScreen() {
                           <View style={styles.jobDetails}>
                             <View style={styles.jobTitleRow}>
                               <Text style={styles.jobTitle} numberOfLines={1}>
-                                {job.description || 'Yêu cầu sửa chữa'}
+                                {job.description || category?.name || 'Yêu cầu dịch vụ Spa'}
                               </Text>
                               <Text style={styles.jobPrice}>
                                 {formatCurrency(job.estimatedAmount || job.estimatedPrice || 150000)}

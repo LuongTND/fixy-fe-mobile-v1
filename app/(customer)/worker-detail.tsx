@@ -214,6 +214,7 @@ export default function WorkerDetailScreen() {
   }, [worker]);
 
   const [selectedDurationMap, setSelectedDurationMap] = React.useState<Record<string, number>>({});
+  const [selectedServiceIds, setSelectedServiceIds] = React.useState<string[]>([]);
 
   const servicesList = React.useMemo(() => {
     if (!worker?.services || worker.services.length === 0) {
@@ -243,6 +244,72 @@ export default function WorkerDetailScreen() {
       };
     });
   }, [worker, categories]);
+
+  // Compute selected items info for fixed bottom bar
+  const selectedSummary = React.useMemo(() => {
+    let totalCount = 0;
+    let totalPrice = 0;
+    let mainCategory = '';
+    let mainDuration = 60;
+
+    servicesList.forEach((srv) => {
+      const isSelected = selectedServiceIds.includes(srv.categoryId);
+      const dur = selectedDurationMap[srv.categoryId] || srv.options[0]?.durationMinutes || 60;
+      const activeOpt = srv.options.find((o) => o.durationMinutes === dur);
+      const price = activeOpt ? activeOpt.price : (srv.minPrice || srv.basePrice || 0);
+
+      if (isSelected) {
+        totalCount += 1;
+        totalPrice += price;
+        if (!mainCategory) mainCategory = srv.categoryId;
+        mainDuration = dur;
+      }
+    });
+
+    return {
+      count: totalCount,
+      totalPrice: totalPrice,
+      mainCategory: mainCategory || servicesList[0]?.categoryId || '',
+      mainDuration,
+    };
+  }, [servicesList, selectedServiceIds, selectedDurationMap]);
+
+  const handleSelectDuration = (categoryId: string, durationMinutes: number) => {
+    const isCurrentlySelected = selectedServiceIds.includes(categoryId);
+    const currentDur = selectedDurationMap[categoryId];
+
+    if (isCurrentlySelected && currentDur === durationMinutes) {
+      setSelectedServiceIds((prev) => prev.filter((id) => id !== categoryId));
+      setSelectedDurationMap((prev) => {
+        const next = { ...prev };
+        delete next[categoryId];
+        return next;
+      });
+    } else {
+      setSelectedDurationMap((prev) => ({
+        ...prev,
+        [categoryId]: durationMinutes,
+      }));
+      if (!isCurrentlySelected) {
+        setSelectedServiceIds((prev) => [...prev, categoryId]);
+      }
+    }
+  };
+
+  const handleToggleService = (categoryId: string) => {
+    setSelectedServiceIds((prev) => {
+      if (prev.includes(categoryId)) {
+        return prev.filter((id) => id !== categoryId);
+      } else {
+        if (!selectedDurationMap[categoryId]) {
+          const srv = servicesList.find((s) => s.categoryId === categoryId);
+          const defaultDur = srv?.options[0]?.durationMinutes || 60;
+          setSelectedDurationMap((map) => ({ ...map, [categoryId]: defaultDur }));
+        }
+        return [...prev, categoryId];
+      }
+    });
+  };
 
   const reviewsList: Review[] = reviewsData?.items || [];
   const totalReviewsCount = reviewsData?.totalCount ?? worker?.reviewsCount ?? reviewsList.length;
@@ -276,7 +343,7 @@ export default function WorkerDetailScreen() {
   const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
 
   const handleBookNow = (selectedCategoryId?: string, durationMinutes?: number) => {
-    const targetCatId = selectedCategoryId || worker?.services?.[0]?.categoryId || categories[0]?.id || 'dien';
+    const targetCatId = selectedCategoryId || selectedSummary.mainCategory || worker?.services?.[0]?.categoryId || categories[0]?.id || 'dien';
     const targetSrv = servicesList.find((s) => s.categoryId === targetCatId);
     const duration = durationMinutes || (targetSrv ? selectedDurationMap[targetSrv.categoryId] : undefined) || targetSrv?.options?.[0]?.durationMinutes || 60;
 
@@ -303,7 +370,10 @@ export default function WorkerDetailScreen() {
   return (
     <View style={styles.screen}>
       <ScrollView
-        contentContainerStyle={styles.scrollContent}
+        contentContainerStyle={[
+          styles.scrollContent,
+          { paddingBottom: selectedSummary.count > 0 ? 120 + insets.bottom : 30 + insets.bottom },
+        ]}
         showsVerticalScrollIndicator={false}>
         {/* Hero Image Carousel */}
         <HeroImageCarousel
@@ -351,13 +421,22 @@ export default function WorkerDetailScreen() {
 
           {/* KTV Bio Description */}
           <View style={styles.bioContainer}>
+            <View style={styles.bioHeaderRow}>
+              <MaterialIcons name="person-outline" size={18} color="#0F382C" />
+              <Text style={styles.bioHeadingTitle}>Giới thiệu bản thân</Text>
+            </View>
             <Text style={styles.bioText} numberOfLines={showFullBio ? undefined : 3}>
               {worker?.bio || 'Kỹ thuật viên chuyên nghiệp đã được xác thực bởi Fixy.'}
             </Text>
 
-            {worker?.bio && worker.bio.length > 100 ? (
+            {(worker?.bio && worker.bio.length > 50) ? (
               <Pressable style={styles.expandBioBtn} onPress={() => setShowFullBio(!showFullBio)}>
-                <Text style={styles.expandBioText}>{showFullBio ? 'Thu gọn' : 'Hiển thị thêm'}</Text>
+                <Text style={styles.expandBioText}>{showFullBio ? 'Thu gọn' : 'Xem thêm'}</Text>
+                <MaterialIcons
+                  name={showFullBio ? 'keyboard-arrow-up' : 'keyboard-arrow-down'}
+                  size={18}
+                  color="#0F382C"
+                />
               </Pressable>
             ) : null}
           </View>
@@ -367,38 +446,44 @@ export default function WorkerDetailScreen() {
             <Text style={styles.sectionHeading}>Dịch vụ của tôi</Text>
             <View style={styles.serviceList}>
               {servicesList.map((srv) => {
+                const isServiceSelected = selectedServiceIds.includes(srv.categoryId);
                 const selectedDur = selectedDurationMap[srv.categoryId];
-                const activeOpt = srv.options.find((o) => o.durationMinutes === selectedDur);
+                const activeOpt = selectedDur ? srv.options.find((o) => o.durationMinutes === selectedDur) : srv.options[0];
                 const currentPrice = activeOpt ? activeOpt.price : srv.minPrice;
 
                 return (
-                  <View key={srv.id} style={styles.serviceCardContainer}>
-                    <Text style={styles.serviceCardTitle}>{srv.name}</Text>
+                  <View
+                    key={srv.id}
+                    style={[styles.serviceCardContainer, isServiceSelected && styles.serviceCardContainerActive]}>
+                    <View style={styles.serviceHeaderRow}>
+                      <Text style={styles.serviceCardTitle}>{srv.name}</Text>
+                    </View>
 
                     {/* Duration Options Pills */}
                     <View style={styles.durationPillRow}>
                       {srv.options.length > 0 ? (
                         srv.options.map((opt) => {
-                          const isSelected = selectedDur === opt.durationMinutes;
+                          const isPillSelected = isServiceSelected && selectedDur === opt.durationMinutes;
                           return (
                             <Pressable
                               key={opt.id || `dur-${opt.durationMinutes}`}
-                              style={[styles.durationPill, isSelected && styles.durationPillActive]}
-                              onPress={() => {
-                                setSelectedDurationMap((prev) => ({
-                                  ...prev,
-                                  [srv.categoryId]: opt.durationMinutes,
-                                }));
-                              }}>
-                              <Text style={[styles.durationPillText, isSelected && styles.durationPillTextActive]}>
+                              style={[styles.durationPill, isPillSelected && styles.durationPillActive]}
+                              onPress={() => handleSelectDuration(srv.categoryId, opt.durationMinutes)}>
+                              {isPillSelected ? (
+                                <MaterialIcons name="check" size={14} color="#ffffff" style={{ marginRight: 4 }} />
+                              ) : null}
+                              <Text style={[styles.durationPillText, isPillSelected && styles.durationPillTextActive]}>
                                 {opt.durationMinutes} phút
                               </Text>
                             </Pressable>
                           );
                         })
                       ) : (
-                        <View style={[styles.durationPill, styles.durationPillActive]}>
-                          <Text style={[styles.durationPillText, styles.durationPillTextActive]}>
+                        <View style={[styles.durationPill, isServiceSelected && styles.durationPillActive]}>
+                          {isServiceSelected ? (
+                            <MaterialIcons name="check" size={14} color="#ffffff" style={{ marginRight: 4 }} />
+                          ) : null}
+                          <Text style={[styles.durationPillText, isServiceSelected && styles.durationPillTextActive]}>
                             60 phút
                           </Text>
                         </View>
@@ -413,9 +498,18 @@ export default function WorkerDetailScreen() {
                         </Text>
                       </View>
                       <Pressable
-                        style={styles.bookServiceBtn}
-                        onPress={() => handleBookNow(srv.categoryId, selectedDur)}>
-                        <Text style={styles.bookServiceBtnText}>Đặt</Text>
+                        style={[styles.bookServiceBtn, isServiceSelected && styles.bookServiceBtnActive]}
+                        onPress={() => {
+                          handleToggleService(srv.categoryId);
+                        }}>
+                        {isServiceSelected ? (
+                          <>
+                            <MaterialIcons name="check" size={18} color="#ffffff" style={{ marginRight: 4 }} />
+                            <Text style={[styles.bookServiceBtnText, styles.bookServiceBtnTextActive]}>Đã chọn</Text>
+                          </>
+                        ) : (
+                          <Text style={styles.bookServiceBtnText}>Đặt</Text>
+                        )}
                       </Pressable>
                     </View>
                   </View>
@@ -480,7 +574,7 @@ export default function WorkerDetailScreen() {
                       </View>
 
                       <Text style={styles.reviewComment}>
-                        {translated ? `[Dịch]: ${rev.comment}` : rev.comment}
+                        {rev.comment}
                       </Text>
 
                       {rev.workerReply ? (
@@ -489,18 +583,6 @@ export default function WorkerDetailScreen() {
                           <Text style={styles.workerReplyText}>{rev.workerReply}</Text>
                         </View>
                       ) : null}
-
-                      <Pressable
-                        style={styles.translateToggleBtn}
-                        onPress={() => toggleTranslate(rev.id)}>
-                        <MaterialIcons name="g-translate" size={16} color="#4B5563" />
-                        <Text style={styles.translateToggleText}>
-                          {translated ? 'Đang hiển thị bản dịch' : 'Đang hiển thị bản gốc '}
-                          <Text style={{ fontFamily: 'Montserrat_700Bold', textDecorationLine: 'underline' }}>
-                            Dịch
-                          </Text>
-                        </Text>
-                      </Pressable>
                     </View>
                   );
                 })
@@ -514,6 +596,30 @@ export default function WorkerDetailScreen() {
           </View>
         </View>
       </ScrollView>
+
+      {/* Fixed Bottom Booking Bar - Only show when at least 1 service is selected */}
+      {selectedSummary.count > 0 ? (
+        <View style={[styles.bottomBarFixed, { paddingBottom: Math.max(insets.bottom, 12) }]}>
+          <View style={styles.bottomBarLeftInfo}>
+            <View style={styles.bottomBarCountBadge}>
+              <MaterialIcons name="shopping-bag" size={14} color="#0F382C" />
+              <Text style={styles.bottomBarCountText}>
+                {selectedSummary.count} dịch vụ đã chọn
+              </Text>
+            </View>
+            <Text style={styles.bottomBarPriceText}>
+              {formatCurrency(selectedSummary.totalPrice)}
+            </Text>
+          </View>
+
+          <Pressable
+            style={styles.primaryBookBtn}
+            onPress={() => handleBookNow(selectedSummary.mainCategory, selectedSummary.mainDuration)}>
+            <Text style={styles.primaryBookBtnText}>Đặt ngay</Text>
+            <MaterialIcons name="arrow-forward" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
+          </Pressable>
+        </View>
+      ) : null}
     </View>
   );
 }
@@ -676,6 +782,17 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFECE6',
   },
+  bioHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginBottom: 8,
+  },
+  bioHeadingTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#0F382C',
+  },
   bioText: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
@@ -691,16 +808,19 @@ const styles = StyleSheet.create({
   },
   expandBioBtn: {
     alignSelf: 'center',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
     backgroundColor: '#F4F1EA',
-    paddingHorizontal: 24,
-    paddingVertical: 8,
+    paddingHorizontal: 16,
+    paddingVertical: 6,
     borderRadius: 20,
-    marginTop: 4,
+    marginTop: 6,
   },
   expandBioText: {
     fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 13,
-    color: '#1C2526',
+    fontSize: 12,
+    color: '#0F382C',
   },
   servicesSection: {
     marginBottom: 20,
@@ -721,11 +841,35 @@ const styles = StyleSheet.create({
     borderWidth: 1,
     borderColor: '#EFECE6',
   },
+  serviceCardContainerActive: {
+    borderColor: '#0F382C',
+    borderWidth: 1.5,
+    backgroundColor: '#F0FDF4',
+  },
+  serviceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
   serviceCardTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 17,
     color: '#1C2526',
-    marginBottom: 12,
+  },
+  selectedBadgePill: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E6F0EB',
+    paddingHorizontal: 8,
+    paddingVertical: 3,
+    borderRadius: 12,
+  },
+  selectedBadgeText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+    color: '#0F382C',
   },
   durationPillRow: {
     flexDirection: 'row',
@@ -734,7 +878,9 @@ const styles = StyleSheet.create({
     marginBottom: 16,
   },
   durationPill: {
-    paddingHorizontal: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 14,
     paddingVertical: 8,
     borderRadius: 20,
     borderWidth: 1,
@@ -743,7 +889,7 @@ const styles = StyleSheet.create({
   },
   durationPillActive: {
     borderColor: '#0F382C',
-    backgroundColor: '#E6F0EB',
+    backgroundColor: '#0F382C',
   },
   durationPillText: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -752,7 +898,7 @@ const styles = StyleSheet.create({
   },
   durationPillTextActive: {
     fontFamily: 'Montserrat_700Bold',
-    color: '#0F382C',
+    color: '#FFFFFF',
   },
   servicePriceBookRow: {
     flexDirection: 'row',
@@ -768,17 +914,24 @@ const styles = StyleSheet.create({
     color: '#1C2526',
   },
   bookServiceBtn: {
-    backgroundColor: '#0F382C',
-    paddingHorizontal: 22,
-    paddingVertical: 8,
-    borderRadius: 18,
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
+    backgroundColor: '#0F382C',
+    paddingHorizontal: 22,
+    paddingVertical: 9,
+    borderRadius: 20,
+  },
+  bookServiceBtnActive: {
+    backgroundColor: '#0F382C',
   },
   bookServiceBtnText: {
     color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
+  },
+  bookServiceBtnTextActive: {
+    color: '#ffffff',
   },
   ratingSection: {
     marginBottom: 20,
@@ -916,19 +1069,51 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
     borderColor: '#EFECE6',
-    paddingHorizontal: 16,
+    paddingHorizontal: 18,
     paddingTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: -4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 12,
+    elevation: 15,
+  },
+  bottomBarLeftInfo: {
+    flex: 1,
+    marginRight: 12,
+  },
+  bottomBarCountBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginBottom: 2,
+  },
+  bottomBarCountText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
+    color: '#0F382C',
+  },
+  bottomBarPriceText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 19,
+    color: '#1C2526',
   },
   primaryBookBtn: {
     backgroundColor: '#0F382C',
-    paddingVertical: 14,
-    borderRadius: 22,
+    paddingHorizontal: 22,
+    paddingVertical: 13,
+    borderRadius: 24,
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    elevation: 4,
   },
   primaryBookBtnText: {
     color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
+    fontSize: 15,
   },
   heroPlaceholder: {
     backgroundColor: '#EDF2F7',
@@ -995,3 +1180,4 @@ const styles = StyleSheet.create({
     elevation: 5,
   },
 });
+
