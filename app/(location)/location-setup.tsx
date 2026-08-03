@@ -20,6 +20,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
 
 import {
   Address,
@@ -35,7 +36,30 @@ import {
   vietnamProvincesApi,
   WardOption,
 } from '@/services/api/provinces';
-import { useQuery } from '@tanstack/react-query';
+import { selectAuthRole } from '@/hooks/useProtectedRoute';
+import { useAuthStore, useLocationStore } from '@/store/store';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+
+export function formatAddressDisplay(addr: Address | any): string {
+  if (!addr) return '';
+  const rawParts = [addr.detail, addr.ward, addr.district, addr.city];
+  const cleanParts: string[] = [];
+
+  for (const raw of rawParts) {
+    if (!raw || typeof raw !== 'string') continue;
+    const subParts = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    for (const sub of subParts) {
+      if (
+        cleanParts.length === 0 ||
+        cleanParts[cleanParts.length - 1].toLowerCase() !== sub.toLowerCase()
+      ) {
+        cleanParts.push(sub);
+      }
+    }
+  }
+
+  return cleanParts.join(', ');
+}
 
 // Safe Dynamic Imports & Fallbacks for Mapping Modules
 let MapLibreGL: any = null;
@@ -151,6 +175,7 @@ function decodePolyline(encoded: string): [number, number][] {
 
 export default function LocationSetupScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const cameraRef = React.useRef<any>(null);
   const rnMapRef = React.useRef<any>(null);
 
@@ -291,6 +316,7 @@ export default function LocationSetupScreen() {
         const location = data.result.geometry.location;
         const coordinates: [number, number] = [location.lng, location.lat];
         setSelectedCoord(coordinates);
+        setCurrentCoord(coordinates);
         setSelectedPlaceInfo(data.result);
 
         // Pan map camera to selected point if supported
@@ -498,14 +524,89 @@ export default function LocationSetupScreen() {
   const handleContinue = async () => {
     setLoading(true);
     try {
-      const response = await apiClient.get('/worker-profiles/me');
-      if (response.status === 200 && response.data) {
+      // 1. If user typed or searched a new address location
+      if (selectedCoord || searchQuery.trim()) {
+        const labelText =
+          newLabel.trim() ||
+          selectedPlaceInfo?.name ||
+          selectedPlaceInfo?.structured_formatting?.main_text ||
+          'Địa chỉ dịch vụ';
+
+        const cityName =
+          selectedProvinceName ||
+          selectedPlaceInfo?.compound?.province ||
+          'Thành phố Đà Nẵng';
+
+        const wardName =
+          ward.trim() ||
+          selectedPlaceInfo?.compound?.commune ||
+          '';
+
+        const districtName =
+          selectedPlaceInfo?.compound?.district ||
+          '';
+
+        const detailText =
+          newDetail.trim() ||
+          searchQuery.trim() ||
+          selectedPlaceInfo?.formatted_address ||
+          'Địa chỉ mới';
+
+        const targetLat = selectedCoord ? selectedCoord[1] : currentCoord[1];
+        const targetLng = selectedCoord ? selectedCoord[0] : currentCoord[0];
+
+        // Update active city in locationStore
+        if (cityName) {
+          useLocationStore.getState().setSelectedCity(cityName);
+        }
+
+        const newAddressData: Omit<Address, 'id'> = {
+          label: labelText,
+          city: cityName,
+          district: districtName,
+          ward: wardName,
+          detail: detailText,
+          lat: targetLat,
+          lng: targetLng,
+          isDefault: true,
+        };
+
+      const saved = await createAddress(newAddressData);
+      await queryClient.invalidateQueries({ queryKey: ['addresses'] });
+      await queryClient.invalidateQueries({ queryKey: ['myAddresses'] });
+      await loadAddresses();
+      if (saved && saved.id) {
+        setSelectedAddressId(saved.id);
+      }
+    } else if (selectedAddressId) {
+      // 2. If user tapped an existing saved address card
+      const addr = addresses.find((a) => a.id === selectedAddressId);
+      if (addr) {
+        await handleSetDefault(addr);
+        if (addr.city) {
+          useLocationStore.getState().setSelectedCity(addr.city);
+        }
+      }
+    }
+
+      // 3. Navigation based on role
+      const role = selectAuthRole(useAuthStore.getState());
+      if (role === 'worker') {
         router.replace('/worker-home' as any);
+      } else {
+        if (router.canGoBack()) {
+          router.back();
+        } else {
+          router.replace('/home' as any);
+        }
+      }
+    } catch (err: any) {
+      console.error('[location-setup] Continue save address error:', err);
+      if (router.canGoBack()) {
+        router.back();
       } else {
         router.replace('/home' as any);
       }
-    } catch {
-      router.replace('/home' as any);
     } finally {
       setLoading(false);
     }
@@ -572,23 +673,7 @@ export default function LocationSetupScreen() {
             )}
           </MapLibreGL.MapView>
 
-          {/* Floating Directions Route Summary */}
-          {routeInfo && (
-            <View style={styles.routeSummaryCard}>
-              <View style={styles.routeSummaryRow}>
-                <MaterialIcons name="directions-car" size={20} color="#FF8228" />
-                <Text style={styles.routeText}>
-                  Khoảng cách: <Text style={styles.routeBold}>{routeInfo.distance}</Text>
-                </Text>
-              </View>
-              <View style={styles.routeSummaryRow}>
-                <MaterialIcons name="access-time" size={20} color="#FF8228" />
-                <Text style={styles.routeText}>
-                  Thời gian đi: <Text style={styles.routeBold}>{routeInfo.duration}</Text>
-                </Text>
-              </View>
-            </View>
-          )}
+
 
         </View>
       ) : isReactNativeMapsSupported ? (
@@ -632,76 +717,62 @@ export default function LocationSetupScreen() {
             )}
           </MapViewRN>
 
-          {/* Floating Directions Route Summary */}
-          {routeInfo && (
-            <View style={styles.routeSummaryCard}>
-              <View style={styles.routeSummaryRow}>
-                <MaterialIcons name="directions-car" size={20} color="#FF8228" />
-                <Text style={styles.routeText}>
-                  Khoảng cách: <Text style={styles.routeBold}>{routeInfo.distance}</Text>
-                </Text>
-              </View>
-              <View style={styles.routeSummaryRow}>
-                <MaterialIcons name="access-time" size={20} color="#FF8228" />
-                <Text style={styles.routeText}>
-                  Thời gian đi: <Text style={styles.routeBold}>{routeInfo.duration}</Text>
-                </Text>
-              </View>
-            </View>
-          )}
+
 
         </View>
       ) : (
-        /* Giao diện bản đồ giả lập trên Web hoặc khi không có native module nào */
+        /* Interactive Goong Map View via WebView */
         <View style={styles.webFallbackContainer}>
-          <View style={styles.mockMapBackground}>
-            {/* Grid background */}
-            <View style={styles.mockMapGrid} />
+          <WebView
+            key={`goong-map-${currentCoord[0]}-${currentCoord[1]}-${selectedCoord ? selectedCoord[0] : ''}`}
+            originWhitelist={['*']}
+            source={{
+              html: `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@1.0.9/dist/goong-js.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@1.0.9/dist/goong-js.css" rel="stylesheet" />
+  <style>
+    body, html, #map { margin: 0; padding: 0; height: 100%; width: 100%; }
+    .mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right { display: none; }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    goongjs.accessToken = '${GOONG_MAPTILES_API_KEY}';
+    const map = new goongjs.Map({
+      container: 'map',
+      style: 'https://tiles.goong.io/assets/goong_map_web.json?api_key=${GOONG_MAPTILES_API_KEY}',
+      center: [${currentCoord[0]}, ${currentCoord[1]}],
+      zoom: 14
+    });
 
-            {/* Hanoi center location */}
-            <View style={[styles.mockMapPoint, { top: '50%', left: '35%' }]}>
-              <View style={styles.currentMarkerContainer}>
-                <View style={styles.currentMarkerCore} />
-              </View>
-              <Text style={styles.mockMapPointText}>Vị trí của bạn</Text>
-            </View>
+    new goongjs.Marker({ color: '#0F382C' })
+      .setLngLat([${currentCoord[0]}, ${currentCoord[1]}])
+      .addTo(map);
 
-            {/* Selected destination pin */}
-            {selectedCoord && (
-              <View style={[styles.mockMapPoint, { top: '30%', left: '60%' }]}>
-                <MaterialIcons name="location-on" size={32} color="#F45100" />
-                <Text style={styles.mockMapPointTextSelected}>Điểm đã chọn</Text>
-              </View>
-            )}
+    ${
+      selectedCoord
+        ? `
+    new goongjs.Marker({ color: '#0F382C' })
+      .setLngLat([${selectedCoord[0]}, ${selectedCoord[1]}])
+      .addTo(map);
+    `
+        : ''
+    }
+  </script>
+</body>
+</html>
+              `,
+            }}
+            style={styles.map}
+          />
 
-            {/* Simulated route line */}
-            {routeInfo && <View style={styles.mockRouteLine} />}
 
-            <View style={styles.mockMapOverlay}>
-              <MaterialIcons name="info-outline" size={16} color="#622a00" />
-              <Text style={styles.mockMapOverlayText}>
-                Đang chạy chế độ bản đồ giả lập (Expo Go)
-              </Text>
-            </View>
-          </View>
-
-          {/* Floating Directions Route Summary */}
-          {routeInfo && (
-            <View style={styles.routeSummaryCard}>
-              <View style={styles.routeSummaryRow}>
-                <MaterialIcons name="directions-car" size={20} color="#FF8228" />
-                <Text style={styles.routeText}>
-                  Khoảng cách: <Text style={styles.routeBold}>{routeInfo.distance}</Text>
-                </Text>
-              </View>
-              <View style={styles.routeSummaryRow}>
-                <MaterialIcons name="access-time" size={20} color="#FF8228" />
-                <Text style={styles.routeText}>
-                  Thời gian đi: <Text style={styles.routeBold}>{routeInfo.duration}</Text>
-                </Text>
-              </View>
-            </View>
-          )}
 
 
         </View>
@@ -724,7 +795,7 @@ export default function LocationSetupScreen() {
               onChangeText={setSearchQuery}
             />
             {searchLoading ? (
-              <ActivityIndicator size="small" color="#FF8228" style={styles.searchLoader} />
+              <ActivityIndicator size="small" color="#0F382C" style={styles.searchLoader} />
             ) : searchQuery ? (
               <Pressable onPress={() => setSearchQuery('')}>
                 <MaterialIcons name="close" size={20} color="#818A91" />
@@ -755,10 +826,10 @@ export default function LocationSetupScreen() {
             onPress={handleUseCurrentLocation}
             disabled={loading}>
             {loading ? (
-              <ActivityIndicator size="small" color="#FF8228" />
+              <ActivityIndicator size="small" color="#0F382C" />
             ) : (
               <>
-                <MaterialIcons name="my-location" size={20} color="#FF8228" />
+                <MaterialIcons name="my-location" size={20} color="#0F382C" />
                 <Text style={styles.currentLocationText}>Dùng vị trí hiện tại</Text>
               </>
             )}
@@ -806,7 +877,7 @@ export default function LocationSetupScreen() {
                   }
                 }}>
                 <View style={styles.addressIconWrapper}>
-                  <MaterialIcons name="place" size={24} color="#FF8228" />
+                  <MaterialIcons name="place" size={24} color="#0F382C" />
                 </View>
 
                 <View style={styles.addressDetails}>
@@ -819,7 +890,7 @@ export default function LocationSetupScreen() {
                     )}
                   </View>
                   <Text style={styles.addressBody}>
-                    {item.detail}, {item.ward}, {item.district}, {item.city}
+                    {formatAddressDisplay(item)}
                   </Text>
                 </View>
 
@@ -1282,16 +1353,16 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#ffffff',
+    backgroundColor: '#E6F0EB',
     borderWidth: 1,
-    borderColor: '#FF8228',
-    borderRadius: 10,
-    height: 46,
+    borderColor: '#0F382C',
+    borderRadius: 12,
+    height: 48,
     marginBottom: 20,
     marginTop: 8,
   },
   currentLocationText: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
   },
@@ -1329,7 +1400,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
     borderColor: '#DDDDDD',
     padding: 14,
@@ -1341,13 +1412,15 @@ const styles = StyleSheet.create({
     elevation: 2,
   },
   addressCardSelected: {
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
+    borderWidth: 1.5,
+    backgroundColor: '#E6F0EB',
   },
   addressIconWrapper: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#E6F0EB',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -1362,26 +1435,26 @@ const styles = StyleSheet.create({
     marginBottom: 2,
   },
   addressLabel: {
-    color: '#383838',
-    fontFamily: 'Montserrat_600SemiBold',
+    color: '#0F382C',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
   },
   defaultBadge: {
-    backgroundColor: '#E7F8FC',
+    backgroundColor: '#0F382C',
     borderRadius: 4,
-    paddingHorizontal: 6,
+    paddingHorizontal: 8,
     paddingVertical: 2,
   },
   defaultBadgeText: {
-    color: '#01677d',
+    color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 9,
+    fontSize: 10,
   },
   addressBody: {
-    color: '#818A91',
+    color: '#4B5563',
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    lineHeight: 16,
+    fontSize: 13,
+    lineHeight: 18,
   },
   addressActions: {
     flexDirection: 'row',
@@ -1397,19 +1470,19 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#ffffff',
     paddingTop: 12,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderColor: '#efedec',
+    borderColor: '#EFECE6',
   },
   continueButton: {
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#FF8228',
+    height: 54,
+    borderRadius: 16,
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8228',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -1417,7 +1490,7 @@ const styles = StyleSheet.create({
   },
   continueButtonText: {
     color: '#ffffff',
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
   },
   modalOverlay: {

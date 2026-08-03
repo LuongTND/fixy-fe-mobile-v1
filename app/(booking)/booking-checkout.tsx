@@ -18,8 +18,8 @@ import { applyVoucher, getEligibleVouchers } from '@/services/api/vouchers';
 import { EligibleVoucher, getVoucherDiscount } from '@/services/api/voucher-utils';
 import { formatCurrency, formatFullAddress } from '@/utils/format';
 import { MaterialIcons } from '@expo/vector-icons';
-import { useMutation, useQuery } from '@tanstack/react-query';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import {
   ActivityIndicator,
@@ -38,6 +38,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 export default function BookingCheckoutScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+
   const {
     draftId: paramDraftId,
     workerUserId,
@@ -63,6 +65,13 @@ export default function BookingCheckoutScreen() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<number>(PaymentMethod.Cash);
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
 
+  // Invalidate addresses query on focus so new address is fetched instantly
+  useFocusEffect(
+    React.useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['addresses'] });
+    }, [queryClient])
+  );
+
   // Fetch Wallet Overview
   const { data: wallet = null } = useQuery<WalletOverview>({
     queryKey: ['wallet'],
@@ -84,13 +93,15 @@ export default function BookingCheckoutScreen() {
     queryFn: getMyAddresses,
   });
 
-  // Set default address when addresses are loaded
+  // Set default address when addresses are loaded or updated
   React.useEffect(() => {
-    if (addresses && addresses.length > 0 && !selectedAddress) {
+    if (addresses && addresses.length > 0) {
       const def = addresses.find((a) => a.isDefault) || addresses[0];
-      setSelectedAddress(def);
+      if (!selectedAddress || (def && def.id !== selectedAddress.id && def.isDefault)) {
+        setSelectedAddress(def);
+      }
     }
-  }, [addresses, selectedAddress]);
+  }, [addresses]);
 
   // Fetch payment methods from BE API
   const { data: paymentMethods = [] } = useQuery<ApiPaymentMethodOption[]>({
@@ -290,7 +301,7 @@ export default function BookingCheckoutScreen() {
           </View>
           <View style={styles.addressDetails}>
             <View style={styles.userNamePhoneRow}>
-              <MaterialIcons name="place" size={18} color="#0F382C" style={{ marginRight: 4 }} />
+              <MaterialIcons name="place" size={18} color="#0F382C" />
               <Text style={styles.userNameText}>
                 {selectedAddress ? (selectedAddress.label || 'Nhà riêng') : (draft?.address ? 'Địa chỉ giao' : 'Chưa chọn địa chỉ')}
               </Text>
@@ -344,7 +355,7 @@ export default function BookingCheckoutScreen() {
           <View style={styles.paymentHeaderRow}>
             <Text style={styles.cardSectionLabel}>Phương thức thanh toán</Text>
             <Pressable onPress={() => setShowPaymentModal(true)}>
-              <Text style={styles.seeAllText}>Thay đổi &gt;</Text>
+              <Text style={styles.seeAllText}>Tất cả  &gt;</Text>
             </Pressable>
           </View>
 
@@ -507,7 +518,7 @@ export default function BookingCheckoutScreen() {
       </View>
 
       {/* Address Selection Modal */}
-      <Modal visible={showAddressModal} transparent animationType="slide">
+      <Modal visible={showAddressModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -557,7 +568,7 @@ export default function BookingCheckoutScreen() {
       </Modal>
 
       {/* Payment Method Selection Modal */}
-      <Modal visible={showPaymentModal} transparent animationType="slide">
+      <Modal visible={showPaymentModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -600,7 +611,7 @@ export default function BookingCheckoutScreen() {
       </Modal>
 
       {/* Voucher Selection Modal */}
-      <Modal visible={showVoucherModal} transparent animationType="slide">
+      <Modal visible={showVoucherModal} transparent animationType="fade">
         <View style={styles.modalOverlay}>
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
@@ -721,7 +732,7 @@ const styles = StyleSheet.create({
   userNamePhoneRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 16,
+    gap: 6,
   },
   userNameText: {
     fontFamily: 'Montserrat_700Bold',

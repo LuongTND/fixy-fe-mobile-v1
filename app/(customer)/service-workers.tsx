@@ -8,6 +8,7 @@ import {
   Image,
   Modal,
   Pressable,
+  ScrollView,
   StyleSheet,
   Switch,
   Text,
@@ -100,10 +101,20 @@ export default function ServiceWorkersScreen() {
 
   const [searchQuery, setSearchQuery] = React.useState('');
   const [filterModalOpen, setFilterModalOpen] = React.useState(false);
+  const [categoryModalOpen, setCategoryModalOpen] = React.useState(false);
+  const [selectedCategory, setSelectedCategory] = React.useState<{ id: string; name: string } | null>(null);
+
   const [activeFilterChip, setActiveFilterChip] = React.useState<'near' | 'popular' | 'all'>('near');
   const [priceRange, setPriceRange] = React.useState(PRICE_RANGE_OPTIONS[1]);
   const [minRating, setMinRating] = React.useState(4.5);
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
+
+  // Fetch all system categories
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: () => fetchCategories(),
+    staleTime: 1000 * 60 * 15,
+  });
 
   // Get device GPS coordinates for distance calculations
   React.useEffect(() => {
@@ -125,9 +136,11 @@ export default function ServiceWorkersScreen() {
   const { selectedCity } = useLocationStore();
   const [cityModalVisible, setCityModalVisible] = React.useState(false);
 
+  const activeCategoryId = selectedCategory?.id || serviceId;
+
   const { data: apiWorkers = [], isLoading: loading } = useQuery<WorkerProfile[]>({
-    queryKey: ['workersByCategory', serviceId || 'all', selectedCity, userLocation?.lat, userLocation?.lng],
-    queryFn: () => fetchAllWorkersByCategory(serviceId, selectedCity, userLocation?.lat, userLocation?.lng),
+    queryKey: ['workersByCategory', activeCategoryId || 'all', selectedCity, userLocation?.lat, userLocation?.lng],
+    queryFn: () => fetchAllWorkersByCategory(activeCategoryId, selectedCity, userLocation?.lat, userLocation?.lng),
     enabled: true,
   });
 
@@ -227,16 +240,12 @@ export default function ServiceWorkersScreen() {
           <MaterialIcons name="search" size={18} color="#818A91" style={{ marginRight: 6 }} />
           <TextInput
             style={styles.searchHeaderInput}
-            placeholder="Tìm kiếm kỹ thuật vi..."
+            placeholder="Tìm kiếm kỹ thuật viên..."
             placeholderTextColor="#9A9A9A"
             value={searchQuery}
             onChangeText={setSearchQuery}
           />
         </View>
-
-        <Pressable style={styles.iconBtn}>
-          <MaterialIcons name="favorite-border" size={22} color="#0F382C" />
-        </Pressable>
       </View>
 
       {/* Filter Chips Bar Matching Image 3 */}
@@ -261,9 +270,19 @@ export default function ServiceWorkersScreen() {
           </Text>
         </Pressable>
 
-        <Pressable style={styles.chipDropdownItem} onPress={() => setFilterModalOpen(true)}>
-          <Text style={styles.chipDropdownText}>Loại dịch vụ</Text>
-          <MaterialIcons name="keyboard-arrow-down" size={16} color="#4B5563" />
+        <Pressable
+          style={[styles.chipDropdownItem, !!selectedCategory && styles.chipItemActive]}
+          onPress={() => setCategoryModalOpen(true)}>
+          <Text
+            style={[styles.chipDropdownText, !!selectedCategory && styles.chipTextActive]}
+            numberOfLines={1}>
+            {selectedCategory ? selectedCategory.name : 'Loại dịch vụ'}
+          </Text>
+          <MaterialIcons
+            name="keyboard-arrow-down"
+            size={16}
+            color={selectedCategory ? '#ffffff' : '#4B5563'}
+          />
         </Pressable>
       </View>
 
@@ -337,6 +356,83 @@ export default function ServiceWorkersScreen() {
             <Pressable style={styles.applyFilterBtn} onPress={() => setFilterModalOpen(false)}>
               <Text style={styles.applyFilterBtnText}>Áp dụng</Text>
             </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Category Bottom Sheet Modal */}
+      <Modal visible={categoryModalOpen} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setCategoryModalOpen(false)} />
+          <View style={styles.categorySheetContainer}>
+            <View style={styles.sheetDragHandle} />
+
+            <View style={styles.categorySheetHeader}>
+              <Text style={styles.categorySheetTitle}>Loại dịch vụ</Text>
+              <Pressable onPress={() => setCategoryModalOpen(false)} hitSlop={10}>
+                <MaterialIcons name="close" size={22} color="#383838" />
+              </Pressable>
+            </View>
+
+            <ScrollView
+              style={styles.categoryListScroll}
+              showsVerticalScrollIndicator={false}
+              contentContainerStyle={styles.categoryListContent}>
+              
+              {/* Option: Tất cả */}
+              <Pressable
+                style={[
+                  styles.categoryCardItem,
+                  selectedCategory === null && styles.categoryCardItemActive,
+                ]}
+                onPress={() => {
+                  setSelectedCategory(null);
+                  setCategoryModalOpen(false);
+                }}>
+                <Text
+                  style={[
+                    styles.categoryItemText,
+                    selectedCategory === null && styles.categoryItemTextActive,
+                  ]}>
+                  Tất cả
+                </Text>
+                {selectedCategory === null ? (
+                  <MaterialIcons name="check-circle" size={20} color="#0F382C" />
+                ) : null}
+              </Pressable>
+
+              {/* System Categories List */}
+              {categories.map((cat) => {
+                const isSelected = selectedCategory?.id === cat.id;
+                return (
+                  <Pressable
+                    key={cat.id}
+                    style={[
+                      styles.categoryCardItem,
+                      isSelected && styles.categoryCardItemActive,
+                    ]}
+                    onPress={() => {
+                      if (isSelected) {
+                        setSelectedCategory(null); // Toggle off!
+                      } else {
+                        setSelectedCategory({ id: cat.id, name: cat.name });
+                      }
+                      setCategoryModalOpen(false);
+                    }}>
+                    <Text
+                      style={[
+                        styles.categoryItemText,
+                        isSelected && styles.categoryItemTextActive,
+                      ]}>
+                      {cat.name}
+                    </Text>
+                    {isSelected ? (
+                      <MaterialIcons name="check-circle" size={20} color="#0F382C" />
+                    ) : null}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -642,5 +738,67 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
+  },
+  categorySheetContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 12,
+    paddingHorizontal: 20,
+    paddingBottom: 28,
+    maxHeight: '75%',
+  },
+  sheetDragHandle: {
+    width: 40,
+    height: 4,
+    borderRadius: 2,
+    backgroundColor: '#CBD5E1',
+    alignSelf: 'center',
+    marginBottom: 12,
+  },
+  categorySheetHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 14,
+  },
+  categorySheetTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 18,
+    color: '#0F382C',
+  },
+  categoryListScroll: {
+    maxHeight: 400,
+  },
+  categoryListContent: {
+    gap: 8,
+    paddingBottom: 16,
+  },
+  categoryCardItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
+    paddingVertical: 14,
+    borderRadius: 14,
+    backgroundColor: '#FFFFFF',
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+  },
+  categoryCardItemActive: {
+    backgroundColor: '#E6F0EB',
+    borderColor: '#0F382C',
+    borderWidth: 1.5,
+  },
+  categoryItemText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 14,
+    color: '#374151',
+    flex: 1,
+    marginRight: 8,
+  },
+  categoryItemTextActive: {
+    fontFamily: 'Montserrat_700Bold',
+    color: '#0F382C',
   },
 });

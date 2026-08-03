@@ -80,6 +80,9 @@ export type Booking = {
   workerName?: string | null;
   workerPhone?: string | null;
   workerAvatarUrl?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerAvatarUrl?: string | null;
   autoMatch: boolean;
   status: BookingStatus | number;
   estimatedPrice?: number;
