@@ -36,6 +36,7 @@ import {
   sendBookingChatMessage,
 } from '@/services/api/bookings';
 import { getApiErrorMessage } from '@/services/api/client';
+import { getMediaUrl } from '@/services/api/media';
 import { useAuthStore } from '@/store/store';
 import { formatTime } from '@/utils/date';
 
@@ -329,22 +330,39 @@ export default function BookingChatScreen() {
       (booking.workerProfileId && currentUserId?.toLowerCase() === booking.workerProfileId.toLowerCase());
 
     if (!isWorker) {
+      const rawWorkerAvatar = booking.workerAvatarUrl || (booking as any).WorkerAvatarUrl || booking.worker?.avatarUrl;
       return {
         name: booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên',
         phone: booking.worker?.phone || booking.workerPhone || '',
-        avatar: booking.worker?.avatarUrl || booking.workerAvatarUrl || null,
+        avatar: rawWorkerAvatar
+          ? rawWorkerAvatar.startsWith('http')
+            ? rawWorkerAvatar
+            : getMediaUrl(rawWorkerAvatar)
+          : null,
       };
     } else {
+      const rawCustAvatar = booking.customerAvatarUrl || (booking as any).CustomerAvatarUrl;
       return {
         name: booking.customerName || 'Khách hàng',
         phone: booking.customerPhone || '',
-        avatar: booking.customerAvatarUrl || null,
+        avatar: rawCustAvatar
+          ? rawCustAvatar.startsWith('http')
+            ? rawCustAvatar
+            : getMediaUrl(rawCustAvatar)
+          : null,
       };
     }
   }, [booking, currentUserId]);
 
+  const bookingStatusNum = Number(booking?.status);
+  const isFinished = bookingStatusNum === BookingStatus.Completed || bookingStatusNum === BookingStatus.Cancelled;
+
   const sendTextMessage = async (text: string) => {
     if (!currentBookingId) return;
+    if (isFinished) {
+      Alert.alert('Thông báo', 'Đơn hàng đã hoàn thành hoặc đã bị hủy, không thể gửi tin nhắn.');
+      return;
+    }
 
     const tempId = `temp-${Date.now()}`;
     const optimisticMsg: ChatMessage = {
@@ -380,6 +398,10 @@ export default function BookingChatScreen() {
 
   const sendImageMessage = async (localUri: string, fileObj: any) => {
     if (!currentBookingId) return;
+    if (isFinished) {
+      Alert.alert('Thông báo', 'Đơn hàng đã hoàn thành hoặc đã bị hủy, không thể gửi tin nhắn.');
+      return;
+    }
 
     const tempId = `temp-${Date.now()}`;
     const optimisticMsg: ChatMessage = {
@@ -650,33 +672,48 @@ export default function BookingChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
         style={styles.inputDock}>
-        <View
-          style={[styles.inputPanel, { paddingBottom: Math.max(insets.bottom, 12) }]}
-          onLayout={(event) => {
-            setInputPanelHeight(event.nativeEvent.layout.height);
-          }}>
-          <Pressable style={styles.attachBtn} onPress={handleSendImage}>
-            <MaterialIcons name="image" size={24} color="#0F382C" />
-          </Pressable>
+        {isFinished ? (
+          <View
+            style={[styles.finishedBanner, { paddingBottom: Math.max(insets.bottom, 14) }]}
+            onLayout={(event) => {
+              setInputPanelHeight(event.nativeEvent.layout.height);
+            }}>
+            <MaterialIcons name="lock" size={18} color="#818A91" />
+            <Text style={styles.finishedBannerText}>
+              {bookingStatusNum === BookingStatus.Completed
+                ? 'Đơn hàng đã hoàn thành. Cuộc trò chuyện đã kết thúc.'
+                : 'Đơn hàng đã bị hủy. Cuộc trò chuyện đã kết thúc.'}
+            </Text>
+          </View>
+        ) : (
+          <View
+            style={[styles.inputPanel, { paddingBottom: Math.max(insets.bottom, 12) }]}
+            onLayout={(event) => {
+              setInputPanelHeight(event.nativeEvent.layout.height);
+            }}>
+            <Pressable style={styles.attachBtn} onPress={handleSendImage}>
+              <MaterialIcons name="image" size={24} color="#0F382C" />
+            </Pressable>
 
-          <TextInput
-            style={styles.textInput}
-            placeholder="Nhập tin nhắn..."
-            placeholderTextColor="#9A9A9A"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={1000}
-            onFocus={handleInputFocus}
-          />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Nhập tin nhắn..."
+              placeholderTextColor="#9A9A9A"
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={1000}
+              onFocus={handleInputFocus}
+            />
 
-          <Pressable
-            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
-            onPress={handleSendText}
-            disabled={!inputText.trim()}>
-            <MaterialIcons name="send" size={20} color="#ffffff" />
-          </Pressable>
-        </View>
+            <Pressable
+              style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
+              onPress={handleSendText}
+              disabled={!inputText.trim()}>
+              <MaterialIcons name="send" size={20} color="#ffffff" />
+            </Pressable>
+          </View>
+        )}
       </KeyboardAvoidingView>
 
       {/* Image Preview Modal */}
@@ -903,6 +940,23 @@ const styles = StyleSheet.create({
     borderTopWidth: 1,
     borderTopColor: '#EFECE6',
     gap: 12,
+  },
+  finishedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    backgroundColor: '#F4F1EA',
+    borderTopWidth: 1,
+    borderTopColor: '#EFECE6',
+    gap: 8,
+  },
+  finishedBannerText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    color: '#818A91',
+    textAlign: 'center',
   },
   attachBtn: {
     width: 44,
