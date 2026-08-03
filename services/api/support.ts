@@ -54,6 +54,14 @@ export interface SupportMessage {
   isAdmin?: boolean;
 }
 
+export interface SupportTicketQueryParams {
+  PageNumber?: number;
+  PageSize?: number;
+  SearchTerm?: string;
+  SortBy?: string;
+  SortDescending?: boolean;
+}
+
 function unwrapData<T = any>(responseData: any): T {
   return responseData?.data ?? responseData;
 }
@@ -61,10 +69,10 @@ function unwrapData<T = any>(responseData: any): T {
 /** POST /support/tickets — Create a support ticket */
 export async function createSupportTicket(payload: {
   bookingId?: string | null;
-  category: SupportCategory;
+  category: SupportCategory | number;
   subject: string;
   description: string;
-  priority: SupportPriority;
+  priority: SupportPriority | number;
 }): Promise<SupportTicket> {
   const categoryMap: Record<SupportCategory, number> = {
     [SupportCategory.Dispute]: 0,
@@ -82,8 +90,14 @@ export async function createSupportTicket(payload: {
 
   const body = {
     ...payload,
-    category: categoryMap[payload.category],
-    priority: priorityMap[payload.priority],
+    category:
+      typeof payload.category === 'number'
+        ? payload.category
+        : categoryMap[payload.category] ?? payload.category,
+    priority:
+      typeof payload.priority === 'number'
+        ? payload.priority
+        : priorityMap[payload.priority] ?? payload.priority,
   };
 
   const response = await apiClient.post('/support/tickets', body);
@@ -91,10 +105,9 @@ export async function createSupportTicket(payload: {
 }
 
 /** GET /support/tickets — List support tickets (paged query) */
-export async function getSupportTickets(params?: {
-  PageNumber?: number;
-  PageSize?: number;
-}): Promise<SupportTicket[]> {
+export async function getSupportTickets(
+  params?: SupportTicketQueryParams
+): Promise<SupportTicket[]> {
   const response = await apiClient.get('/support/tickets', { params });
   const data = unwrapData<any>(response.data);
   return Array.isArray(data) ? data : (data?.items ?? []);
@@ -109,10 +122,7 @@ export async function getSupportTicket(id: string): Promise<SupportTicket> {
 /** GET /support/tickets/{id}/messages — Get ticket messages (paged query) */
 export async function getSupportTicketMessages(
   id: string,
-  params?: {
-    PageNumber?: number;
-    PageSize?: number;
-  }
+  params?: SupportTicketQueryParams
 ): Promise<SupportMessage[]> {
   const response = await apiClient.get(`/support/tickets/${id}/messages`, { params });
   const data = unwrapData<any>(response.data);

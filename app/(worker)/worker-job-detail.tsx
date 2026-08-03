@@ -392,10 +392,10 @@ export default function WorkerJobDetailScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top, justifyContent: 'space-between' }]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12), justifyContent: 'space-between' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
+            <MaterialIcons name="arrow-back" size={24} color="#1B1C1C" />
           </Pressable>
           <Text style={styles.headerTitle}>Chi tiết công việc</Text>
         </View>
@@ -407,7 +407,7 @@ export default function WorkerJobDetailScreen() {
               params: { bookingId: job.id },
             } as any)
           }>
-          <MaterialIcons name="help-outline" size={24} color="#0F382C" />
+          <MaterialIcons name="help-outline" size={22} color="#0F382C" />
         </Pressable>
       </View>
 
@@ -1018,7 +1018,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fbf9f8',
   },
   header: {
-    height: 96,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
