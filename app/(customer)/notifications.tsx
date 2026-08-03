@@ -14,6 +14,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  deleteAllNotifications,
+  deleteNotification,
   getNotifications,
   markAllAsRead,
   markAsRead,
@@ -52,6 +54,47 @@ export default function NotificationsScreen() {
       Alert.alert('Thành công', 'Đã đánh dấu tất cả thông báo là đã đọc.');
     },
   });
+
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteNotification(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationCount'] });
+    },
+    onError: () => {
+      Alert.alert('Lỗi', 'Không thể xóa thông báo.');
+    },
+  });
+
+  const deleteAllMutation = useMutation({
+    mutationFn: () => deleteAllNotifications(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationCount'] });
+      Alert.alert('Thành công', 'Đã xóa tất cả thông báo.');
+    },
+    onError: () => {
+      Alert.alert('Lỗi', 'Không thể xóa tất cả thông báo.');
+    },
+  });
+
+  const handleDeleteSingle = (item: Notification) => {
+    Alert.alert('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa thông báo này không?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Xóa', style: 'destructive', onPress: () => deleteMutation.mutate(item.id) },
+    ]);
+  };
+
+  const handleDeleteAll = () => {
+    if (notifications.length === 0) {
+      Alert.alert('Thông báo', 'Bạn không có thông báo nào để xóa.');
+      return;
+    }
+    Alert.alert('Xác nhận xóa tất cả', 'Bạn có chắc chắn muốn xóa toàn bộ thông báo không?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Xóa tất cả', style: 'destructive', onPress: () => deleteAllMutation.mutate() },
+    ]);
+  };
 
   const handleNotificationPress = async (item: Notification) => {
     if (!item.isRead) {
@@ -97,7 +140,7 @@ export default function NotificationsScreen() {
     const icon = getNotificationIcon(item.type);
     return (
       <Pressable
-        className={`flex-row rounded-xl p-3 mb-3 border shadow-sm ${
+        className={`flex-row items-center rounded-xl p-3 mb-3 border shadow-sm ${
           item.isRead ? 'bg-white border-[#EFECE6]' : 'bg-[#FBF9F5] border-[#0F382C]'
         }`}
         onPress={() => handleNotificationPress(item)}>
@@ -127,6 +170,14 @@ export default function NotificationsScreen() {
             {formatDateFriendly(item.createdDate)}
           </Text>
         </View>
+        <Pressable
+          className="p-2 ml-1 items-center justify-center"
+          onPress={(e) => {
+            e.stopPropagation();
+            handleDeleteSingle(item);
+          }}>
+          <MaterialIcons name="delete-outline" size={20} color="#818A91" />
+        </Pressable>
       </Pressable>
     );
   };
@@ -157,6 +208,11 @@ export default function NotificationsScreen() {
               }
             }}>
             <MaterialIcons name="done-all" size={22} color="#0F382C" />
+          </Pressable>
+          <Pressable
+            className="p-2 items-center justify-center"
+            onPress={handleDeleteAll}>
+            <MaterialIcons name="delete-sweep" size={22} color="#0F382C" />
           </Pressable>
           <Pressable
             className="p-2 items-center justify-center"

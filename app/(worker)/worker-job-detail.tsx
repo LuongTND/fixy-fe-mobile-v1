@@ -9,6 +9,7 @@ import {
   Linking,
   Keyboard,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -22,6 +23,8 @@ import * as ImagePicker from 'expo-image-picker';
 import {
   Booking,
   BookingStatus,
+  PaymentMethod,
+  PAYMENT_METHOD_LABELS,
   acceptBooking,
   declineBooking,
   proposeBooking,
@@ -313,8 +316,22 @@ export default function WorkerJobDetailScreen() {
 
   const openMapDirections = () => {
     if (!job) return;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${job.lat},${job.lng}`;
-    Linking.openURL(url);
+    const hasCoords = Boolean(job.lat && job.lng && (Number(job.lat) !== 0 || Number(job.lng) !== 0));
+    const dest = hasCoords ? `${job.lat},${job.lng}` : encodeURIComponent(job.address || '');
+
+    if (!dest) {
+      Alert.alert('Thông báo', 'Không tìm thấy thông tin địa chỉ hoặc tọa độ của khách hàng.');
+      return;
+    }
+
+    const url =
+      Platform.OS === 'ios'
+        ? `https://maps.apple.com/?daddr=${dest}`
+        : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+
+    Linking.openURL(url).catch(() => {
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${dest}`);
+    });
   };
 
   const handlePickImage = async () => {
@@ -489,6 +506,23 @@ export default function WorkerJobDetailScreen() {
           </View>
 
           <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Thời lượng dịch vụ:</Text>
+            <Text style={styles.detailValue}>
+              {(() => {
+                const mins =
+                  (job as any)?.totalDurationMinutes ??
+                  (job as any)?.durationMinutes ??
+                  (job as any)?.duration ??
+                  (job as any)?.options?.[0]?.durationMinutes ??
+                  (job as any)?.option?.durationMinutes ??
+                  (job as any)?.serviceOption?.durationMinutes ??
+                  60;
+                return `${mins} phút`;
+              })()}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Thời gian hẹn:</Text>
             <Text style={styles.detailValue}>
               {job.scheduledType === 0
@@ -496,6 +530,33 @@ export default function WorkerJobDetailScreen() {
                 : job.scheduledAt
                   ? formatDateTime(job.scheduledAt)
                   : 'Đang xếp lịch'}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Thanh toán bằng:</Text>
+            <Text style={styles.detailValue}>
+              {(() => {
+                const method =
+                  job?.paymentMethod ??
+                  (job as any)?.PaymentMethod ??
+                  (job as any)?.paymentType ??
+                  job?.paymentMethodName;
+                if (typeof method === 'number' && PAYMENT_METHOD_LABELS[method as PaymentMethod]) {
+                  return PAYMENT_METHOD_LABELS[method as PaymentMethod];
+                }
+                if (typeof method === 'string') {
+                  const lower = method.toLowerCase();
+                  if (lower.includes('cash') || lower.includes('tien mat')) return 'Tiền mặt';
+                  if (lower.includes('wallet') || lower.includes('vi')) return 'Ví Fixy';
+                  if (lower.includes('vnpay')) return 'VNPay';
+                  if (lower.includes('momo')) return 'MoMo';
+                  if (lower.includes('payos')) return 'PayOS';
+                  if (lower.includes('card') || lower.includes('the')) return 'Thẻ ngân hàng';
+                  return method;
+                }
+                return 'Tiền mặt';
+              })()}
             </Text>
           </View>
 

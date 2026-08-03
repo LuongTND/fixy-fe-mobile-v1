@@ -27,6 +27,7 @@ import {
   getBookingTracking,
   isTerminalBookingStatus,
   PaymentMethod,
+  PAYMENT_METHOD_LABELS,
   payBookingWithWallet,
   startBookingPayment,
   WalletOverview,
@@ -481,7 +482,7 @@ export default function BookingDetailScreen() {
               params: { bookingId: booking.id },
             } as any)
           }>
-          <MaterialIcons name="help-outline" size={24} color="#FF8228" />
+          <MaterialIcons name="help-outline" size={24} color="#0F382C" />
         </Pressable>
       </View>
 
@@ -513,7 +514,7 @@ export default function BookingDetailScreen() {
         {/* Pulse Matching Loader for status == 1 */}
         {Number(booking.status) === BookingStatus.Matching && (
           <View style={styles.matchingContainer}>
-            <ActivityIndicator size="large" color="#FF8228" />
+            <ActivityIndicator size="large" color="#0F382C" />
             <Text style={styles.matchingText}>Hệ thống đang tìm kiếm Kỹ thuật viên Spa...</Text>
             <Text style={styles.matchingSub}>
               Vui lòng giữ kết nối, quá trình tìm KTV thường mất dưới 2 phút.
@@ -528,7 +529,7 @@ export default function BookingDetailScreen() {
               <Text style={styles.infoCardTitle}>Theo dõi vị trí KTV</Text>
               <View style={styles.trackingRow}>
                 <View style={styles.trackingIconBox}>
-                  <MaterialIcons name="near-me" size={22} color="#FF8228" />
+                  <MaterialIcons name="near-me" size={22} color="#0F382C" />
                 </View>
                 <View style={styles.trackingTextCol}>
                   <Text style={styles.trackingTitle}>
@@ -565,7 +566,7 @@ export default function BookingDetailScreen() {
                   </View>
                   <View style={styles.etaDivider} />
                   <View style={styles.etaItem}>
-                    <MaterialIcons name="schedule" size={20} color="#FF8228" />
+                    <MaterialIcons name="schedule" size={20} color="#0F382C" />
                     <View style={{ marginLeft: 8 }}>
                       <Text style={styles.etaLabel}>Thời gian dự kiến</Text>
                       <Text style={styles.etaValue}>{etaData.durationText}</Text>
@@ -593,7 +594,7 @@ export default function BookingDetailScreen() {
                     },
                   } as any)
                 }>
-                <MaterialIcons name="map" size={18} color="#FF8228" />
+                <MaterialIcons name="map" size={18} color="#0F382C" />
                 <Text style={styles.trackingMapButtonText}>Xem bản đồ theo dõi</Text>
               </Pressable>
             </View>
@@ -619,7 +620,7 @@ export default function BookingDetailScreen() {
                     {booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên'}
                   </Text>
                   <View style={styles.ratingRow}>
-                    <MaterialIcons name="star" size={14} color="#FFB020" />
+                    <MaterialIcons name="star" size={14} color="#D4AF37" />
                     <Text style={styles.ratingVal}>
                       {booking.worker?.rating?.toFixed(1) || '4.8'}
                     </Text>
@@ -640,7 +641,7 @@ export default function BookingDetailScreen() {
                         `Đang kết nối cuộc gọi tới SĐT: ${booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}`
                       )
                     }>
-                    <MaterialIcons name="phone" size={18} color="#FF8228" />
+                    <MaterialIcons name="phone" size={18} color="#0F382C" />
                     <Text style={styles.actionBtnTextCall}>Gọi KTV</Text>
                   </Pressable>
                   <Pressable
@@ -664,8 +665,52 @@ export default function BookingDetailScreen() {
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Thời gian</Text>
+            <Text style={styles.detailLabel}>Thời lượng dịch vụ</Text>
+            <Text style={styles.detailValue}>
+              {(() => {
+                const mins =
+                  (booking as any)?.totalDurationMinutes ??
+                  (booking as any)?.durationMinutes ??
+                  (booking as any)?.duration ??
+                  (booking as any)?.options?.[0]?.durationMinutes ??
+                  (booking as any)?.option?.durationMinutes ??
+                  (booking as any)?.serviceOption?.durationMinutes ??
+                  60;
+                return `${mins} phút`;
+              })()}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Thời gian đặt</Text>
             <Text style={styles.detailValue}>{formatDateTime(booking.createdDate)}</Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Phương thức thanh toán</Text>
+            <Text style={styles.detailValue}>
+              {(() => {
+                const method =
+                  booking?.paymentMethod ??
+                  (booking as any)?.PaymentMethod ??
+                  (booking as any)?.paymentType ??
+                  booking?.paymentMethodName;
+                if (typeof method === 'number' && PAYMENT_METHOD_LABELS[method as PaymentMethod]) {
+                  return PAYMENT_METHOD_LABELS[method as PaymentMethod];
+                }
+                if (typeof method === 'string') {
+                  const lower = method.toLowerCase();
+                  if (lower.includes('cash') || lower.includes('tien mat')) return 'Tiền mặt';
+                  if (lower.includes('wallet') || lower.includes('vi')) return 'Ví Fixy';
+                  if (lower.includes('vnpay')) return 'VNPay';
+                  if (lower.includes('momo')) return 'MoMo';
+                  if (lower.includes('payos')) return 'PayOS';
+                  if (lower.includes('card') || lower.includes('the')) return 'Thẻ ngân hàng';
+                  return method;
+                }
+                return 'Tiền mặt';
+              })()}
+            </Text>
           </View>
 
           <View style={styles.detailRow}>
@@ -747,7 +792,7 @@ export default function BookingDetailScreen() {
                     key={star}
                     name="star"
                     size={18}
-                    color={star <= bookingReview.rating ? '#FF8228' : '#dcd9d9'}
+                    color={star <= bookingReview.rating ? '#D4AF37' : '#dcd9d9'}
                   />
                 ))}
               </View>
@@ -782,7 +827,7 @@ export default function BookingDetailScreen() {
                   <MaterialIcons
                     name="reply"
                     size={16}
-                    color="#FF8228"
+                    color="#0F382C"
                     style={{ transform: [{ scaleX: -1 }] }}
                   />
                   <Text style={styles.workerReplyTitle}>Phản hồi từ kỹ thuật viên</Text>
@@ -869,7 +914,7 @@ export default function BookingDetailScreen() {
           <View style={styles.voucherModalContent}>
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleRow}>
-                <MaterialIcons name="local-activity" size={22} color="#FF8228" />
+                <MaterialIcons name="local-activity" size={22} color="#0F382C" />
                 <Text style={styles.modalTitle}>Kho voucher khuyến mãi</Text>
               </View>
               <Pressable onPress={() => setVoucherModalOpen(false)}>
@@ -883,7 +928,7 @@ export default function BookingDetailScreen() {
 
             {loadingEligible ? (
               <View style={styles.modalCenter}>
-                <ActivityIndicator size="small" color="#FF8228" />
+                <ActivityIndicator size="small" color="#0F382C" />
                 <Text style={styles.modalMutedText}>Đang tải danh sách voucher...</Text>
               </View>
             ) : eligibleVouchers.length === 0 ? (
@@ -1180,14 +1225,14 @@ const styles = StyleSheet.create({
   },
   actionBtnCall: {
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     backgroundColor: '#ffffff',
   },
   actionBtnChat: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   actionBtnTextCall: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
   },
@@ -1239,7 +1284,7 @@ const styles = StyleSheet.create({
   costTotalValue: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   paymentSectionLabel: {
     fontFamily: 'Montserrat_700Bold',
@@ -1513,8 +1558,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   voucherItemSelected: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF3EA',
+    borderColor: '#0F382C',
+    backgroundColor: '#F2F7F2',
   },
   voucherItemDisabled: {
     opacity: 0.62,
@@ -1529,13 +1574,13 @@ const styles = StyleSheet.create({
   voucherItemCode: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   voucherUseText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 11,
     color: '#ffffff',
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1609,16 +1654,16 @@ const styles = StyleSheet.create({
     opacity: 0.62,
   },
   proposalCard: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFFBF7',
+    borderColor: '#0F382C',
+    backgroundColor: '#FBF9F5',
   },
   proposalCardTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#FF8228',
+    color: '#0F382C',
     marginBottom: 14,
     borderBottomWidth: 1,
-    borderColor: '#FFEEDD',
+    borderColor: '#EFECE6',
     paddingBottom: 8,
   },
   proposalDetailRow: {
@@ -1635,7 +1680,7 @@ const styles = StyleSheet.create({
   proposalPriceVal: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   proposalTimeVal: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -1643,7 +1688,7 @@ const styles = StyleSheet.create({
     color: '#383838',
   },
   proposalNoteContainer: {
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F2F7F2',
     borderRadius: 8,
     padding: 10,
     marginTop: 6,
@@ -1652,13 +1697,13 @@ const styles = StyleSheet.create({
   proposalNoteLabel: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#622a00',
+    color: '#0F382C',
     marginBottom: 4,
   },
   proposalNoteText: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 12,
-    color: '#574237',
+    color: '#818A91',
     fontStyle: 'italic',
   },
   proposalActionsRow: {
@@ -1685,7 +1730,7 @@ const styles = StyleSheet.create({
     flex: 1.2,
     height: 44,
     borderRadius: 8,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1727,7 +1772,7 @@ const styles = StyleSheet.create({
   workerReplyTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   workerReplyText: {
     fontFamily: 'Montserrat_400Regular',
@@ -1740,9 +1785,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FFF3EA',
+    backgroundColor: '#F2F7F2',
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     borderRadius: 8,
     height: 40,
     marginTop: 12,
@@ -1751,7 +1796,7 @@ const styles = StyleSheet.create({
   trackingMapButtonText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   etaCardContainer: {
     flexDirection: 'row',

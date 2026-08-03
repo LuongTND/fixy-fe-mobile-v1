@@ -166,7 +166,7 @@ export function CitySelectorModal({ visible, onClose, onSelectCity }: CitySelect
         <View style={styles.currentGpsRow}>
           <View style={styles.gpsLeftColumn}>
             <View style={styles.gpsIconCircle}>
-              <MaterialIcons name="my-location" size={20} color="#EA4335" />
+              <MaterialIcons name="my-location" size={20} color="#0F382C" />
             </View>
             <View>
               <Text style={styles.gpsLabel}>Vị trí hiện tại</Text>
@@ -213,7 +213,7 @@ export function CitySelectorModal({ visible, onClose, onSelectCity }: CitySelect
                     <MaterialIcons
                       name="location-on"
                       size={18}
-                      color={isSelected ? '#0F382C' : '#2E7D32'}
+                      color="#0F382C"
                     />
                   </View>
                   <Text style={[styles.provinceName, isSelected && styles.provinceNameSelected]}>
@@ -280,7 +280,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 19,
-    backgroundColor: '#FCE8E6',
+    backgroundColor: '#F2F7F2',
     justifyContent: 'center',
     alignItems: 'center',
   },
@@ -343,7 +343,7 @@ const styles = StyleSheet.create({
     width: 32,
     height: 32,
     borderRadius: 16,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#F2F7F2',
     justifyContent: 'center',
     alignItems: 'center',
   },
