@@ -85,6 +85,9 @@ export type Booking = {
   customerAvatarUrl?: string | null;
   autoMatch: boolean;
   status: BookingStatus | number;
+  totalDurationMinutes?: number | null;
+  paymentMethod?: PaymentMethod | number | null;
+  paymentMethodName?: string | null;
   estimatedPrice?: number;
   estimatedAmount?: number;
   finalAmount?: number;

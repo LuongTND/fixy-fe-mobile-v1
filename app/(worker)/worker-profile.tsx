@@ -469,6 +469,47 @@ export default function WorkerProfileScreen() {
   const [scheduleEndTime, setScheduleEndTime] = React.useState(() => timeStringToDate('17:00:00'));
   const [schedulePickerTarget, setSchedulePickerTarget] = React.useState<'start' | 'end'>('start');
 
+  const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
+
+  const handlePickAvatar = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để đổi ảnh đại diện.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setIsUploadingAvatar(true);
+        try {
+          await updateWorkerProfile({
+            avatarFile: {
+              uri: asset.uri,
+              type: asset.type || 'image/jpeg',
+              name: asset.fileName || 'avatar.jpg',
+            },
+          });
+          queryClient.invalidateQueries({ queryKey: ['workerProfileMe'] });
+          Alert.alert('Thành công', 'Đã cập nhật ảnh đại diện mới.');
+        } catch (err: any) {
+          Alert.alert('Lỗi', err?.message || 'Không thể tải lên ảnh đại diện.');
+        } finally {
+          setIsUploadingAvatar(false);
+        }
+      }
+    } catch (err) {
+      console.warn('Avatar picker error:', err);
+    }
+  };
+
   // Mutations
   const updateProfileMutation = useMutation({
     mutationFn: updateWorkerProfile,
@@ -482,8 +523,8 @@ export default function WorkerProfileScreen() {
   const updateAddressMutation = useMutation({
     mutationFn: async () => {
       await updateWorkerProfile({
-        phone: profile?.phone || '',
-        bio: profile?.bio || '',
+        phone: profile?.phone || undefined,
+        bio: profile?.bio || undefined,
         address: {
           label: 'Địa chỉ làm việc',
           city: addrCity,
@@ -808,14 +849,27 @@ export default function WorkerProfileScreen() {
       <KeyboardAwareScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false} bottomOffset={44}>
         {/* Profile Card (styled using NativeWind) */}
         <View className="bg-white border border-gray-300 rounded-2xl p-5 items-center mb-5 shadow-sm">
-          <Image
-            source={{
-              uri:
-                profile?.avatarUrl ||
-                'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-            }}
-            className="w-20 h-20 rounded-full border-2 border-orange-500 mb-3"
-          />
+          <View className="relative mb-3">
+            <Pressable onPress={handlePickAvatar} disabled={isUploadingAvatar}>
+              <Image
+                source={{
+                  uri:
+                    profile?.avatarUrl ||
+                    'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
+                }}
+                className="w-20 h-20 rounded-full border-2 border-[#0F382C]"
+              />
+              {isUploadingAvatar ? (
+                <View className="absolute inset-0 rounded-full bg-black/40 items-center justify-center">
+                  <ActivityIndicator size="small" color="#ffffff" />
+                </View>
+              ) : (
+                <View className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#0F382C] border-2 border-white items-center justify-center shadow">
+                  <MaterialIcons name="photo-camera" size={14} color="#ffffff" />
+                </View>
+              )}
+            </Pressable>
+          </View>
           <Text className="text-lg text-gray-800 font-montserrat-bold">
             {profile?.fullName || 'Kỹ thuật viên'}
           </Text>
@@ -1122,9 +1176,11 @@ export default function WorkerProfileScreen() {
 
                   <View className="relative z-50 mb-4">
                     <TextInput
-                      className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838]"
+                      className="border border-gray-200 rounded-lg min-h-[52px] px-3 py-2 font-montserrat text-sm text-[#383838] leading-5"
                       placeholder="Ví dụ: 305 Trần Hưng Đạo (Hoặc nhập để gợi ý)"
                       placeholderTextColor="#9A9A9A"
+                      multiline={true}
+                      style={{ textAlignVertical: 'center' }}
                       value={addrDetail}
                       onChangeText={(text) => {
                         setAddrDetail(text);

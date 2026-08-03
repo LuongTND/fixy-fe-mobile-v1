@@ -144,13 +144,13 @@ export default function BookingTrackingScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable style={styles.headerBtn} onPress={handleGoBack}>
-          <MaterialIcons name="arrow-back" size={24} color="#9a4600" />
+          <MaterialIcons name="arrow-back" size={24} color="#0F382C" />
         </Pressable>
         <Text style={styles.headerTitle}>Theo dõi đơn hàng</Text>
         <Pressable
           style={styles.headerBtn}
           onPress={() => Alert.alert('Trợ giúp', 'Liên hệ hỗ trợ: 1900-xxxx')}>
-          <MaterialIcons name="help-outline" size={24} color="#9a4600" />
+          <MaterialIcons name="help-outline" size={24} color="#0F382C" />
         </Pressable>
       </View>
 
@@ -167,7 +167,7 @@ export default function BookingTrackingScreen() {
           </View>
           <View style={styles.etaRow}>
             <View style={styles.etaIcon}>
-              <MaterialIcons name="schedule" size={22} color="#00677d" />
+              <MaterialIcons name="schedule" size={22} color="#0F382C" />
             </View>
             <View>
               <Text style={styles.etaLabel}>Dự kiến đến</Text>
@@ -260,10 +260,10 @@ export default function BookingTrackingScreen() {
           </View>
           <View style={styles.workerActions}>
             <Pressable style={styles.chatBtn} onPress={handleChatWorker}>
-              <MaterialIcons name="chat" size={20} color="#00677d" />
+              <MaterialIcons name="chat" size={20} color="#0F382C" />
             </Pressable>
             <Pressable style={styles.callBtn} onPress={handleCallWorker}>
-              <MaterialIcons name="call" size={20} color="#004510" />
+              <MaterialIcons name="call" size={20} color="#0F382C" />
             </Pressable>
           </View>
         </View>
@@ -275,7 +275,7 @@ export default function BookingTrackingScreen() {
           </Pressable>
           <Pressable style={styles.messageBtn} onPress={handleChatWorker}>
             <LinearGradient
-              colors={['#9a4600', '#F45100']}
+              colors={['#0F382C', '#164839']}
               start={{ x: 0, y: 0 }}
               end={{ x: 1, y: 1 }}
               style={styles.messageBtnGradient}>
@@ -515,7 +515,7 @@ const styles = StyleSheet.create({
     color: '#1b1c1c',
   },
   timelineLabelActive: {
-    color: '#F45100',
+    color: '#0F382C',
   },
   timelineLabelPending: {
     color: '#818A91',
@@ -530,7 +530,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_400Regular',
     fontSize: 12,
     lineHeight: 18,
-    color: '#9a4600',
+    color: '#0F382C',
   },
   bottomActions: {
     position: 'absolute',

@@ -96,15 +96,50 @@ export default function HomeScreen() {
   const [currentCity, setCurrentCity] = React.useState('');
   const [currentLocationLoading, setCurrentLocationLoading] = React.useState(false);
 
+  const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        }
+      } catch (err) {
+        console.warn('[home] GPS location error:', err);
+      }
+    })();
+  }, []);
+
   const { data: apiCategories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => fetchCategories(),
   });
 
   const { data: apiWorkers = [] } = useQuery<WorkerProfile[]>({
-    queryKey: ['homeWorkers'],
-    queryFn: () => searchWorkers({ PageSize: 10 }),
+    queryKey: ['homeWorkers', selectedCity, userLocation?.lat, userLocation?.lng],
+    queryFn: () =>
+      searchWorkers({
+        City: selectedCity,
+        CustomerLat: userLocation?.lat,
+        CustomerLng: userLocation?.lng,
+        MinRating: 4.0,
+        PageSize: 20,
+      }),
   });
+
+  // Sort featured workers: High Rating (4.5+) -> High Reviews Count -> Closest Distance
+  const featuredWorkers = React.useMemo(() => {
+    if (!apiWorkers || apiWorkers.length === 0) return [];
+    return [...apiWorkers].sort((a, b) => {
+      const ratingDiff = (b.rating || 0) - (a.rating || 0);
+      if (Math.abs(ratingDiff) > 0.1) return ratingDiff;
+      return (b.reviewsCount || 0) - (a.reviewsCount || 0);
+    });
+  }, [apiWorkers]);
 
   const { data: unreadCount = 0 } = useQuery<number>({
     queryKey: ['unreadNotificationCount'],
@@ -173,7 +208,7 @@ export default function HomeScreen() {
         <View style={styles.headerRightActions}>
           <Pressable
             style={styles.headerIconBtn}
-            onPress={() => router.push('/(booking)/booking-chat' as any)}>
+            onPress={() => router.push('/(booking)/chat-list' as any)}>
             <MaterialIcons name="chat-bubble-outline" size={18} color="#0F382C" />
           </Pressable>
           <Pressable style={styles.headerIconBtn} onPress={handleNotificationPress}>
@@ -250,58 +285,89 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.technicianList}>
-          {(apiWorkers.length > 0
-            ? apiWorkers.map((w) => ({
-                id: w.workerProfileId || w.id,
-                name: w.fullName,
-                badge: w.rating >= 4.9 ? 'Chất lượng' : 'Mới đến',
-                badgeColor: w.rating >= 4.9 ? '#E68A2E' : '#4A90E2',
-                rating: w.rating || 5.0,
-                reviews: w.reviewsCount || 0,
-                distance: w.distance || '100m',
-                availableTime: 'Sớm nhất 12:00',
-                avatar: w.avatarUrl || 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
-                specialty: w.bio || 'Chuyên viên Spa & Massage trị liệu',
+          {(featuredWorkers.length > 0
+            ? featuredWorkers
+            : FEATURED_TECHNICIANS.map((f, idx) => ({
+                id: f.id,
+                workerProfileId: f.id,
+                fullName: f.name,
+                avatarUrl: f.avatar,
+                rating: f.rating,
+                reviewsCount: f.reviews,
+                distance: f.distance,
+                badge: idx % 3,
+                estimatedArrivalMinutes: 20,
               }))
-            : FEATURED_TECHNICIANS
-          ).map((ktv) => (
-            <Pressable
-              key={ktv.id}
-              style={styles.technicianCard}
-              onPress={() => router.push(`/(customer)/worker-detail?id=${ktv.id}` as any)}>
-              <View style={styles.technicianAvatarWrapper}>
-                <Image source={{ uri: ktv.avatar }} style={styles.technicianAvatar} />
-                <View style={[styles.statusBadge, { backgroundColor: ktv.badgeColor }]}>
-                  <Text style={styles.statusBadgeText}>{ktv.badge}</Text>
-                </View>
-              </View>
+          ).map((item: any) => {
+            const BADGE_CONFIG: Record<number, { text: string; color: string }> = {
+              0: { text: 'Mới đến', color: '#4A90E2' },
+              1: { text: 'Mới cập nhật', color: '#E05297' },
+              2: { text: 'Chất lượng', color: '#E68A2E' },
+              3: { text: 'Vàng', color: '#D4AF37' },
+            };
 
-              <View style={styles.technicianInfo}>
-                <View style={styles.technicianHeaderRow}>
-                  <Text style={styles.technicianName}>{ktv.name}</Text>
-                  <Text style={styles.availabilityTime}>{ktv.availableTime}</Text>
-                </View>
-                <Text style={styles.specialtyText} numberOfLines={1}>{ktv.specialty}</Text>
+            const badgeNum = typeof item.badge === 'number' ? item.badge : 0;
+            const badge = BADGE_CONFIG[badgeNum] || BADGE_CONFIG[0];
+            const arrivalLabel =
+              item.estimatedArrivalMinutes != null
+                ? `Dự kiến ${item.estimatedArrivalMinutes} phút`
+                : (item.isOnline ? 'Đặt ngay' : (item.availableTime || 'Sớm nhất 12:00'));
 
-                <View style={styles.ratingDistanceRow}>
-                  <MaterialIcons name="star" size={16} color="#D4AF37" />
-                  <Text style={styles.ratingScore}>{ktv.rating}</Text>
-                  <Text style={styles.reviewCount}>({ktv.reviews} đánh giá)</Text>
-                  <Text style={styles.dotDivider}>•</Text>
-                  <MaterialIcons name="location-on" size={14} color="#818A91" />
-                  <Text style={styles.distanceText}>{ktv.distance}</Text>
-                </View>
-              </View>
+            const workerTargetId = item.workerProfileId || item.id;
+            const avatarUri = item.avatarUrl || item.avatar;
 
-              <View style={styles.bookBtnWrapper}>
-                <Pressable
-                  style={styles.bookBtn}
-                  onPress={() => router.push(`/(customer)/worker-detail?id=${ktv.id}` as any)}>
-                  <Text style={styles.bookBtnText}>Đặt</Text>
-                </Pressable>
-              </View>
-            </Pressable>
-          ))}
+            return (
+              <Pressable
+                key={item.id || workerTargetId}
+                style={styles.ktvCard}
+                onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
+                <View style={styles.ktvAvatarWrapper}>
+                  {avatarUri ? (
+                    <Image source={{ uri: avatarUri }} style={styles.ktvAvatar} />
+                  ) : (
+                    <View style={[styles.ktvAvatar, styles.ktvAvatarPlaceholder]}>
+                      <MaterialIcons name="person" size={32} color="#A0AEC0" />
+                    </View>
+                  )}
+                  <View style={[styles.badgePill, { backgroundColor: badge.color }]}>
+                    <Text style={styles.badgePillText}>{badge.text}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.ktvMainDetails}>
+                  <Text style={styles.ktvName} numberOfLines={1}>
+                    {item.fullName || item.name}
+                  </Text>
+
+                  <View style={styles.ratingDistanceRow}>
+                    <MaterialIcons name="star" size={16} color="#F59E0B" />
+                    <Text style={styles.ratingText}>
+                      {item.rating > 0 ? (typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating) : '5.0'}
+                    </Text>
+                    <Text style={styles.reviewsText}>({item.reviewsCount ?? item.reviews ?? 0} đánh giá)</Text>
+                  </View>
+
+                  <View style={styles.locationRow}>
+                    <MaterialIcons name="near-me" size={14} color="#818A91" />
+                    <Text style={styles.distanceText} numberOfLines={1}>
+                      {item.distance || item.city || item.address?.city || selectedCity || 'Đà Nẵng'}
+                    </Text>
+                  </View>
+                </View>
+
+                <View style={styles.rightColumn}>
+                  {arrivalLabel ? (
+                    <Text style={styles.ktvAvailability}>{arrivalLabel}</Text>
+                  ) : <View />}
+                  <Pressable
+                    style={styles.bookActionBtn}
+                    onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
+                    <Text style={styles.bookActionText}>Đặt</Text>
+                  </Pressable>
+                </View>
+              </Pressable>
+            );
+          })}
         </View>
       </ScrollView>
 
@@ -486,10 +552,10 @@ const styles = StyleSheet.create({
   technicianList: {
     gap: 12,
   },
-  technicianCard: {
+  ktvCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    padding: 14,
+    borderRadius: 18,
+    padding: 12,
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
@@ -500,86 +566,85 @@ const styles = StyleSheet.create({
     shadowRadius: 8,
     elevation: 2,
   },
-  technicianAvatarWrapper: {
+  ktvAvatarWrapper: {
     position: 'relative',
   },
-  technicianAvatar: {
-    width: 68,
-    height: 68,
+  ktvAvatar: {
+    width: 80,
+    height: 80,
     borderRadius: 14,
   },
-  statusBadge: {
+  ktvAvatarPlaceholder: {
+    backgroundColor: '#EDF2F7',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  badgePill: {
     position: 'absolute',
-    top: -4,
-    left: -4,
+    top: 0,
+    left: 0,
     paddingHorizontal: 6,
     paddingVertical: 2,
-    borderRadius: 8,
+    borderTopLeftRadius: 14,
+    borderBottomRightRadius: 10,
   },
-  statusBadgeText: {
+  badgePillText: {
     color: '#ffffff',
-    fontSize: 9,
+    fontSize: 10,
     fontFamily: 'Montserrat_700Bold',
   },
-  technicianInfo: {
+  ktvMainDetails: {
     flex: 1,
   },
-  technicianHeaderRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-  },
-  technicianName: {
+  ktvName: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 15,
+    fontSize: 16,
     color: '#1C2526',
   },
-  availabilityTime: {
+  ktvAvailability: {
     fontSize: 11,
     fontFamily: 'Montserrat_600SemiBold',
     color: '#818A91',
-  },
-  specialtyText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: '#6B7280',
-    marginTop: 2,
-    marginBottom: 6,
   },
   ratingDistanceRow: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
+    marginVertical: 4,
   },
-  ratingScore: {
+  ratingText: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 12,
-    color: '#1C2526',
+    fontSize: 13,
+    color: '#F59E0B',
   },
-  reviewCount: {
+  reviewsText: {
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
+    fontSize: 12,
     color: '#818A91',
   },
-  dotDivider: {
-    color: '#D1D5DB',
-    fontSize: 12,
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
   },
   distanceText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    color: '#818A91',
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 12,
+    color: '#6B7280',
   },
-  bookBtnWrapper: {
-    justifyContent: 'center',
+  rightColumn: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    paddingVertical: 2,
   },
-  bookBtn: {
+  bookActionBtn: {
     backgroundColor: '#0F382C',
-    paddingHorizontal: 16,
-    paddingVertical: 8,
+    paddingHorizontal: 18,
+    paddingVertical: 9,
     borderRadius: 20,
   },
-  bookBtnText: {
+  bookActionText: {
     color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,

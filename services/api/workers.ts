@@ -21,6 +21,7 @@ export type WorkerProfile = {
   workerProfileId?: string;
   fullName: string;
   avatarUrl?: string;
+  avatarFile?: any;
   phone: string;
   badge: number; // 0: NewArrival, 1: Updated, 2: Quality, 3: Gold
   rating: number;
@@ -156,7 +157,7 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
     id: w.userId || w.id,
     workerProfileId: w.id || w.workerProfileId,
     fullName: w.fullName || 'Kỹ thuật viên',
-    avatarUrl: w.avatarUrl || undefined,
+    avatarUrl: w.avatarUrl || w.AvatarUrl || w.avatar || w.Avatar || w.user?.avatarUrl || w.user?.AvatarUrl || undefined,
     phone: w.phone || '',
     badge: typeof w.badge === 'number' ? w.badge : (typeof w.badge === 'string' ? ({'NewArrival': 0, 'Updated': 1, 'Quality': 2, 'Gold': 3} as Record<string, number>)[w.badge] ?? 0 : 0),
     rating: typeof w.ratingAvg === 'number' && w.ratingAvg > 0 ? w.ratingAvg : 5.0,
@@ -438,7 +439,15 @@ export async function getWorkerProfileMe(): Promise<WorkerProfile | null> {
 
 export async function updateWorkerProfile(profile: Partial<WorkerProfile>): Promise<WorkerProfile> {
   const formData = new FormData();
-  if (profile.phone !== undefined) {
+  if (profile.avatarFile) {
+    const file = profile.avatarFile;
+    formData.append('Avatar', {
+      uri: file.uri,
+      type: file.type || 'image/jpeg',
+      name: file.name || 'avatar.jpg',
+    } as any);
+  }
+  if (profile.phone) {
     formData.append('Phone', profile.phone);
   }
   if (profile.bio !== undefined) {
@@ -446,14 +455,9 @@ export async function updateWorkerProfile(profile: Partial<WorkerProfile>): Prom
   }
   if (profile.maxDistanceKm !== undefined) {
     formData.append('MaxDistanceKm', String(profile.maxDistanceKm));
-  } else {
-    formData.append('MaxDistanceKm', '15');
   }
   if (profile.experienceYears !== undefined) {
     formData.append('ExperienceYears', String(profile.experienceYears));
-  } else {
-    const exp = profile.completedJobs ? Math.round(profile.completedJobs / 30) : 5;
-    formData.append('ExperienceYears', String(exp));
   }
 
   if (profile.address) {
