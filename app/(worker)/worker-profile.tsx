@@ -840,10 +840,14 @@ export default function WorkerProfileScreen() {
 
   return (
     <View className="flex-1 bg-[#fbf9f8]">
-      <View className="h-24 flex-row items-center justify-between px-4 bg-white border-b border-gray-200" style={{ paddingTop: insets.top }}>
-        <View className="w-10 h-10 items-center justify-center" />
+      <View className="pb-3 flex-row items-center justify-between px-4 bg-white border-b border-gray-200" style={{ paddingTop: Math.max(insets.top, 12) }}>
+        <View className="w-9 h-9" />
         <Text className="font-montserrat-bold text-base text-[#1b1c1c]">Tài khoản</Text>
-        <View className="w-10 h-10 items-center justify-center" />
+        <Pressable
+          className="w-9 h-9 rounded-full bg-[#F4F1EA] items-center justify-center"
+          onPress={() => router.push('/(customer)/support-tickets' as any)}>
+          <MaterialIcons name="headset-mic" size={20} color="#0F382C" />
+        </Pressable>
       </View>
 
       <KeyboardAwareScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false} bottomOffset={44}>
@@ -1019,7 +1023,7 @@ export default function WorkerProfileScreen() {
               className="flex-row items-center justify-between py-3 px-3"
               onPress={() => router.push('/(customer)/support-tickets' as any)}>
               <View className="flex-row items-center gap-3">
-                <MaterialIcons name="support-agent" size={22} color="#0F382C" />
+                <MaterialIcons name="support-agent" size={20} color="#0F382C" />
                 <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Trung tâm trợ giúp & Khiếu nại</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />

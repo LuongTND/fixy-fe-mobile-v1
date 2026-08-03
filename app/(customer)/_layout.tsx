@@ -3,7 +3,7 @@ import { ProtectedScreen } from '@/components/ProtectedScreen';
 
 export default function CustomerLayout() {
   return (
-    <ProtectedScreen allowedRoles={['customer']}>
+    <ProtectedScreen allowedRoles={['customer', 'worker']}>
       <Stack
         screenOptions={{
           headerShown: false,

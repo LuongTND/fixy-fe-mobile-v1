@@ -63,9 +63,9 @@ export default function CreateSupportTicketScreen() {
   return (
     <View style={styles.screen}>
       {/* Top Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <Pressable style={styles.headerButton} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back-ios" size={20} color="#1b1c1c" />
+          <MaterialIcons name="arrow-back-ios" size={18} color="#1b1c1c" />
         </Pressable>
         <Text style={styles.headerTitle}>Gửi yêu cầu hỗ trợ</Text>
         <View style={{ width: 40 }} />
@@ -188,7 +188,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF9F5',
   },
   header: {
-    height: 96,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

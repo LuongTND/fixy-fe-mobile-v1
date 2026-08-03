@@ -92,15 +92,15 @@ export default function SupportTicketsScreen() {
   return (
     <View style={styles.screen}>
       {/* Top Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <Pressable style={styles.headerButton} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back-ios" size={20} color="#1b1c1c" />
+          <MaterialIcons name="arrow-back-ios" size={18} color="#1b1c1c" />
         </Pressable>
         <Text style={styles.headerTitle}>Hỗ trợ & Khiếu nại</Text>
         <Pressable
           style={styles.headerButton}
           onPress={() => router.push('/(customer)/create-support-ticket' as any)}>
-          <MaterialIcons name="add" size={26} color="#FF8228" />
+          <MaterialIcons name="add" size={24} color="#0F382C" />
         </Pressable>
       </View>
 
@@ -138,7 +138,7 @@ export default function SupportTicketsScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#FF8228']} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#0F382C']} />
           }
           contentContainerStyle={[
             styles.listContent,
@@ -186,7 +186,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   header: {
-    height: 96,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',

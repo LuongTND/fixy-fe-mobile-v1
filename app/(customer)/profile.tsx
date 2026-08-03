@@ -81,13 +81,13 @@ export default function ProfileScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <View style={{ width: 40 }} />
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+        <View style={{ width: 36 }} />
         <Text style={styles.headerTitle}>Tài khoản</Text>
         <Pressable
           style={styles.headerButton}
           onPress={() => router.push('/(customer)/support-tickets' as any)}>
-          <MaterialIcons name="headset-mic" size={22} color="#0F382C" />
+          <MaterialIcons name="headset-mic" size={20} color="#0F382C" />
         </Pressable>
       </View>
 
@@ -254,6 +254,18 @@ export default function ProfileScreen() {
 
             <View style={styles.menuDivider} />
 
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() => router.push('/(customer)/support-tickets' as any)}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="support-agent" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Hỗ trợ & Khiếu nại</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
             <Pressable style={styles.menuItemRow} onPress={handleLogout}>
               <View style={styles.menuLeft}>
                 <MaterialIcons name="logout" size={22} color="#DC2626" />
@@ -295,7 +307,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#FBF9F5',
   },
   header: {
-    height: 84,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -310,9 +322,9 @@ const styles = StyleSheet.create({
     color: '#1C2526',
   },
   headerButton: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
     backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
