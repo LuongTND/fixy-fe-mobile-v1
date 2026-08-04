@@ -30,14 +30,14 @@ const SPA_BANNER_CARDS = [
     title: 'Sức khoẻ tại nhà',
     subtitle: 'Lấy ráy tai, massage & trị liệu',
     category: 'suc-khoe',
-    image: 'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=1000&q=80',
+    image: require('@/assets/SUC KHOE TAI NHA.webp'),
   },
   {
     id: 'beauty',
     title: 'Làm đẹp tại nhà',
     subtitle: 'Nails,wax, tẩy tế bào chết',
     category: 'lam-dep',
-    image: 'https://images.unsplash.com/photo-1570172619644-dfd03ed5d881?auto=format&fit=crop&w=1000&q=80',
+    image: require('@/assets/LAM DEP TAI NHA.webp'),
   },
   {
     id: 'store',
@@ -46,7 +46,7 @@ const SPA_BANNER_CARDS = [
     tag: '📍 Tại cửa hàng',
     subtag: 'Trải nghiệm dịch vụ\ntrực tiếp tại cửa hàng',
     category: 'dia-diem-spa',
-    image: 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1000&q=80',
+    image: require('@/assets/DIA DIEM SPA.webp'),
   },
 ];
 
@@ -231,7 +231,10 @@ export default function HomeScreen() {
               style={styles.spaBannerCard}
               onPress={() => handleCategoryPress(card.category, card.title)}>
               {/* Full Background Image */}
-              <Image source={{ uri: card.image }} style={styles.bannerCardBgImage} />
+              <Image
+                source={typeof card.image === 'string' ? { uri: card.image } : card.image}
+                style={styles.bannerCardBgImage}
+              />
 
               {/* Warm Earth Brown Spa Gradient Overlay */}
               <LinearGradient
