@@ -126,22 +126,6 @@ export default function ProfileScreen() {
             </View>
           </View>
 
-          {/* VIP Membership Banner Card */}
-          <View style={styles.vipBannerCard}>
-            <View style={styles.vipLeft}>
-              <View style={styles.crownCircle}>
-                <MaterialIcons name="workspace-premium" size={22} color="#D4AF37" />
-              </View>
-              <View>
-                <Text style={styles.vipTitleText}>Đăng ký trở thành hội viên</Text>
-                <Text style={styles.vipSubtitleText}>Nhận voucher 20% & Ưu tiên xếp lịch KTV</Text>
-              </View>
-            </View>
-            <View style={styles.vipPillBadge}>
-              <Text style={styles.vipPillText}>VIP</Text>
-            </View>
-          </View>
-
           {/* Dual Action Cards Matching Spec 4.10 */}
           <View style={styles.dualCardsRow}>
             <Pressable
@@ -211,10 +195,8 @@ export default function ProfileScreen() {
             <Pressable
               style={styles.menuItemRow}
               onPress={() =>
-                Alert.alert('Ngôn ngữ', 'Chọn ngôn ngữ hiển thị ứng dụng', [
+                Alert.alert('Ngôn ngữ', 'Hiện tại ứng dụng hỗ trợ mặc định Tiếng Việt 🇻🇳', [
                   { text: 'Tiếng Việt', onPress: () => setSelectedLanguage('Tiếng Việt') },
-                  { text: 'English', onPress: () => setSelectedLanguage('English') },
-                  { text: '한국어', onPress: () => setSelectedLanguage('한국어') },
                 ])
               }>
               <View style={styles.menuLeft}>
@@ -382,52 +364,6 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#6B7280',
     marginTop: 2,
-  },
-  vipBannerCard: {
-    backgroundColor: '#1C2526',
-    borderRadius: 18,
-    padding: 16,
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    borderWidth: 1,
-    borderColor: '#D4AF37',
-  },
-  vipLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    flex: 1,
-  },
-  crownCircle: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
-    backgroundColor: 'rgba(212, 175, 55, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  vipTitleText: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-    color: '#ffffff',
-  },
-  vipSubtitleText: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    color: '#D4AF37',
-    marginTop: 2,
-  },
-  vipPillBadge: {
-    backgroundColor: '#D4AF37',
-    paddingHorizontal: 12,
-    paddingVertical: 4,
-    borderRadius: 12,
-  },
-  vipPillText: {
-    color: '#1C2526',
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 12,
   },
   dualCardsRow: {
     flexDirection: 'row',

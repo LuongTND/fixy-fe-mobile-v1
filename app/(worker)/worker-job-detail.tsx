@@ -594,16 +594,16 @@ export default function WorkerJobDetailScreen() {
         {/* Financial Breakdown if completed */}
         {job.status === BookingStatus.Completed && (
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Hóa đơn nghiệm thu</Text>
+            <Text style={styles.infoCardTitle}>Hóa đơn dịch vụ</Text>
             <View style={styles.invoiceRow}>
-              <Text style={styles.invoiceLabel}>Tổng giá trị công việc</Text>
+              <Text style={styles.invoiceLabel}>Tổng giá trị dịch vụ</Text>
               <Text style={styles.invoiceVal}>
                 {formatCurrency(job.finalAmount || job.finalPrice || 0)}
               </Text>
             </View>
             {job.completeImages && job.completeImages.length > 0 && (
               <View style={{ marginTop: 16 }}>
-                <Text style={styles.detailLabel}>Ảnh nghiệm thu:</Text>
+                <Text style={styles.detailLabel}>Hình ảnh sau dịch vụ:</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -792,7 +792,7 @@ export default function WorkerJobDetailScreen() {
 
         {job.status === BookingStatus.InProgress && (
           <Pressable style={styles.primaryActionBtn} onPress={() => setCompleteModalOpen(true)}>
-            <Text style={styles.primaryActionText}>Báo cáo hoàn thành & nghiệm thu</Text>
+            <Text style={styles.primaryActionText}>Báo cáo hoàn thành dịch vụ</Text>
           </Pressable>
         )}
 
@@ -897,14 +897,14 @@ export default function WorkerJobDetailScreen() {
           <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
           <View style={[styles.modalContent, { maxHeight: '85%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Xác nhận hoàn thành công việc</Text>
+              <Text style={styles.modalTitle}>Xác nhận hoàn thành dịch vụ</Text>
               <Pressable onPress={() => setCompleteModalOpen(false)}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalLabel}>Ảnh nghiệm thu hoàn tất (Tối đa 5):</Text>
+              <Text style={styles.modalLabel}>Hình ảnh dịch vụ hoàn tất (Tối đa 5):</Text>
               <View style={styles.imagesContainer}>
                 {completionImages.map((uri, index) => (
                   <View key={uri} style={styles.imageWrapper}>

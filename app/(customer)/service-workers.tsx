@@ -49,7 +49,16 @@ function formatCompactCurrency(value: number) {
   return `${Math.round(value / 1000)}k`;
 }
 
-async function fetchAllWorkersByCategory(serviceIdOrGuid?: string, city?: string, customerLat?: number, customerLng?: number) {
+async function fetchAllWorkersByCategory(
+  serviceIdOrGuid?: string,
+  city?: string,
+  customerLat?: number,
+  customerLng?: number,
+  sortBy?: string,
+  minPrice?: number,
+  maxPrice?: number,
+  minRating?: number
+) {
   const workers: WorkerProfile[] = [];
   const categories = await fetchCategories();
 
@@ -76,6 +85,10 @@ async function fetchAllWorkersByCategory(serviceIdOrGuid?: string, city?: string
       City: city,
       CustomerLat: customerLat,
       CustomerLng: customerLng,
+      SortBy: sortBy,
+      MinPrice: minPrice,
+      MaxPrice: maxPrice,
+      MinRating: minRating,
       PageNumber: pageNumber,
       PageSize: WORKERS_PAGE_SIZE,
     });
@@ -104,9 +117,9 @@ export default function ServiceWorkersScreen() {
   const [categoryModalOpen, setCategoryModalOpen] = React.useState(false);
   const [selectedCategory, setSelectedCategory] = React.useState<{ id: string; name: string } | null>(null);
 
-  const [activeFilterChip, setActiveFilterChip] = React.useState<'near' | 'popular' | 'all'>('near');
-  const [priceRange, setPriceRange] = React.useState(PRICE_RANGE_OPTIONS[1]);
-  const [minRating, setMinRating] = React.useState(4.5);
+  const [activeFilterChip, setActiveFilterChip] = React.useState<'near' | 'popular' | 'all'>('all');
+  const [priceRange, setPriceRange] = React.useState<{ label: string; min: number; max: number } | null>(null);
+  const [minRating, setMinRating] = React.useState<number | null>(null);
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
 
   // Fetch all system categories
@@ -138,9 +151,32 @@ export default function ServiceWorkersScreen() {
 
   const activeCategoryId = selectedCategory?.id || serviceId;
 
+  const sortByParam =
+    activeFilterChip === 'near' ? 'nearest' : activeFilterChip === 'popular' ? 'popular' : undefined;
+
   const { data: apiWorkers = [], isLoading: loading } = useQuery<WorkerProfile[]>({
-    queryKey: ['workersByCategory', activeCategoryId || 'all', selectedCity, userLocation?.lat, userLocation?.lng],
-    queryFn: () => fetchAllWorkersByCategory(activeCategoryId, selectedCity, userLocation?.lat, userLocation?.lng),
+    queryKey: [
+      'workersByCategory',
+      activeCategoryId || 'all',
+      selectedCity,
+      userLocation?.lat,
+      userLocation?.lng,
+      activeFilterChip,
+      priceRange?.min ?? 'any',
+      priceRange?.max ?? 'any',
+      minRating ?? 'any',
+    ],
+    queryFn: () =>
+      fetchAllWorkersByCategory(
+        activeCategoryId,
+        selectedCity,
+        userLocation?.lat,
+        userLocation?.lng,
+        sortByParam,
+        priceRange?.min,
+        priceRange?.max,
+        minRating ?? undefined
+      ),
     enabled: true,
   });
 
@@ -250,13 +286,22 @@ export default function ServiceWorkersScreen() {
 
       {/* Filter Chips Bar Matching Image 3 */}
       <View style={styles.filterChipsRow}>
-        <Pressable style={styles.filterIconButton} onPress={() => setFilterModalOpen(true)}>
-          <MaterialIcons name="tune" size={18} color="#0F382C" />
+        <Pressable
+          style={[
+            styles.filterIconButton,
+            (priceRange !== null || minRating !== null) && styles.filterIconButtonActive,
+          ]}
+          onPress={() => setFilterModalOpen(true)}>
+          <MaterialIcons
+            name="tune"
+            size={18}
+            color={priceRange !== null || minRating !== null ? '#ffffff' : '#0F382C'}
+          />
         </Pressable>
 
         <Pressable
           style={[styles.chipItem, activeFilterChip === 'near' && styles.chipItemActive]}
-          onPress={() => setActiveFilterChip('near')}>
+          onPress={() => setActiveFilterChip((prev) => (prev === 'near' ? 'all' : 'near'))}>
           <Text style={[styles.chipText, activeFilterChip === 'near' && styles.chipTextActive]}>
             Gần tôi
           </Text>
@@ -264,7 +309,7 @@ export default function ServiceWorkersScreen() {
 
         <Pressable
           style={[styles.chipItem, activeFilterChip === 'popular' && styles.chipItemActive]}
-          onPress={() => setActiveFilterChip('popular')}>
+          onPress={() => setActiveFilterChip((prev) => (prev === 'popular' ? 'all' : 'popular'))}>
           <Text style={[styles.chipText, activeFilterChip === 'popular' && styles.chipTextActive]}>
             Đặt nhiều
           </Text>
@@ -313,20 +358,31 @@ export default function ServiceWorkersScreen() {
           <View style={styles.filterModal}>
             <View style={styles.filterModalHeader}>
               <Text style={styles.filterModalTitle}>Bộ lọc Kỹ thuật viên</Text>
-              <Pressable onPress={() => setFilterModalOpen(false)}>
-                <MaterialIcons name="close" size={24} color="#383838" />
-              </Pressable>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
+                {(priceRange !== null || minRating !== null) && (
+                  <Pressable onPress={() => { setPriceRange(null); setMinRating(null); }}>
+                    <Text style={styles.resetFilterText}>Đặt lại</Text>
+                  </Pressable>
+                )}
+                <Pressable onPress={() => setFilterModalOpen(false)}>
+                  <MaterialIcons name="close" size={24} color="#383838" />
+                </Pressable>
+              </View>
             </View>
 
             <Text style={styles.filterLabel}>Khoảng giá</Text>
             <View style={styles.optionChipGrid}>
               {PRICE_RANGE_OPTIONS.map((option) => {
-                const active = priceRange.min === option.min && priceRange.max === option.max;
+                const active = priceRange?.min === option.min && priceRange?.max === option.max;
                 return (
                   <Pressable
                     key={option.label}
                     style={[styles.optionChip, active && styles.optionChipActive]}
-                    onPress={() => setPriceRange(option)}>
+                    onPress={() =>
+                      setPriceRange((prev) =>
+                        prev?.min === option.min && prev?.max === option.max ? null : option
+                      )
+                    }>
                     <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>
                       {option.label}
                     </Text>
@@ -343,7 +399,7 @@ export default function ServiceWorkersScreen() {
                   <Pressable
                     key={rating}
                     style={[styles.ratingChip, active && styles.optionChipActive]}
-                    onPress={() => setMinRating(rating)}>
+                    onPress={() => setMinRating((prev) => (prev === rating ? null : rating))}>
                     <MaterialIcons name="star" size={14} color={active ? '#ffffff' : '#D4AF37'} />
                     <Text style={[styles.optionChipText, active && styles.optionChipTextActive]}>
                       {rating.toFixed(1)}+
@@ -513,6 +569,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
+  },
+  filterIconButtonActive: {
+    backgroundColor: '#0F382C',
   },
   chipItem: {
     paddingHorizontal: 14,
@@ -689,6 +748,11 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     fontSize: 17,
     color: '#0F382C',
+  },
+  resetFilterText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#DC2626',
   },
   filterLabel: {
     fontFamily: 'Montserrat_600SemiBold',

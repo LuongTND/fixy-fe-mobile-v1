@@ -1,3 +1,4 @@
+import { getApiErrorMessage } from '@/services/api/client';
 import { Address, getMyAddresses } from '@/services/api/addresses';
 import {
   ApiPaymentMethodOption,
@@ -227,7 +228,7 @@ export default function BookingCheckoutScreen() {
       }
     },
     onError: (error: any) => {
-      const msg = error?.message || 'Có lỗi xảy ra khi xác nhận đặt lịch & thanh toán.';
+      const msg = getApiErrorMessage(error);
       Alert.alert('Lỗi đặt lịch', msg);
     },
   });
@@ -441,7 +442,7 @@ export default function BookingCheckoutScreen() {
                         setVoucherError(result?.ineligibleReason || 'Voucher không đủ điều kiện.');
                       }
                     } catch (err: any) {
-                      setVoucherError(err?.message || 'Mã voucher không hợp lệ.');
+                      setVoucherError(getApiErrorMessage(err));
                     } finally {
                       setVoucherApplying(false);
                     }
