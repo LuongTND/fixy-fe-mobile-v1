@@ -25,8 +25,8 @@ import { prepareUploadFile } from '@/services/api/media';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/services/api/user';
 
 enum GenderEnum {
-  Female = 0,
-  Male = 1,
+  Male = 0,
+  Female = 1,
   Other = 2,
 }
 
@@ -67,10 +67,10 @@ export default function ProfileInfoScreen() {
       }
       if (profile.gender !== null && profile.gender !== undefined) {
         const gStr = String(profile.gender).toLowerCase();
-        if (gStr === 'female' || gStr === '0' || gStr === 'nữ') {
-          setGender(GenderEnum.Female);
-        } else if (gStr === 'male' || gStr === '1' || gStr === 'nam') {
+        if (gStr === 'male' || gStr === '0' || gStr === 'nam') {
           setGender(GenderEnum.Male);
+        } else if (gStr === 'female' || gStr === '1' || gStr === 'nữ') {
+          setGender(GenderEnum.Female);
         } else {
           setGender(GenderEnum.Other);
         }
@@ -198,7 +198,7 @@ export default function ProfileInfoScreen() {
 
       {isLoading ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <KeyboardAwareScrollView
@@ -269,7 +269,7 @@ export default function ProfileInfoScreen() {
               <Text style={[styles.textInputDisplay, !dateOfBirth && { color: '#9A9A9A' }]}>
                 {formatDateDisplay(dateOfBirth)}
               </Text>
-              <MaterialIcons name="calendar-today" size={18} color="#FF8228" />
+              <MaterialIcons name="calendar-today" size={18} color="#0F382C" />
             </Pressable>
 
             <Text style={styles.fieldLabel}>Giới tính</Text>
@@ -280,7 +280,7 @@ export default function ProfileInfoScreen() {
                 <MaterialIcons
                   name="male"
                   size={20}
-                  color={gender === GenderEnum.Male ? '#FF8228' : '#818A91'}
+                  color={gender === GenderEnum.Male ? '#0F382C' : '#818A91'}
                 />
                 <Text
                   style={[
@@ -297,7 +297,7 @@ export default function ProfileInfoScreen() {
                 <MaterialIcons
                   name="female"
                   size={20}
-                  color={gender === GenderEnum.Female ? '#FF8228' : '#818A91'}
+                  color={gender === GenderEnum.Female ? '#0F382C' : '#818A91'}
                 />
                 <Text
                   style={[
@@ -314,7 +314,7 @@ export default function ProfileInfoScreen() {
                 <MaterialIcons
                   name="transgender"
                   size={20}
-                  color={gender === GenderEnum.Other ? '#FF8228' : '#818A91'}
+                  color={gender === GenderEnum.Other ? '#0F382C' : '#818A91'}
                 />
                 <Text
                   style={[

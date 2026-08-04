@@ -657,7 +657,7 @@ export default function BookingDetailScreen() {
 
         {/* Job details card */}
         <View style={styles.infoCard}>
-          <Text style={styles.infoCardTitle}>Chi tiết công việc</Text>
+          <Text style={styles.infoCardTitle}>Chi tiết dịch vụ</Text>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Loại dịch vụ</Text>
@@ -741,10 +741,10 @@ export default function BookingDetailScreen() {
         {(Number(booking.status) === BookingStatus.PendingPayment ||
           Number(booking.status) === BookingStatus.Completed) && (
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Chi phí nghiệm thu thực tế</Text>
+            <Text style={styles.infoCardTitle}>Chi phí thanh toán thực tế</Text>
 
             <View style={styles.costRow}>
-              <Text style={styles.costLabel}>Chi phí nhân công & vật tư</Text>
+              <Text style={styles.costLabel}>Giá dịch vụ & sản phẩm</Text>
               <Text style={styles.costValue}>{formatCurrency(totalAmount)}</Text>
             </View>
             <View style={styles.costRow}>
@@ -763,7 +763,7 @@ export default function BookingDetailScreen() {
 
             {booking.completeImages && booking.completeImages.length > 0 && (
               <View style={{ marginTop: 16 }}>
-                <Text style={styles.detailLabel}>Ảnh nghiệm thu công việc:</Text>
+                <Text style={styles.detailLabel}>Hình ảnh sau dịch vụ:</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}

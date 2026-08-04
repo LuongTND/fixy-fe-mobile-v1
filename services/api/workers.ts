@@ -267,6 +267,8 @@ export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerP
     if (params.CustomerLat !== undefined) queryParams.CustomerLat = params.CustomerLat;
     if (params.CustomerLng !== undefined) queryParams.CustomerLng = params.CustomerLng;
     if (params.RadiusKm !== undefined) queryParams.RadiusKm = params.RadiusKm;
+    if (params.SortBy) queryParams.SortBy = params.SortBy;
+    if (params.SortDescending !== undefined) queryParams.SortDescending = params.SortDescending;
 
     const response = await apiClient.get('/worker-profiles/search', {
       params: queryParams,
