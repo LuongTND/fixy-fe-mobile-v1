@@ -19,6 +19,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 
 import {
   Booking,
@@ -33,6 +34,7 @@ import {
   startWork,
   completeBooking,
   getBookingDetails,
+  updateWorkerLocation,
 } from '@/services/api/bookings';
 import { getMediaUrl, uploadMediaFiles, MediaCategory, MediaOwnerType } from '@/services/api/media';
 import { getApiErrorMessage } from '@/services/api/client';
@@ -145,6 +147,96 @@ export default function WorkerJobDetailScreen() {
     enabled: !!id && job !== null && Number(job.status) === BookingStatus.Completed,
   });
 
+  // GPS location tracking ref — holds the subscription handle for watchPositionAsync
+  const locationWatchRef = React.useRef<Location.LocationSubscription | null>(null);
+  const locationIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSentLocationRef = React.useRef<{ lat: number; lng: number; time: number } | null>(null);
+
+  // Cleanup location tracking on unmount or when booking is no longer active
+  React.useEffect(() => {
+    return () => {
+      stopLocationTracking();
+    };
+  }, []);
+
+  // Auto-stop tracking if booking status moves past Traveling (e.g. Arrived, InProgress, etc.)
+  React.useEffect(() => {
+    const status = Number(job?.status);
+    if (status >= BookingStatus.Arrived && locationWatchRef.current) {
+      stopLocationTracking();
+    }
+  }, [job?.status]);
+
+  /** Start GPS tracking and send location updates to server */
+  async function startLocationTracking() {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Cần quyền vị trí',
+          'Vui lòng cho phép ứng dụng truy cập vị trí để khách hàng có thể theo dõi bạn trên bản đồ.'
+        );
+        return;
+      }
+
+      // Get initial position and send immediately
+      try {
+        const initialPos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        await updateWorkerLocation(initialPos.coords.latitude, initialPos.coords.longitude);
+        lastSentLocationRef.current = {
+          lat: initialPos.coords.latitude,
+          lng: initialPos.coords.longitude,
+          time: Date.now(),
+        };
+      } catch (e) {
+        console.warn('[LocationTracking] Failed to get initial position:', e);
+      }
+
+      // Watch position continuously
+      const subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 10000, // minimum 10 seconds between updates
+          distanceInterval: 20, // minimum 20 meters between updates
+        },
+        (location) => {
+          const { latitude, longitude } = location.coords;
+          const now = Date.now();
+          const last = lastSentLocationRef.current;
+
+          // Throttle: only send if 10+ seconds passed since last send
+          if (last && now - last.time < 10000) return;
+
+          lastSentLocationRef.current = { lat: latitude, lng: longitude, time: now };
+          updateWorkerLocation(latitude, longitude).catch((err) =>
+            console.warn('[LocationTracking] Failed to send location:', err)
+          );
+        }
+      );
+
+      locationWatchRef.current = subscription;
+      console.log('[LocationTracking] Started GPS tracking');
+    } catch (error) {
+      console.error('[LocationTracking] Error starting GPS tracking:', error);
+    }
+  }
+
+  /** Stop GPS tracking */
+  function stopLocationTracking() {
+    if (locationWatchRef.current) {
+      locationWatchRef.current.remove();
+      locationWatchRef.current = null;
+      console.log('[LocationTracking] Stopped GPS tracking');
+    }
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
+    }
+    lastSentLocationRef.current = null;
+  }
+
   const category = categories.find((c) => c.id === job?.categoryId || c.code === job?.categoryId);
   const categoryName =
     category?.name ||
@@ -216,7 +308,9 @@ export default function WorkerJobDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
-      Alert.alert('Bắt đầu di chuyển', 'Chúc bạn thượng lộ bình an!');
+      // Start GPS tracking so location is broadcast to customer
+      startLocationTracking();
+      Alert.alert('Bắt đầu di chuyển', 'Chúc bạn thượng lộ bình an! Vị trí của bạn đang được chia sẻ với khách hàng.');
     },
     onError: (err) => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
@@ -232,6 +326,8 @@ export default function WorkerJobDetailScreen() {
   const arriveMutation = useMutation({
     mutationFn: () => arriveBooking(id || ''),
     onSuccess: () => {
+      // Stop GPS tracking when worker arrives
+      stopLocationTracking();
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
       Alert.alert('Đã đến nơi', 'Vui lòng chuẩn bị và tiến hành dịch vụ Spa.');
@@ -591,16 +687,53 @@ export default function WorkerJobDetailScreen() {
           ) : null}
         </View>
 
-        {/* Financial Breakdown if completed */}
-        {job.status === BookingStatus.Completed && (
+        {/* Financial Breakdown / Hóa đơn dịch vụ */}
+        {Number(job.status) >= BookingStatus.Confirmed && (
           <View style={styles.infoCard}>
             <Text style={styles.infoCardTitle}>Hóa đơn dịch vụ</Text>
-            <View style={styles.invoiceRow}>
-              <Text style={styles.invoiceLabel}>Tổng giá trị dịch vụ</Text>
-              <Text style={styles.invoiceVal}>
-                {formatCurrency(job.finalAmount || job.finalPrice || 0)}
-              </Text>
-            </View>
+            {(() => {
+              const origPrice =
+                (job as any).estimatedPrice ??
+                (job as any).estimatedAmount ??
+                job.finalAmount ??
+                job.finalPrice ??
+                0;
+              const finPrice = job.finalPrice ?? job.finalAmount ?? origPrice;
+              const voucherDiscount = origPrice > finPrice ? origPrice - finPrice : 0;
+              return (
+                <>
+                  <View style={styles.invoiceRow}>
+                    <Text style={styles.invoiceLabel}>Giá dịch vụ & sản phẩm</Text>
+                    <Text style={styles.invoiceVal}>{formatCurrency(origPrice)}</Text>
+                  </View>
+                  {voucherDiscount > 0 && (
+                    <View style={styles.invoiceRow}>
+                      <Text style={styles.invoiceLabel}>Voucher giảm giá</Text>
+                      <Text style={[styles.invoiceVal, { color: '#059669' }]}>
+                        -{formatCurrency(voucherDiscount)}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={{ height: 1, backgroundColor: '#E2E8F0', marginVertical: 8 }} />
+                  <View style={styles.invoiceRow}>
+                    <Text
+                      style={[
+                        styles.invoiceLabel,
+                        { fontFamily: 'Montserrat_700Bold', color: '#1B1C1C' },
+                      ]}>
+                      Tổng số tiền thanh toán
+                    </Text>
+                    <Text
+                      style={[
+                        styles.invoiceVal,
+                        { fontFamily: 'Montserrat_700Bold', color: '#0F382C', fontSize: 15 },
+                      ]}>
+                      {formatCurrency(finPrice)}
+                    </Text>
+                  </View>
+                </>
+              );
+            })()}
             {job.completeImages && job.completeImages.length > 0 && (
               <View style={{ marginTop: 16 }}>
                 <Text style={styles.detailLabel}>Hình ảnh sau dịch vụ:</Text>

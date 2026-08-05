@@ -1,6 +1,6 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import {
   ActivityIndicator,
@@ -100,95 +100,97 @@ export default function ChatListScreen() {
   const [conversations, setConversations] = React.useState<ConversationItem[]>([]);
   const [loadingMessages, setLoadingMessages] = React.useState(true);
 
-  React.useEffect(() => {
-    if (loadingBookings) return;
+  useFocusEffect(
+    React.useCallback(() => {
+      if (loadingBookings) return;
 
-    let isMounted = true;
-    setLoadingMessages(true);
+      let isMounted = true;
+      setLoadingMessages(true);
 
-    async function loadAllChatSummaries() {
-      try {
-        const items: ConversationItem[] = await Promise.all(
-          bookings.map(async (b) => {
-            const category = categories.find(
-              (c) => c.id === b.categoryId || c.code === b.categoryId
-            );
-            const categoryName = category?.name || 'Dịch vụ Spa';
+      async function loadAllChatSummaries() {
+        try {
+          const items: ConversationItem[] = await Promise.all(
+            bookings.map(async (b) => {
+              const category = categories.find(
+                (c) => c.id === b.categoryId || c.code === b.categoryId
+              );
+              const categoryName = category?.name || 'Dịch vụ Spa';
 
-            // Resolve partner details
-            let partnerName = 'Kỹ thuật viên';
-            let partnerAvatar: string | null = null;
-            let partnerPhone = '';
+              // Resolve partner details
+              let partnerName = 'Kỹ thuật viên';
+              let partnerAvatar: string | null = null;
+              let partnerPhone = '';
 
-            if (isWorker) {
-              partnerName = b.customerName || 'Khách hàng';
-              partnerPhone = b.customerPhone || '';
-              const rawCustAvatar = b.customerAvatarUrl || (b as any).CustomerAvatarUrl;
-              partnerAvatar = rawCustAvatar
-                ? rawCustAvatar.startsWith('http')
-                  ? rawCustAvatar
-                  : getMediaUrl(rawCustAvatar)
-                : null;
-            } else {
-              partnerName = b.worker?.fullName || b.workerName || 'Kỹ thuật viên';
-              partnerPhone = b.worker?.phone || b.workerPhone || '';
-              const rawWorkerAvatar = b.workerAvatarUrl || (b as any).WorkerAvatarUrl || b.worker?.avatarUrl;
-              partnerAvatar = rawWorkerAvatar
-                ? rawWorkerAvatar.startsWith('http')
-                  ? rawWorkerAvatar
-                  : getMediaUrl(rawWorkerAvatar)
-                : null;
-            }
+              if (isWorker) {
+                partnerName = b.customerName || 'Khách hàng';
+                partnerPhone = b.customerPhone || '';
+                const rawCustAvatar = b.customerAvatarUrl || (b as any).CustomerAvatarUrl;
+                partnerAvatar = rawCustAvatar
+                  ? rawCustAvatar.startsWith('http')
+                    ? rawCustAvatar
+                    : getMediaUrl(rawCustAvatar)
+                  : null;
+              } else {
+                partnerName = b.worker?.fullName || b.workerName || 'Kỹ thuật viên';
+                partnerPhone = b.worker?.phone || b.workerPhone || '';
+                const rawWorkerAvatar = b.workerAvatarUrl || (b as any).WorkerAvatarUrl || b.worker?.avatarUrl;
+                partnerAvatar = rawWorkerAvatar
+                  ? rawWorkerAvatar.startsWith('http')
+                    ? rawWorkerAvatar
+                    : getMediaUrl(rawWorkerAvatar)
+                  : null;
+              }
 
-            let chatHistory: BookingChatMessage[] = [];
-            try {
-              chatHistory = await getBookingChatMessages(b.id);
-            } catch {
-              chatHistory = [];
-            }
+              let chatHistory: BookingChatMessage[] = [];
+              try {
+                chatHistory = await getBookingChatMessages(b.id);
+              } catch {
+                chatHistory = [];
+              }
 
-            const lastMessage = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
-            const unreadCount = chatHistory.filter(
-              (m) => !m.isRead && m.senderId?.toLowerCase() !== currentUserId?.toLowerCase()
-            ).length;
+              const lastMessage = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
+              const unreadCount = chatHistory.filter(
+                (m) => !m.isRead && m.senderId?.toLowerCase() !== currentUserId?.toLowerCase()
+              ).length;
 
-            return {
-              booking: b,
-              categoryName,
-              partnerName,
-              partnerAvatar,
-              partnerPhone,
-              lastMessage,
-              unreadCount,
-            };
-          })
-        );
+              return {
+                booking: b,
+                categoryName,
+                partnerName,
+                partnerAvatar,
+                partnerPhone,
+                lastMessage,
+                unreadCount,
+              };
+            })
+          );
 
-        // Sort by last message date or booking date descending
-        items.sort((a, b) => {
-          const dateA = a.lastMessage?.createdDate || a.booking.createdDate;
-          const dateB = b.lastMessage?.createdDate || b.booking.createdDate;
-          return new Date(dateB).getTime() - new Date(dateA).getTime();
-        });
+          // Sort by last message date or booking date descending
+          items.sort((a, b) => {
+            const dateA = a.lastMessage?.createdDate || a.booking.createdDate;
+            const dateB = b.lastMessage?.createdDate || b.booking.createdDate;
+            return new Date(dateB).getTime() - new Date(dateA).getTime();
+          });
 
-        if (isMounted) {
-          setConversations(items);
-        }
-      } catch (err) {
-        console.warn('Error loading chat list summaries:', err);
-      } finally {
-        if (isMounted) {
-          setLoadingMessages(false);
+          if (isMounted) {
+            setConversations(items);
+          }
+        } catch (err) {
+          console.warn('Error loading chat list summaries:', err);
+        } finally {
+          if (isMounted) {
+            setLoadingMessages(false);
+          }
         }
       }
-    }
 
-    loadAllChatSummaries();
+      loadAllChatSummaries();
 
-    return () => {
-      isMounted = false;
-    };
-  }, [bookings, categories, currentUserId, isWorker, loadingBookings]);
+      return () => {
+        isMounted = false;
+      };
+    }, [bookings, categories, currentUserId, isWorker, loadingBookings])
+  );
 
   // Filter conversations
   const filteredConversations = React.useMemo(() => {
@@ -200,7 +202,7 @@ export default function ChatListScreen() {
         (item.lastMessage?.content || '').toLowerCase().includes(searchQuery.toLowerCase());
 
       const statusNum = Number(item.booking.status);
-      const isActive = statusNum >= BookingStatus.Pending && statusNum <= BookingStatus.PendingPayment;
+      const isActive = statusNum >= BookingStatus.Pending && statusNum <= BookingStatus.InProgress;
       const isCompleted = statusNum === BookingStatus.Completed;
 
       if (selectedTab === 'active' && !isActive) return false;
@@ -211,6 +213,17 @@ export default function ChatListScreen() {
   }, [conversations, searchQuery, selectedTab]);
 
   const handleOpenChat = (bookingId: string) => {
+    setConversations((prev) =>
+      prev.map((c) =>
+        c.booking.id === bookingId
+          ? {
+              ...c,
+              unreadCount: 0,
+              lastMessage: c.lastMessage ? { ...c.lastMessage, isRead: true } : null,
+            }
+          : c
+      )
+    );
     router.push(`/booking-chat?bookingId=${bookingId}` as any);
   };
 

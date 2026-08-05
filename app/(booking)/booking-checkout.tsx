@@ -16,7 +16,7 @@ import { fetchCategories } from '@/services/api/categories';
 import { getWorkerDetails, WorkerProfile } from '@/services/api/workers';
 import { getWalletOverview, WalletOverview } from '@/services/api/wallet';
 import { applyVoucher, getEligibleVouchers } from '@/services/api/vouchers';
-import { EligibleVoucher, getVoucherDiscount } from '@/services/api/voucher-utils';
+import { EligibleVoucher, formatVoucherIneligibleReason, getVoucherDiscount } from '@/services/api/voucher-utils';
 import { formatCurrency, formatFullAddress } from '@/utils/format';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -66,6 +66,9 @@ export default function BookingCheckoutScreen() {
   const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<number>(PaymentMethod.Cash);
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
 
+  const [createdDraftId, setCreatedDraftId] = React.useState<string | null>(null);
+  const activeDraftId = paramDraftId || createdDraftId;
+
   // Invalidate addresses query on focus so new address is fetched instantly
   useFocusEffect(
     React.useCallback(() => {
@@ -83,9 +86,9 @@ export default function BookingCheckoutScreen() {
 
   // Fetch Eligible Vouchers
   const { data: eligibleVouchers = [], isLoading: loadingVouchers } = useQuery<EligibleVoucher[]>({
-    queryKey: ['eligibleVouchersCheckout', paramDraftId],
-    queryFn: () => getEligibleVouchers(paramDraftId || ''),
-    enabled: !!paramDraftId,
+    queryKey: ['eligibleVouchersCheckout', activeDraftId],
+    queryFn: () => getEligibleVouchers(activeDraftId || ''),
+    enabled: !!activeDraftId,
   });
 
   // Fetch addresses via useQuery
@@ -110,11 +113,11 @@ export default function BookingCheckoutScreen() {
     queryFn: fetchPaymentMethodsApi,
   });
 
-  // Fetch draft details via useQuery if draftId parameter is present
+  // Fetch draft details via useQuery if activeDraftId parameter is present
   const { data: draft = null } = useQuery<BookingDraft | null>({
-    queryKey: ['draft', paramDraftId],
-    queryFn: () => getDraftDetails(paramDraftId!),
-    enabled: !!paramDraftId,
+    queryKey: ['draft', activeDraftId],
+    queryFn: () => getDraftDetails(activeDraftId!),
+    enabled: !!activeDraftId,
   });
 
   const { data: categories = [] } = useQuery({
@@ -140,6 +143,32 @@ export default function BookingCheckoutScreen() {
     ? Number(paramTotalDurationMinutes)
     : (draft?.totalDurationMinutes || 60);
 
+  // Auto-create draft if activeDraftId is missing and address is selected so eligible vouchers can be fetched
+  React.useEffect(() => {
+    if (!activeDraftId && selectedAddress && activeCategoryId) {
+      const categoryGuid = category?.id || activeCategoryId;
+      const addressText = formatFullAddress(selectedAddress);
+      createDraft({
+        categoryId: categoryGuid,
+        addressId: selectedAddress.id,
+        address: addressText,
+        lat: selectedAddress.lat ?? 0,
+        lng: selectedAddress.lng ?? 0,
+        scheduledType: 0,
+        totalDurationMinutes: durationNum,
+        workerProfileId: activeWorkerProfileId || null,
+        autoMatch: !activeWorkerProfileId,
+      })
+        .then((d) => {
+          const id = d.id || d.draftId;
+          if (id) setCreatedDraftId(id);
+        })
+        .catch((e) => {
+          console.warn('Auto create draft for vouchers error:', e);
+        });
+    }
+  }, [activeDraftId, selectedAddress, activeCategoryId, category, durationNum, activeWorkerProfileId]);
+
   const activeWorkerService = worker?.services?.find((s) => s.categoryId === activeCategoryId);
   const activeOption = activeWorkerService?.options?.find((opt) => opt.durationMinutes === durationNum)
     || activeWorkerService?.options?.[0];
@@ -148,10 +177,10 @@ export default function BookingCheckoutScreen() {
   const finalPrice = Math.max(0, servicePrice - discountAmount);
   const walletInsufficient = walletBalance < finalPrice;
 
-  // Confirm booking & pay mutation (creates draft if needed, confirms, then pays)
+  // Confirm booking & pay mutation (creates draft if needed, confirms, applies voucher, then pays)
   const confirmMutation = useMutation({
     mutationFn: async () => {
-      let targetDraftId = paramDraftId;
+      let targetDraftId = activeDraftId;
 
       if (!targetDraftId) {
         if (!selectedAddress) {
@@ -169,11 +198,11 @@ export default function BookingCheckoutScreen() {
           lng: selectedAddress.lng ?? 0,
           scheduledType: 0,
           totalDurationMinutes: durationNum,
-          workerProfileId: activeWorkerProfileId || undefined,
+          workerProfileId: activeWorkerProfileId || null,
           autoMatch: !activeWorkerProfileId,
         });
 
-        targetDraftId = createdDraft.id || createdDraft.draftId;
+        targetDraftId = createdDraft.id || createdDraft.draftId || null;
       }
 
       if (!targetDraftId) {
@@ -185,6 +214,15 @@ export default function BookingCheckoutScreen() {
 
       if (!bookingId) {
         throw new Error('Không tạo được đơn hàng.');
+      }
+
+      // Apply selected voucher to the confirmed booking on Backend
+      if (selectedVoucher && selectedVoucher.code) {
+        try {
+          await applyVoucher(selectedVoucher.code, bookingId);
+        } catch (vErr) {
+          console.warn('[checkout] Failed to apply voucher to booking on BE:', vErr);
+        }
       }
 
       // Route payment by selected method
@@ -434,7 +472,7 @@ export default function BookingCheckoutScreen() {
                     setVoucherApplying(true);
                     setVoucherError('');
                     try {
-                      const result = await applyVoucher(voucherCode, paramDraftId || '');
+                      const result = await applyVoucher(voucherCode, activeDraftId || '');
                       if (result && result.isEligible) {
                         setSelectedVoucher(result);
                         setDiscountAmount(getVoucherDiscount(result));
@@ -656,7 +694,7 @@ export default function BookingCheckoutScreen() {
                       ) : null}
                       {!voucher.isEligible && voucher.ineligibleReason && (
                         <Text style={{ fontSize: 12, color: '#DC2626', marginTop: 2 }}>
-                          {voucher.ineligibleReason}
+                          {formatVoucherIneligibleReason(voucher.ineligibleReason)}
                         </Text>
                       )}
                     </View>

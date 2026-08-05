@@ -33,6 +33,8 @@ export type WorkerProfile = {
   estimatedArrivalMinutes?: number | null;
   basePrice: number;
   isOnline?: boolean;
+  isAcceptingJobs?: boolean;
+  isBusy?: boolean;
   isPro: boolean;
   specialties: string[];
   bio: string;
@@ -168,7 +170,9 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
     city: w.city || w.address?.city || '',
     estimatedArrivalMinutes: typeof w.estimatedArrivalMinutes === 'number' ? w.estimatedArrivalMinutes : null,
     basePrice: getWorkerBasePrice(w, categoryId),
-    isOnline: w.isOnline ?? w.online ?? w.isAvailableOnline,
+    isOnline: w.isOnline ?? w.online ?? w.isAvailableOnline ?? true,
+    isAcceptingJobs: w.isAcceptingJobs ?? w.isOnline ?? true,
+    isBusy: w.isBusy ?? w.IsBusy ?? false,
     isPro: w.experienceYears >= 5 || w.isPro || false,
     specialties: w.services?.map((s: any) => getCategorySlug(s.categoryId)) || w.specialties || [],
     bio: w.bio || 'Kỹ thuật viên chuyên nghiệp đã được xác thực bởi Fixy.',
@@ -316,7 +320,7 @@ export async function getWorkerDetails(id: string): Promise<WorkerProfile | null
 export type WorkerScheduleWeekly = {
   id?: string;
   workerProfileId: string;
-  dayOfWeek: number; // 0 = Sunday, 1 = Monday, etc.
+  dayOfWeek: number; // 0 = Monday, 1 = Tuesday, ..., 6 = Sunday
   startTime: string; // "HH:MM:ss"
   endTime: string; // "HH:MM:ss"
   isActive: boolean;
@@ -795,4 +799,12 @@ export async function searchWorkerProfiles(
     hasPreviousPage: data?.hasPreviousPage ?? false,
     hasNextPage: data?.hasNextPage ?? false,
   };
+}
+
+/** PATCH /worker-profiles/me/working-status — Update worker online & job accepting status */
+export async function updateWorkingStatus(isAcceptingJobs: boolean, isOnline?: boolean): Promise<void> {
+  await apiClient.patch('/worker-profiles/me/working-status', {
+    isAcceptingJobs,
+    isOnline: isOnline ?? isAcceptingJobs,
+  });
 }

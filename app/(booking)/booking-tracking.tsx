@@ -1,14 +1,19 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
+import Constants from 'expo-constants';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import { Alert, Linking, Pressable, ScrollView, StyleSheet, Text, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import { WebView } from 'react-native-webview';
+import { HubConnectionBuilder, LogLevel, HubConnection } from '@microsoft/signalr';
 
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 
-import { BookingStatus, getBookingTracking } from '@/services/api/bookings';
-import { getDistanceAndDuration } from '@/services/api/goong';
+import { BookingStatus, BookingTracking, getBookingTracking } from '@/services/api/bookings';
+import { getDistanceAndDuration, getDirections, GOONG_MAPTILES_API_KEY, GOONG_API_KEY } from '@/services/api/goong';
+import { useAuthStore } from '@/store/store';
+import { getApiBaseUrl } from '@/config/env';
 
 const TIMELINE_STEPS = [
   { key: 'confirmed', label: 'Chờ xác nhận', statusThreshold: BookingStatus.Confirmed },
@@ -40,8 +45,22 @@ function renderTimelineDot(state: StepState) {
   return <View style={styles.timelineDotPending} />;
 }
 
+/** Build the booking hub URL from the API base URL */
+function getBookingHubUrl(): string {
+  try {
+    const apiUrl = getApiBaseUrl(); // e.g. https://domain.com/api
+    const baseUrl = apiUrl.replace(/\/api\/?$/, '');
+    return `${baseUrl}/hubs/booking`;
+  } catch {
+    return '';
+  }
+}
+
 export default function BookingTrackingScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
+  const accessToken = useAuthStore((state) => state.accessToken);
+
   const params = useLocalSearchParams<{
     bookingId: string;
     status?: string;
@@ -57,23 +76,45 @@ export default function BookingTrackingScreen() {
 
   const currentStatusNum = Number(params.status ?? BookingStatus.Traveling);
 
+  // Live tracking data via REST polling (fallback)
   const { data: liveTracking = null } = useQuery({
     queryKey: ['bookingTracking', params.bookingId],
     queryFn: () => getBookingTracking(params.bookingId || ''),
     enabled: !!params.bookingId,
-    refetchInterval: 5000,
+    refetchInterval: 10000,
   });
 
+  // Realtime location from SignalR
+  const [realtimeLocation, setRealtimeLocation] = React.useState<{
+    lat: number;
+    lng: number;
+    updatedAt?: string;
+  } | null>(null);
+
+  // Parse coordinates — prefer realtime SignalR > REST polling > route params
   const parsedWLat = params.workerLat ? Number(params.workerLat) : undefined;
   const parsedWLng = params.workerLng ? Number(params.workerLng) : undefined;
   const parsedCLat = params.customerLat ? Number(params.customerLat) : undefined;
   const parsedCLng = params.customerLng ? Number(params.customerLng) : undefined;
 
-  const liveWorkerLat = parsedWLat && !isNaN(parsedWLat) ? parsedWLat : liveTracking?.workerLat;
-  const liveWorkerLng = parsedWLng && !isNaN(parsedWLng) ? parsedWLng : liveTracking?.workerLng;
+  const liveWorkerLat =
+    realtimeLocation?.lat ??
+    (parsedWLat && !isNaN(parsedWLat) ? parsedWLat : liveTracking?.workerLat);
+  const liveWorkerLng =
+    realtimeLocation?.lng ??
+    (parsedWLng && !isNaN(parsedWLng) ? parsedWLng : liveTracking?.workerLng);
   const liveCustomerLat = parsedCLat && !isNaN(parsedCLat) ? parsedCLat : 16.074988;
   const liveCustomerLng = parsedCLng && !isNaN(parsedCLng) ? parsedCLng : 108.228981;
 
+  // Has valid coordinates for both worker and customer
+  const hasWorkerCoords =
+    liveWorkerLat !== undefined &&
+    liveWorkerLng !== undefined &&
+    !isNaN(liveWorkerLat) &&
+    !isNaN(liveWorkerLng);
+  const hasCustomerCoords = !isNaN(liveCustomerLat) && !isNaN(liveCustomerLng);
+
+  // ETA via Goong Distance Matrix
   const { data: etaData = null } = useQuery({
     queryKey: ['trackingGoongEta', liveWorkerLat, liveWorkerLng, liveCustomerLat, liveCustomerLng],
     queryFn: () =>
@@ -82,9 +123,270 @@ export default function BookingTrackingScreen() {
         { lat: liveCustomerLat!, lng: liveCustomerLng! },
         'motorcycle'
       ),
-    enabled: !!liveWorkerLat && !!liveWorkerLng && !!liveCustomerLat && !!liveCustomerLng,
+    enabled: hasWorkerCoords && hasCustomerCoords,
     staleTime: 1000 * 30,
   });
+
+  // Route polyline via Goong Directions
+  const { data: routeData = null } = useQuery({
+    queryKey: ['trackingGoongRoute', liveWorkerLat, liveWorkerLng, liveCustomerLat, liveCustomerLng],
+    queryFn: () =>
+      getDirections(
+        { lat: liveWorkerLat!, lng: liveWorkerLng! },
+        { lat: liveCustomerLat!, lng: liveCustomerLng! },
+        'bike'
+      ),
+    enabled: hasWorkerCoords && hasCustomerCoords,
+    staleTime: 1000 * 60,
+  });
+
+  // ========== SignalR BookingHub connection ==========
+  React.useEffect(() => {
+    if (!params.bookingId || !accessToken) return;
+
+    const bookingHubUrl = getBookingHubUrl();
+    if (!bookingHubUrl) return;
+
+    let connection: HubConnection | null = null;
+    let isActive = true;
+
+    async function connectHub() {
+      try {
+        connection = new HubConnectionBuilder()
+          .withUrl(bookingHubUrl, {
+            accessTokenFactory: () => accessToken || '',
+          })
+          .withAutomaticReconnect()
+          .configureLogging(LogLevel.Warning)
+          .build();
+
+        // Listen for real-time location updates from worker
+        connection.on('ReceiveLocationUpdate', (dto: any) => {
+          if (!isActive) return;
+          const lat = dto?.Lat ?? dto?.lat;
+          const lng = dto?.Lng ?? dto?.lng;
+          if (lat !== undefined && lng !== undefined && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
+            setRealtimeLocation({
+              lat: Number(lat),
+              lng: Number(lng),
+              updatedAt: dto?.UpdatedAt ?? dto?.updatedAt ?? new Date().toISOString(),
+            });
+            // Also invalidate the REST query to keep data in sync
+            queryClient.invalidateQueries({ queryKey: ['bookingTracking', params.bookingId] });
+            queryClient.invalidateQueries({ queryKey: ['trackingGoongEta'] });
+          }
+        });
+
+        // Listen for status updates
+        connection.on('ReceiveStatusUpdate', (dto: any) => {
+          if (!isActive) return;
+          queryClient.invalidateQueries({ queryKey: ['bookingTracking', params.bookingId] });
+          queryClient.invalidateQueries({ queryKey: ['booking', params.bookingId] });
+        });
+
+        await connection.start();
+        console.log('[BookingTracking] Connected to BookingHub');
+
+        // Join the booking group
+        await connection.invoke('JoinBookingGroup', params.bookingId);
+        console.log('[BookingTracking] Joined booking group:', params.bookingId);
+      } catch (err) {
+        console.warn('[BookingTracking] SignalR connection failed:', err);
+      }
+    }
+
+    connectHub();
+
+    return () => {
+      isActive = false;
+      if (connection) {
+        connection
+          .invoke('LeaveBookingGroup', params.bookingId)
+          .catch(() => {})
+          .finally(() => {
+            connection?.stop().catch((err) =>
+              console.warn('[BookingTracking] Error stopping hub:', err)
+            );
+          });
+      }
+    };
+  }, [params.bookingId, accessToken]);
+
+  // ========== WebView ref for updating map markers ==========
+  const webViewRef = React.useRef<WebView>(null);
+
+  // Update worker marker position when location changes
+  React.useEffect(() => {
+    if (webViewRef.current && hasWorkerCoords) {
+      const js = `
+        if (window.workerMarker) {
+          window.workerMarker.setLngLat([${liveWorkerLng}, ${liveWorkerLat}]);
+          window.map && window.map.panTo([${liveWorkerLng}, ${liveWorkerLat}]);
+        }
+        true;
+      `;
+      webViewRef.current.injectJavaScript(js);
+    }
+  }, [liveWorkerLat, liveWorkerLng]);
+
+  // Update route line when route data changes
+  React.useEffect(() => {
+    if (webViewRef.current && routeData?.decodedCoords && routeData.decodedCoords.length > 0) {
+      const coordsJson = JSON.stringify(routeData.decodedCoords);
+      const js = `
+        if (window.map && window.map.getSource('route')) {
+          window.map.getSource('route').setData({
+            type: 'Feature',
+            properties: {},
+            geometry: { type: 'LineString', coordinates: ${coordsJson} }
+          });
+        }
+        true;
+      `;
+      webViewRef.current.injectJavaScript(js);
+    }
+  }, [routeData]);
+
+  // ========== Build Goong Map HTML ==========
+  const mapHtml = React.useMemo(() => {
+    const workerLng = liveWorkerLng ?? liveCustomerLng;
+    const workerLat = liveWorkerLat ?? liveCustomerLat;
+
+    // Calculate center and zoom
+    let centerLng = liveCustomerLng;
+    let centerLat = liveCustomerLat;
+    let zoom = 14;
+
+    if (hasWorkerCoords && hasCustomerCoords) {
+      centerLng = (workerLng + liveCustomerLng) / 2;
+      centerLat = (workerLat + liveCustomerLat) / 2;
+      // Adjust zoom based on distance
+      const latDiff = Math.abs(workerLat - liveCustomerLat);
+      const lngDiff = Math.abs(workerLng - liveCustomerLng);
+      const maxDiff = Math.max(latDiff, lngDiff);
+      if (maxDiff > 0.1) zoom = 11;
+      else if (maxDiff > 0.05) zoom = 12;
+      else if (maxDiff > 0.02) zoom = 13;
+      else zoom = 14;
+    }
+
+    // Route coordinates for initial line
+    const routeCoords = routeData?.decodedCoords ?? [];
+    const routeCoordsJson = JSON.stringify(routeCoords);
+
+    return `
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <script src="https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@1.0.9/dist/goong-js.js"></script>
+  <link href="https://cdn.jsdelivr.net/npm/@goongmaps/goong-js@1.0.9/dist/goong-js.css" rel="stylesheet" />
+  <style>
+    body, html, #map { margin: 0; padding: 0; height: 100%; width: 100%; }
+    .mapboxgl-ctrl-bottom-left, .mapboxgl-ctrl-bottom-right { display: none; }
+    .worker-marker {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: #0F382C; border: 3px solid #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+      cursor: pointer;
+    }
+    .worker-marker svg { width: 20px; height: 20px; fill: #fff; }
+    .customer-marker {
+      width: 36px; height: 36px; border-radius: 50%;
+      background: #E53935; border: 3px solid #fff;
+      display: flex; align-items: center; justify-content: center;
+      box-shadow: 0 2px 8px rgba(0,0,0,0.3);
+    }
+    .customer-marker svg { width: 18px; height: 18px; fill: #fff; }
+    .pulse-ring {
+      position: absolute; width: 50px; height: 50px; border-radius: 50%;
+      border: 2px solid #0F382C; opacity: 0;
+      animation: pulse 2s ease-out infinite;
+      pointer-events: none;
+    }
+    @keyframes pulse {
+      0% { transform: scale(0.5); opacity: 0.8; }
+      100% { transform: scale(1.5); opacity: 0; }
+    }
+  </style>
+</head>
+<body>
+  <div id="map"></div>
+  <script>
+    goongjs.accessToken = '${GOONG_MAPTILES_API_KEY}';
+    const map = new goongjs.Map({
+      container: 'map',
+      style: 'https://tiles.goong.io/assets/goong_map_web.json?api_key=${GOONG_MAPTILES_API_KEY}',
+      center: [${centerLng}, ${centerLat}],
+      zoom: ${zoom}
+    });
+    window.map = map;
+
+    map.on('load', function() {
+      // Add route line source and layer
+      map.addSource('route', {
+        type: 'geojson',
+        data: {
+          type: 'Feature',
+          properties: {},
+          geometry: {
+            type: 'LineString',
+            coordinates: ${routeCoordsJson}
+          }
+        }
+      });
+
+      map.addLayer({
+        id: 'route-line',
+        type: 'line',
+        source: 'route',
+        layout: { 'line-join': 'round', 'line-cap': 'round' },
+        paint: {
+          'line-color': '#0F382C',
+          'line-width': 4,
+          'line-opacity': 0.8
+        }
+      });
+
+      // Fit bounds to show both markers
+      ${hasWorkerCoords ? `
+      try {
+        var bounds = new goongjs.LngLatBounds();
+        bounds.extend([${workerLng}, ${workerLat}]);
+        bounds.extend([${liveCustomerLng}, ${liveCustomerLat}]);
+        map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
+      } catch(e) {}
+      ` : ''}
+    });
+
+    // Worker marker with pulse animation
+    ${hasWorkerCoords ? `
+    var workerEl = document.createElement('div');
+    workerEl.style.position = 'relative';
+    workerEl.innerHTML = '<div class="pulse-ring"></div><div class="worker-marker"><svg viewBox="0 0 24 24"><path d="M19.44 9.03L15.41 5H11v2h3.59l2 2H5v2h12.59l-3.83 3.83.59.59L19.44 10.34c.38-.38.59-.88.59-1.41 0-.53-.21-1.04-.59-1.41zM8 16c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 4c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg></div>';
+    window.workerMarker = new goongjs.Marker({ element: workerEl })
+      .setLngLat([${workerLng}, ${workerLat}])
+      .addTo(map);
+    ` : ''}
+
+    // Customer marker (destination)
+    var custEl = document.createElement('div');
+    custEl.innerHTML = '<div class="customer-marker"><svg viewBox="0 0 24 24"><path d="M12 2C8.13 2 5 5.13 5 9c0 5.25 7 13 7 13s7-7.75 7-13c0-3.87-3.13-7-7-7zm0 9.5c-1.38 0-2.5-1.12-2.5-2.5s1.12-2.5 2.5-2.5 2.5 1.12 2.5 2.5-1.12 2.5-2.5 2.5z"/></svg></div>';
+    new goongjs.Marker({ element: custEl })
+      .setLngLat([${liveCustomerLng}, ${liveCustomerLat}])
+      .addTo(map);
+  </script>
+</body>
+</html>
+    `;
+  }, [
+    hasWorkerCoords,
+    hasCustomerCoords,
+    // Only rebuild HTML on initial load, not on every location update
+    // Location updates are handled via injectJavaScript
+  ]);
 
   const getStepState = (stepThreshold: number): StepState => {
     if (currentStatusNum > stepThreshold) return 'done';
@@ -182,20 +484,26 @@ export default function BookingTrackingScreen() {
           </View>
         </View>
 
-        {/* Map Placeholder */}
+        {/* Goong Map */}
         <View style={styles.mapContainer}>
-          <View style={styles.mapPlaceholder}>
-            <MaterialIcons name="map" size={48} color="#818A91" />
-            <Text style={styles.mapText}>Bản đồ theo dõi vị trí</Text>
-          </View>
-          {/* Worker marker */}
-          <View style={[styles.mapMarker, { top: '40%', left: '30%' }]}>
-            <MaterialIcons name="two-wheeler" size={18} color="#0F382C" />
-          </View>
-          {/* Destination marker */}
-          <View style={[styles.mapMarkerPrimary, { top: '50%', left: '65%' }]}>
-            <MaterialIcons name="home" size={18} color="#ffffff" />
-          </View>
+          <WebView
+            ref={webViewRef}
+            originWhitelist={['*']}
+            source={{ html: mapHtml }}
+            style={styles.mapWebView}
+            scrollEnabled={false}
+            javaScriptEnabled={true}
+            domStorageEnabled={true}
+          />
+          {/* ETA overlay on map */}
+          {etaData && (
+            <View style={styles.mapEtaOverlay}>
+              <MaterialIcons name="two-wheeler" size={16} color="#0F382C" />
+              <Text style={styles.mapEtaText}>
+                {etaData.durationText} • {etaData.distanceText}
+              </Text>
+            </View>
+          )}
         </View>
 
         {/* Tracking Timeline */}
@@ -389,7 +697,7 @@ const styles = StyleSheet.create({
     color: '#1C2526',
   },
   mapContainer: {
-    height: 192,
+    height: 280,
     borderRadius: 14,
     overflow: 'hidden',
     backgroundColor: '#F4F1EA',
@@ -402,44 +710,31 @@ const styles = StyleSheet.create({
     shadowOffset: { width: 0, height: 8 },
     elevation: 4,
   },
-  mapPlaceholder: {
+  mapWebView: {
     flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 8,
+    backgroundColor: 'transparent',
   },
-  mapText: {
-    fontFamily: 'Montserrat_400Regular',
+  mapEtaOverlay: {
+    position: 'absolute',
+    top: 12,
+    left: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    backgroundColor: 'rgba(255,255,255,0.95)',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 8,
+    shadowColor: '#000',
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    shadowOffset: { width: 0, height: 2 },
+    elevation: 3,
+  },
+  mapEtaText: {
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 12,
-    color: '#818A91',
-  },
-  mapMarker: {
-    position: 'absolute',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#ffffff',
-    borderWidth: 2,
-    borderColor: '#0F382C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#0F382C',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
-  },
-  mapMarkerPrimary: {
-    position: 'absolute',
-    width: 32,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#0F382C',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#0F382C',
-    shadowOpacity: 0.12,
-    shadowRadius: 8,
-    elevation: 4,
+    color: '#0F382C',
   },
   timelineTitle: {
     fontFamily: 'Montserrat_600SemiBold',

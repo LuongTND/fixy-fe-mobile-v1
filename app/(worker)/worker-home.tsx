@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
 import { Booking, getWorkerBookings, getWallet } from '@/services/api/bookings';
 import { fetchCategories } from '@/services/api/categories';
-import { getWorkerProfileMe } from '@/services/api/workers';
+import { getWorkerProfileMe, updateWorkingStatus } from '@/services/api/workers';
 import { getUserProfile } from '@/services/api/user';
 import { getWorkerCategoryIcon } from '@/utils/category-ui';
 import { formatCurrency } from '@/utils/format';
@@ -25,6 +25,21 @@ export default function WorkerHomeScreen() {
     queryFn: getWorkerProfileMe,
     retry: false,
   });
+
+  React.useEffect(() => {
+    if (profile) {
+      setIsReady(profile.isAcceptingJobs ?? profile.isOnline ?? true);
+    }
+  }, [profile]);
+
+  const handleToggleStatus = async (value: boolean) => {
+    setIsReady(value);
+    try {
+      await updateWorkingStatus(value);
+    } catch (err) {
+      console.warn('[worker-home] Failed to update working status:', err);
+    }
+  };
 
   const { data: userProfileResponse = null } = useQuery({
     queryKey: ['userProfile'],
@@ -91,16 +106,23 @@ export default function WorkerHomeScreen() {
           </View>
         </View>
 
-        <Pressable
-          style={styles.notificationButton}
-          onPress={() => router.push('/(worker)/notifications' as any)}>
-          <MaterialIcons name="notifications-none" size={26} color="#383838" />
-          {unreadCount > 0 && (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
-            </View>
-          )}
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable
+            style={styles.notificationButton}
+            onPress={() => router.push('/(booking)/chat-list' as any)}>
+            <MaterialIcons name="chat-bubble-outline" size={24} color="#383838" />
+          </Pressable>
+          <Pressable
+            style={styles.notificationButton}
+            onPress={() => router.push('/(worker)/notifications' as any)}>
+            <MaterialIcons name="notifications-none" size={26} color="#383838" />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -195,14 +217,25 @@ export default function WorkerHomeScreen() {
             {/* Working Status Switch */}
             <View style={styles.statusCard}>
               <View style={styles.statusInfo}>
-                <Text style={styles.statusTitle}>Trạng thái làm việc</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.statusTitle}>Trạng thái làm việc</Text>
+                  {profile?.isBusy && (
+                    <View style={{ backgroundColor: '#FFF1E8', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 10, color: '#D97706', fontFamily: 'Montserrat_700Bold' }}>Đang có ca làm</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.statusSubtitle}>
-                  {isReady ? 'Sẵn sàng nhận việc tự động' : 'Tạm nghỉ nhận việc'}
+                  {profile?.isBusy
+                    ? 'Đang bận thực hiện ca làm việc'
+                    : isReady
+                    ? 'Sẵn sàng nhận việc tự động'
+                    : 'Tạm nghỉ nhận việc'}
                 </Text>
               </View>
               <Switch
                 value={isReady}
-                onValueChange={setIsReady}
+                onValueChange={handleToggleStatus}
                 trackColor={{ false: '#dcd9d9', true: '#C6DFC6' }}
                 thumbColor={isReady ? '#0F382C' : '#818A91'}
               />
@@ -244,7 +277,7 @@ export default function WorkerHomeScreen() {
                                 {job.description || category?.name || 'Yêu cầu dịch vụ Spa'}
                               </Text>
                               <Text style={styles.jobPrice}>
-                                {formatCurrency(job.estimatedAmount || job.estimatedPrice || 150000)}
+                                {formatCurrency(job.finalPrice || job.finalAmount || job.estimatedAmount || job.estimatedPrice || 0)}
                               </Text>
                             </View>
                             <View style={styles.jobMetaRow}>

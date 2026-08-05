@@ -160,7 +160,7 @@ export default function CustomerOrdersScreen() {
       icon: 'hourglass-empty',
     };
 
-    const displayPrice = item.finalAmount || item.estimatedPrice || item.estimatedAmount || 0;
+    const displayPrice = item.finalPrice || item.finalAmount || item.estimatedPrice || item.estimatedAmount || 0;
     const formattedPrice = formatCurrency(displayPrice);
 
     const formattedDate = formatDateTime(item.createdDate);

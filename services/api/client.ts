@@ -210,6 +210,15 @@ function getAxiosMessage(error: AxiosError) {
       if (msgLower.includes('worker profile not found')) {
         return 'Không tìm thấy hồ sơ kỹ thuật viên.';
       }
+      if (msgLower.includes('outside working hours') || msgLower.includes('outside custom working hours')) {
+        return 'Kỹ thuật viên đang ngoài khung giờ làm việc.';
+      }
+      if (msgLower.includes('not working this day') || msgLower.includes('is on day off')) {
+        return 'Kỹ thuật viên không làm việc hoặc đang nghỉ làm vào ngày này.';
+      }
+      if (msgLower.includes('schedule not found') || msgLower.includes('schedule time is invalid')) {
+        return 'Lịch làm việc của Kỹ thuật viên không hợp lệ hoặc chưa được thiết lập.';
+      }
       if (msgLower.includes('max file size exceeded') || msgLower.includes('limit')) {
         return 'Dung lượng file ảnh vượt quá giới hạn 5MB.';
       }
@@ -221,6 +230,9 @@ function getAxiosMessage(error: AxiosError) {
     const msgLower = error.message.toLowerCase();
     if (msgLower.includes('network error')) {
       return 'Lỗi kết nối mạng. Vui lòng kiểm tra lại mạng Wifi/4G của bạn.';
+    }
+    if (msgLower.includes('outside working hours')) {
+      return 'Kỹ thuật viên đang ngoài khung giờ làm việc.';
     }
     return error.message;
   }

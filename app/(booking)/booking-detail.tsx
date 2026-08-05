@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SvgCssUri } from 'react-native-svg/css';
+import { HubConnectionBuilder, LogLevel, HubConnection } from '@microsoft/signalr';
 
 import VNPayWebView from '@/components/VNPayWebView';
 import {
@@ -47,6 +48,8 @@ import {
   getVoucherDiscount,
 } from '@/services/api/voucher-utils';
 import { getDistanceAndDuration } from '@/services/api/goong';
+import { useAuthStore } from '@/store/store';
+import { getApiBaseUrl } from '@/config/env';
 
 // Map status enum values to string keys and styles
 const STATUS_MAP: Record<
@@ -161,6 +164,78 @@ export default function BookingDetailScreen() {
       return 5000;
     },
   });
+
+  // ========== SignalR BookingHub — realtime location updates ==========
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  React.useEffect(() => {
+    if (
+      !bookingId ||
+      !accessToken ||
+      !booking ||
+      Number(booking.status) < BookingStatus.Traveling ||
+      Number(booking.status) > BookingStatus.InProgress
+    ) {
+      return;
+    }
+
+    let bookingHubUrl = '';
+    try {
+      const apiUrl = getApiBaseUrl();
+      bookingHubUrl = apiUrl.replace(/\/api\/?$/, '') + '/hubs/booking';
+    } catch {
+      return;
+    }
+    if (!bookingHubUrl) return;
+
+    let connection: HubConnection | null = null;
+    let isActive = true;
+
+    async function connectHub() {
+      try {
+        connection = new HubConnectionBuilder()
+          .withUrl(bookingHubUrl, {
+            accessTokenFactory: () => accessToken || '',
+          })
+          .withAutomaticReconnect()
+          .configureLogging(LogLevel.Warning)
+          .build();
+
+        connection.on('ReceiveLocationUpdate', (dto: any) => {
+          if (!isActive) return;
+          // Invalidate tracking and ETA queries to trigger re-fetch with new data
+          queryClient.invalidateQueries({ queryKey: ['bookingTracking', bookingId] });
+          queryClient.invalidateQueries({ queryKey: ['bookingGoongEta'] });
+        });
+
+        connection.on('ReceiveStatusUpdate', (dto: any) => {
+          if (!isActive) return;
+          queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+          queryClient.invalidateQueries({ queryKey: ['bookingTracking', bookingId] });
+        });
+
+        await connection.start();
+        await connection.invoke('JoinBookingGroup', bookingId);
+        console.log('[BookingDetail] Connected to BookingHub, joined group:', bookingId);
+      } catch (err) {
+        console.warn('[BookingDetail] SignalR connection failed:', err);
+      }
+    }
+
+    connectHub();
+
+    return () => {
+      isActive = false;
+      if (connection) {
+        connection
+          .invoke('LeaveBookingGroup', bookingId)
+          .catch(() => {})
+          .finally(() => {
+            connection?.stop().catch(() => {});
+          });
+      }
+    };
+  }, [bookingId, accessToken, booking?.status]);
 
   const originLat =
     tracking?.workerLat ??
@@ -448,9 +523,12 @@ export default function BookingDetailScreen() {
     style: { color: '#818A91', bg: '#f5f3f2', border: '#DDDDDD' },
     icon: 'help-outline',
   };
-  const totalAmount = booking.finalPrice || booking.finalAmount || booking.estimatedPrice || 0;
-  const discountAmount = getVoucherDiscount(selectedVoucher);
-  const finalTotalAmount = Math.max(0, totalAmount - discountAmount);
+  const originalServicePrice = booking.estimatedPrice || booking.estimatedAmount || booking.finalPrice || booking.finalAmount || 0;
+  const finalTotalAmount = booking.finalPrice || booking.finalAmount || originalServicePrice;
+  const discountAmount =
+    booking.estimatedPrice && booking.finalPrice && booking.estimatedPrice > booking.finalPrice
+      ? booking.estimatedPrice - booking.finalPrice
+      : getVoucherDiscount(selectedVoucher);
   const walletInsufficient =
     selectedPaymentMethod === PaymentMethod.Wallet &&
     wallet !== null &&
@@ -745,7 +823,7 @@ export default function BookingDetailScreen() {
 
             <View style={styles.costRow}>
               <Text style={styles.costLabel}>Giá dịch vụ & sản phẩm</Text>
-              <Text style={styles.costValue}>{formatCurrency(totalAmount)}</Text>
+              <Text style={styles.costValue}>{formatCurrency(originalServicePrice)}</Text>
             </View>
             <View style={styles.costRow}>
               <Text style={styles.costLabel}>
