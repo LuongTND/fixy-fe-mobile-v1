@@ -178,6 +178,12 @@ export default function HomeScreen() {
   const locationLabel = currentCity ? currentCity : 'Đà Nẵng';
 
   const handleCategoryPress = (categoryId: string, categoryName: string) => {
+    // Route "Địa điểm spa" to the spa-services screen
+    if (categoryId === 'dia-diem-spa') {
+      router.push('/(customer)/spa-services' as any);
+      return;
+    }
+
     router.push({
       pathname: '/(customer)/service-workers',
       params: {
