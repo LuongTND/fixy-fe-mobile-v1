@@ -78,7 +78,7 @@ function filterAddressOptions(options: AddressPickerOption[], searchQuery: strin
   return keyword ? options.filter((item) => matchesAddressKeyword(item.name, keyword)) : options;
 }
 
-const WEEKDAY_NAMES = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+const WEEKDAY_NAMES = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
 function formatScheduleSlotTime(slot: WorkerScheduleWeekly) {
   return slot.isActive ? `${slot.startTime.slice(0, 5)} - ${slot.endTime.slice(0, 5)}` : 'Nghỉ';

@@ -109,6 +109,9 @@ export default function BookingReviewScreen() {
       queryClient.invalidateQueries({ queryKey: ['bookingReview', params.bookingId] });
       queryClient.invalidateQueries({ queryKey: ['booking', params.bookingId] });
       queryClient.invalidateQueries({ queryKey: ['myBookings'] });
+      queryClient.invalidateQueries({ queryKey: ['worker'] });
+      queryClient.invalidateQueries({ queryKey: ['workerReviews'] });
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
 
       Alert.alert('Thành công', 'Cảm ơn bạn đã đánh giá dịch vụ!', [
         {

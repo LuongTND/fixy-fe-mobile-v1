@@ -219,6 +219,9 @@ export default function BookingChatScreen() {
 
     return () => {
       isMounted = false;
+      if (currentBookingId) {
+        markBookingChatRead(currentBookingId).catch(() => {});
+      }
     };
   }, [bookingId]);
 

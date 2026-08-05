@@ -158,7 +158,7 @@ export default function WorkerJobsScreen() {
                             {job.description || 'Dịch vụ Spa'}
                           </Text>
                           <Text style={styles.jobPrice}>
-                            {formatCurrency(job.finalAmount || job.estimatedAmount || 150000)}
+                            {formatCurrency(job.finalPrice || job.finalAmount || job.estimatedAmount || job.estimatedPrice || 0)}
                           </Text>
                         </View>
 

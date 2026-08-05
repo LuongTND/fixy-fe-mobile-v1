@@ -17,7 +17,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { getWorkerDetails, WorkerProfile } from '@/services/api/workers';
 import { getWorkerReviews, Review } from '@/services/api/reviews';
 import { fetchCategories } from '@/services/api/categories';
-import { formatDateOnly } from '@/utils/date';
+import { formatDateTime, formatDateOnly } from '@/utils/date';
 import { formatCurrency } from '@/utils/format';
 import { useQuery } from '@tanstack/react-query';
 
@@ -47,9 +47,18 @@ const HeroImageCarousel = React.memo(({
   const scrollViewRef = React.useRef<ScrollView>(null);
 
   const displayImages = React.useMemo(() => {
-    if (imagesList && imagesList.length > 0) return imagesList;
-    if (ktvAvatar) return [ktvAvatar];
-    return [];
+    const list: string[] = [];
+    if (ktvAvatar && !list.includes(ktvAvatar)) {
+      list.push(ktvAvatar);
+    }
+    if (imagesList && imagesList.length > 0) {
+      imagesList.forEach((img) => {
+        if (img && !list.includes(img)) {
+          list.push(img);
+        }
+      });
+    }
+    return list;
   }, [imagesList, ktvAvatar]);
 
   const handleScroll = React.useCallback(
@@ -133,14 +142,6 @@ const HeroImageCarousel = React.memo(({
         <Pressable style={styles.floatingCircleBtn} onPress={onBack} hitSlop={12}>
           <MaterialIcons name="chevron-left" size={26} color="#1C2526" />
         </Pressable>
-        <View style={styles.topRightActions} pointerEvents="box-none">
-          <Pressable style={styles.floatingCircleBtn} hitSlop={12}>
-            <MaterialIcons name="favorite-border" size={20} color="#1C2526" />
-          </Pressable>
-          <Pressable style={styles.floatingCircleBtn} hitSlop={12}>
-            <MaterialIcons name="share" size={20} color="#1C2526" />
-          </Pressable>
-        </View>
       </View>
 
       {/* Badge & Carousel Page Indicator */}
@@ -169,7 +170,8 @@ export default function WorkerDetailScreen() {
     queryKey: ['worker', id],
     queryFn: () => getWorkerDetails(id || ''),
     enabled: !!id,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
+    refetchOnMount: 'always',
   });
 
   const targetWorkerId = worker?.workerProfileId || worker?.id || id || '';
@@ -178,7 +180,8 @@ export default function WorkerDetailScreen() {
     queryKey: ['workerReviews', targetWorkerId],
     queryFn: () => getWorkerReviews(targetWorkerId),
     enabled: !!targetWorkerId,
-    staleTime: 1000 * 60 * 5,
+    staleTime: 1000 * 30,
+    refetchOnMount: 'always',
   });
 
   const { data: categories = [] } = useQuery({
@@ -570,7 +573,7 @@ export default function WorkerDetailScreen() {
                             ))}
                           </View>
                         </View>
-                        <Text style={styles.reviewDate}>{rev.createdAt ? formatDateOnly(rev.createdAt) : ''}</Text>
+                        <Text style={styles.reviewDate}>{rev.createdAt ? formatDateTime(rev.createdAt) : ''}</Text>
                       </View>
 
                       <Text style={styles.reviewComment}>

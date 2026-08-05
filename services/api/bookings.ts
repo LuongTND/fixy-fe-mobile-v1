@@ -269,6 +269,9 @@ function normalizeBooking(raw: any): Booking {
             rating: worker?.rating ?? worker?.ratingAvg ?? 5,
           }
         : undefined,
+    customerName: source.customerName ?? source.CustomerName ?? source.customer?.fullName ?? source.customer?.name ?? null,
+    customerPhone: source.customerPhone ?? source.CustomerPhone ?? source.customer?.phone ?? null,
+    customerAvatarUrl: source.customerAvatarUrl ?? source.CustomerAvatarUrl ?? source.customer?.avatarUrl ?? null,
     createdDate: source.createdDate ?? source.createdAt ?? new Date().toISOString(),
   };
 }
