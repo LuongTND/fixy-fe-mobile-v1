@@ -23,7 +23,7 @@ import {
 import { formatCurrency } from '@/utils/format';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const DEFAULT_DETAIL_COVER = 'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=1000&q=80';
+const DEFAULT_DETAIL_COVER: string | null = null;
 
 function getInitials(name: string): string {
   if (!name) return 'SP';
@@ -103,6 +103,7 @@ export default function SpaDetailScreen() {
   }, {} as Record<string, SpaPartnerServiceDto[]>);
 
   const coverUri = spa.coverImageUrl || DEFAULT_DETAIL_COVER;
+  const hasCover = !!coverUri;
   const viewCount = spa.totalReviews * 43 + 120;
 
   return (
@@ -123,7 +124,13 @@ export default function SpaDetailScreen() {
       <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
         {/* Large Hero Image Banner with Photo Counter Pill */}
         <View style={styles.heroImageContainer}>
-          <Image source={{ uri: coverUri }} style={styles.heroImage} resizeMode="cover" />
+          {hasCover ? (
+            <Image source={{ uri: coverUri }} style={styles.heroImage} resizeMode="cover" />
+          ) : (
+            <View style={[styles.heroImage, { backgroundColor: '#E8E2D8', alignItems: 'center', justifyContent: 'center' }]}>
+              <MaterialIcons name="spa" size={56} color="#C4B9A8" />
+            </View>
+          )}
           <View style={styles.photoCountBadge}>
             <Text style={styles.photoCountText}>1/5</Text>
           </View>

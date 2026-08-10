@@ -855,14 +855,18 @@ export default function WorkerProfileScreen() {
         <View className="bg-white border border-gray-300 rounded-2xl p-5 items-center mb-5 shadow-sm">
           <View className="relative mb-3">
             <Pressable onPress={handlePickAvatar} disabled={isUploadingAvatar}>
-              <Image
-                source={{
-                  uri:
-                    profile?.avatarUrl ||
-                    'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-                }}
-                className="w-20 h-20 rounded-full border-2 border-[#0F382C]"
-              />
+              {profile?.avatarUrl ? (
+                <Image
+                  source={{ uri: profile.avatarUrl }}
+                  className="w-20 h-20 rounded-full border-2 border-[#0F382C]"
+                />
+              ) : (
+                <View className="w-20 h-20 rounded-full border-2 border-[#0F382C] bg-[#D6CFC4] items-center justify-center">
+                  <Text style={{ fontSize: 28, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                    {(profile?.fullName || '').charAt(0).toUpperCase() || '?'}
+                  </Text>
+                </View>
+              )}
               {isUploadingAvatar ? (
                 <View className="absolute inset-0 rounded-full bg-black/40 items-center justify-center">
                   <ActivityIndicator size="small" color="#ffffff" />

@@ -5,6 +5,7 @@ import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import * as React from 'react';
 import {
+  Animated,
   Dimensions,
   Image,
   Pressable,
@@ -50,44 +51,96 @@ const SPA_BANNER_CARDS = [
   },
 ];
 
-const FEATURED_TECHNICIANS = [
-  {
-    id: 'kim-hang',
-    name: 'Kim Hằng',
-    badge: 'Chất lượng',
-    badgeColor: '#E68A2E',
-    rating: 4.9,
-    reviews: 135,
-    distance: '100m',
-    availableTime: 'Sớm nhất 12:00',
-    avatar: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=300&q=80',
-    specialty: 'Massage Dầu, Thái, Trị liệu cổ vai gáy',
+function getInitials(name: string): string {
+  if (!name) return '?';
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  }
+  return name.charAt(0).toUpperCase();
+}
+
+function InitialsAvatar({ name, size = 80, style }: { name?: string; size?: number; style?: any }) {
+  const initials = getInitials(name || '');
+  const fontSize = size * 0.36;
+  return (
+    <View
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size * 0.175,
+          backgroundColor: '#D6CFC4',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        style,
+      ]}>
+      <Text style={{ fontSize, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+        {initials}
+      </Text>
+    </View>
+  );
+}
+
+function SkeletonShimmer({ width: w, height: h, borderRadius: br = 4, style }: { width: number | string; height: number; borderRadius?: number; style?: any }) {
+  const shimmerAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shimmerAnim]);
+
+  const opacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.7],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        { width: w as any, height: h, borderRadius: br, backgroundColor: '#E0DDD7', opacity },
+        style,
+      ]}
+    />
+  );
+}
+
+function SkeletonKtvCard() {
+  return (
+    <View style={skeletonStyles.card}>
+      <SkeletonShimmer width={80} height={80} borderRadius={14} />
+      <View style={{ flex: 1, gap: 10, paddingVertical: 4 }}>
+        <SkeletonShimmer width="65%" height={16} borderRadius={6} />
+        <SkeletonShimmer width="50%" height={12} borderRadius={4} />
+        <SkeletonShimmer width="35%" height={12} borderRadius={4} />
+      </View>
+      <View style={{ alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch', paddingVertical: 4 }}>
+        <SkeletonShimmer width={70} height={10} borderRadius={4} />
+        <SkeletonShimmer width={56} height={34} borderRadius={20} />
+      </View>
+    </View>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
   },
-  {
-    id: 'thanh-tran',
-    name: 'Thanh Trần',
-    badge: 'Mới đến',
-    badgeColor: '#4A90E2',
-    rating: 5.0,
-    reviews: 2,
-    distance: '1 km',
-    availableTime: 'Sớm nhất 12:00',
-    avatar: 'https://images.unsplash.com/photo-1580489944761-15a19d654956?auto=format&fit=crop&w=300&q=80',
-    specialty: 'Chăm sóc da mặt, Masa mặt',
-  },
-  {
-    id: 'lyly',
-    name: 'Lyly',
-    badge: 'Mới cập nhật',
-    badgeColor: '#E05297',
-    rating: 5.0,
-    reviews: 667,
-    distance: '1 km',
-    availableTime: 'Sớm nhất 12:00',
-    avatar: 'https://images.unsplash.com/photo-1567532939604-b6b5b0db2604?auto=format&fit=crop&w=300&q=80',
-    specialty: 'Nails, Wax lông, Tẩy tế bào chết',
-  },
-];
+});
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
@@ -119,7 +172,7 @@ export default function HomeScreen() {
     queryFn: () => fetchCategories(),
   });
 
-  const { data: apiWorkers = [] } = useQuery<WorkerProfile[]>({
+  const { data: apiWorkers = [], isLoading: isLoadingWorkers } = useQuery<WorkerProfile[]>({
     queryKey: ['homeWorkers', selectedCity, userLocation?.lat, userLocation?.lng],
     queryFn: () =>
       searchWorkers({
@@ -294,89 +347,87 @@ export default function HomeScreen() {
         </View>
 
         <View style={styles.technicianList}>
-          {(featuredWorkers.length > 0
-            ? featuredWorkers
-            : FEATURED_TECHNICIANS.map((f, idx) => ({
-                id: f.id,
-                workerProfileId: f.id,
-                fullName: f.name,
-                avatarUrl: f.avatar,
-                rating: f.rating,
-                reviewsCount: f.reviews,
-                distance: f.distance,
-                badge: idx % 3,
-                estimatedArrivalMinutes: 20,
-              }))
-          ).map((item: any) => {
-            const BADGE_CONFIG: Record<number, { text: string; color: string }> = {
-              0: { text: 'Mới đến', color: '#4A90E2' },
-              1: { text: 'Mới cập nhật', color: '#E05297' },
-              2: { text: 'Chất lượng', color: '#E68A2E' },
-              3: { text: 'Vàng', color: '#D4AF37' },
-            };
+          {isLoadingWorkers ? (
+            <>
+              <SkeletonKtvCard />
+              <SkeletonKtvCard />
+              <SkeletonKtvCard />
+            </>
+          ) : featuredWorkers.length > 0 ? (
+            featuredWorkers.map((item: any) => {
+              const BADGE_CONFIG: Record<number, { text: string; color: string }> = {
+                0: { text: 'Mới đến', color: '#4A90E2' },
+                1: { text: 'Mới cập nhật', color: '#E05297' },
+                2: { text: 'Chất lượng', color: '#E68A2E' },
+                3: { text: 'Vàng', color: '#D4AF37' },
+              };
 
-            const badgeNum = typeof item.badge === 'number' ? item.badge : 0;
-            const badge = BADGE_CONFIG[badgeNum] || BADGE_CONFIG[0];
-            const arrivalLabel =
-              item.estimatedArrivalMinutes != null
-                ? `Dự kiến ${item.estimatedArrivalMinutes} phút`
-                : (item.isOnline ? 'Đặt ngay' : (item.availableTime || 'Sớm nhất 12:00'));
+              const badgeNum = typeof item.badge === 'number' ? item.badge : 0;
+              const badge = BADGE_CONFIG[badgeNum] || BADGE_CONFIG[0];
+              const arrivalLabel =
+                item.estimatedArrivalMinutes != null
+                  ? `Dự kiến ${item.estimatedArrivalMinutes} phút`
+                  : (item.isOnline ? 'Đặt ngay' : (item.availableTime || ''));
 
-            const workerTargetId = item.workerProfileId || item.id;
-            const avatarUri = item.avatarUrl || item.avatar;
+              const workerTargetId = item.workerProfileId || item.id;
+              const avatarUri = item.avatarUrl || item.avatar;
 
-            return (
-              <Pressable
-                key={item.id || workerTargetId}
-                style={styles.ktvCard}
-                onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
-                <View style={styles.ktvAvatarWrapper}>
-                  {avatarUri ? (
-                    <Image source={{ uri: avatarUri }} style={styles.ktvAvatar} />
-                  ) : (
-                    <View style={[styles.ktvAvatar, styles.ktvAvatarPlaceholder]}>
-                      <MaterialIcons name="person" size={32} color="#A0AEC0" />
+              return (
+                <Pressable
+                  key={item.id || workerTargetId}
+                  style={styles.ktvCard}
+                  onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
+                  <View style={styles.ktvAvatarWrapper}>
+                    {avatarUri ? (
+                      <Image source={{ uri: avatarUri }} style={styles.ktvAvatar} />
+                    ) : (
+                      <InitialsAvatar name={item.fullName || item.name} size={80} style={styles.ktvAvatar} />
+                    )}
+                    <View style={[styles.badgePill, { backgroundColor: badge.color }]}>
+                      <Text style={styles.badgePillText}>{badge.text}</Text>
                     </View>
-                  )}
-                  <View style={[styles.badgePill, { backgroundColor: badge.color }]}>
-                    <Text style={styles.badgePillText}>{badge.text}</Text>
                   </View>
-                </View>
 
-                <View style={styles.ktvMainDetails}>
-                  <Text style={styles.ktvName} numberOfLines={1}>
-                    {item.fullName || item.name}
-                  </Text>
-
-                  <View style={styles.ratingDistanceRow}>
-                    <MaterialIcons name="star" size={16} color="#F59E0B" />
-                    <Text style={styles.ratingText}>
-                      {item.rating > 0 ? (typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating) : '5.0'}
+                  <View style={styles.ktvMainDetails}>
+                    <Text style={styles.ktvName} numberOfLines={1}>
+                      {item.fullName || item.name}
                     </Text>
-                    <Text style={styles.reviewsText}>({item.reviewsCount ?? item.reviews ?? 0} đánh giá)</Text>
+
+                    <View style={styles.ratingDistanceRow}>
+                      <MaterialIcons name="star" size={16} color="#F59E0B" />
+                      <Text style={styles.ratingText}>
+                        {item.rating > 0 ? (typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating) : '--'}
+                      </Text>
+                      <Text style={styles.reviewsText}>({item.reviewsCount ?? 0} đánh giá)</Text>
+                    </View>
+
+                    <View style={styles.locationRow}>
+                      <MaterialIcons name="near-me" size={14} color="#818A91" />
+                      <Text style={styles.distanceText} numberOfLines={1}>
+                        {item.distance || item.city || item.address?.city || selectedCity || 'Không xác định'}
+                      </Text>
+                    </View>
                   </View>
 
-                  <View style={styles.locationRow}>
-                    <MaterialIcons name="near-me" size={14} color="#818A91" />
-                    <Text style={styles.distanceText} numberOfLines={1}>
-                      {item.distance || item.city || item.address?.city || selectedCity || 'Đà Nẵng'}
-                    </Text>
+                  <View style={styles.rightColumn}>
+                    {arrivalLabel ? (
+                      <Text style={styles.ktvAvailability}>{arrivalLabel}</Text>
+                    ) : <View />}
+                    <Pressable
+                      style={styles.bookActionBtn}
+                      onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
+                      <Text style={styles.bookActionText}>Đặt</Text>
+                    </Pressable>
                   </View>
-                </View>
-
-                <View style={styles.rightColumn}>
-                  {arrivalLabel ? (
-                    <Text style={styles.ktvAvailability}>{arrivalLabel}</Text>
-                  ) : <View />}
-                  <Pressable
-                    style={styles.bookActionBtn}
-                    onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
-                    <Text style={styles.bookActionText}>Đặt</Text>
-                  </Pressable>
-                </View>
-              </Pressable>
-            );
-          })}
+                </Pressable>
+              );
+            })
+          ) : (
+            <View style={styles.emptyState}>
+              <MaterialIcons name="search-off" size={40} color="#C4B9A8" />
+              <Text style={styles.emptyStateText}>Chưa có kỹ thuật viên nào trong khu vực</Text>
+            </View>
+          )}
         </View>
       </ScrollView>
 
@@ -657,5 +708,17 @@ const styles = StyleSheet.create({
     color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
+  },
+  emptyState: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 32,
+    gap: 10,
+  },
+  emptyStateText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
   },
 });

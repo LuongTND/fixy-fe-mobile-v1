@@ -20,6 +20,7 @@ import { fetchCategories } from '@/services/api/categories';
 import { formatDateTime, formatDateOnly } from '@/utils/date';
 import { formatCurrency } from '@/utils/format';
 import { useQuery } from '@tanstack/react-query';
+import { useLocationStore } from '@/store/store';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -163,6 +164,7 @@ const HeroImageCarousel = React.memo(({
 export default function WorkerDetailScreen() {
   const insets = useSafeAreaInsets();
   const { id } = useLocalSearchParams<{ id: string }>();
+  const { selectedCity } = useLocationStore();
   const [showFullBio, setShowFullBio] = React.useState(false);
   const [translatedReviews, setTranslatedReviews] = React.useState<Record<string, boolean>>({});
 
@@ -393,7 +395,7 @@ export default function WorkerDetailScreen() {
           <View style={styles.subInfoRow}>
             <MaterialIcons name="near-me" size={14} color="#818A91" />
             <Text style={styles.distanceText}>
-              {worker?.distance || worker?.city || 'Đà Nẵng'}
+              {worker?.distance || worker?.city || worker?.address?.city || selectedCity || 'Không xác định'}
             </Text>
             <Text style={styles.dotDivider}>|</Text>
             <MaterialIcons name="star" size={16} color="#F59E0B" />
