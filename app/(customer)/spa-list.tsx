@@ -21,15 +21,8 @@ import {
   SearchSpaPartnerParams,
 } from '@/services/api/spa-partners';
 
-const FALLBACK_SPA_THUMBNAILS = [
-  'https://images.unsplash.com/photo-1540555700478-4be289fbecef?auto=format&fit=crop&w=500&q=80',
-  'https://images.unsplash.com/photo-1544161515-4ab6ce6db874?auto=format&fit=crop&w=500&q=80',
-  'https://images.unsplash.com/photo-1600334129128-685c5582fd35?auto=format&fit=crop&w=500&q=80',
-  'https://images.unsplash.com/photo-1519823551278-64ac92734fb1?auto=format&fit=crop&w=500&q=80',
-];
-
-function getSpaFallbackThumbnail(index: number): string {
-  return FALLBACK_SPA_THUMBNAILS[index % FALLBACK_SPA_THUMBNAILS.length];
+function getSpaFallbackThumbnail(_index: number): string | null {
+  return null;
 }
 
 const QUICK_FILTERS = [
@@ -124,11 +117,17 @@ export default function SpaListScreen() {
         onPress={() => handleSpaPress(item)}>
         {/* Top Visual Container */}
         <View style={styles.imageWrapper}>
-          <Image
-            source={{ uri: thumbUri }}
-            style={styles.spaCardImage}
-            resizeMode="cover"
-          />
+          {thumbUri ? (
+            <Image
+              source={{ uri: thumbUri }}
+              style={styles.spaCardImage}
+              resizeMode="cover"
+            />
+          ) : (
+            <View style={[styles.spaCardImage, { backgroundColor: '#E8E2D8', alignItems: 'center', justifyContent: 'center' }]}>
+              <MaterialIcons name="spa" size={40} color="#C4B9A8" />
+            </View>
+          )}
           <LinearGradient
             colors={['transparent', 'rgba(0, 0, 0, 0.65)']}
             style={styles.imageOverlayGradient}

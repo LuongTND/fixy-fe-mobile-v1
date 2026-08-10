@@ -663,7 +663,7 @@ export default function BookingDetailScreen() {
                       status: String(booking.status),
                       workerName: booking.worker?.fullName || booking.workerName || '',
                       workerPhone: booking.worker?.phone || booking.workerPhone || '',
-                      workerRating: String(booking.worker?.rating || '4.8'),
+                      workerRating: String(booking.worker?.rating || '--'),
                       categoryName: categoryName,
                       workerLat: tracking.workerLat ? String(tracking.workerLat) : '',
                       workerLng: tracking.workerLng ? String(tracking.workerLng) : '',
@@ -684,15 +684,20 @@ export default function BookingDetailScreen() {
             <View style={styles.infoCard}>
               <Text style={styles.infoCardTitle}>Kỹ thuật viên phụ trách</Text>
               <View style={styles.workerRow}>
-                <Image
-                  source={{
-                    uri:
-                      booking.worker?.avatarUrl ||
-                      booking.workerAvatarUrl ||
-                      'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-                  }}
-                  style={styles.workerAvatar}
-                />
+                {(booking.worker?.avatarUrl || booking.workerAvatarUrl) ? (
+                  <Image
+                    source={{
+                      uri: (booking.worker?.avatarUrl || booking.workerAvatarUrl) ?? undefined,
+                    }}
+                    style={styles.workerAvatar}
+                  />
+                ) : (
+                  <View style={[styles.workerAvatar, { alignItems: 'center', justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 18, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                      {(booking.worker?.fullName || booking.workerName || '').charAt(0).toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.workerDetails}>
                   <Text style={styles.workerName}>
                     {booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên'}
@@ -700,7 +705,7 @@ export default function BookingDetailScreen() {
                   <View style={styles.ratingRow}>
                     <MaterialIcons name="star" size={14} color="#D4AF37" />
                     <Text style={styles.ratingVal}>
-                      {booking.worker?.rating?.toFixed(1) || '4.8'}
+                      {booking.worker?.rating?.toFixed(1) || '--'}
                     </Text>
                     <Text style={styles.workerPhone}>
                       • SĐT: {booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}

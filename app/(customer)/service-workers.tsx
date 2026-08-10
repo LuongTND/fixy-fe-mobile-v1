@@ -240,7 +240,7 @@ export default function ServiceWorkersScreen() {
           <View style={styles.locationRow}>
             <MaterialIcons name="near-me" size={14} color="#818A91" />
             <Text style={styles.distanceText} numberOfLines={1}>
-              {item.distance || item.city || item.address?.city || selectedCity || 'Đà Nẵng'}
+              {item.distance || item.city || item.address?.city || selectedCity || 'Không xác định'}
             </Text>
           </View>
         </View>

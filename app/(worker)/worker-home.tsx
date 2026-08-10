@@ -89,15 +89,18 @@ export default function WorkerHomeScreen() {
       {/* Top Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerLeft}>
-          <Image
-            source={{
-              uri:
-                profile?.avatarUrl ||
-                userProfile?.avatarUrl ||
-                'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-            }}
-            style={styles.avatar}
-          />
+          {(profile?.avatarUrl || userProfile?.avatarUrl) ? (
+            <Image
+              source={{ uri: (profile?.avatarUrl || userProfile?.avatarUrl) ?? undefined }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: '#D6CFC4', alignItems: 'center', justifyContent: 'center' }]}>
+              <Text style={{ fontSize: 16, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                {(profile?.fullName || userProfile?.fullName || '').charAt(0).toUpperCase() || '?'}
+              </Text>
+            </View>
+          )}
           <View>
             <Text style={styles.greetingText}>
               Chào, {profile?.fullName || userProfile?.fullName || 'Đối tác'}!

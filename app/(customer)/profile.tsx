@@ -105,14 +105,18 @@ export default function ProfileScreen() {
           {/* User Profile Header */}
           <View style={styles.userHeaderCard}>
             <View style={styles.avatarWrapper}>
-              <Image
-                source={{
-                  uri:
-                    profile?.avatarUrl ??
-                    'https://images.unsplash.com/photo-1534528741775-53994a69daeb?auto=format&fit=crop&w=200&q=80',
-                }}
-                style={styles.avatarImage}
-              />
+              {profile?.avatarUrl ? (
+                <Image
+                  source={{ uri: profile.avatarUrl }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={[styles.avatarImage, { backgroundColor: '#D6CFC4', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ fontSize: 22, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                    {(profile?.fullName || '').charAt(0).toUpperCase() || '?'}
+                  </Text>
+                </View>
+              )}
               <Pressable
                 style={styles.cameraBadge}
                 onPress={() => router.push('/(customer)/profile-info' as any)}>
@@ -121,8 +125,10 @@ export default function ProfileScreen() {
             </View>
 
             <View style={styles.userMeta}>
-              <Text style={styles.userNameText}>{profile?.fullName || 'Tấn Đại'}</Text>
-              <Text style={styles.userPhoneText}>{profile?.phone || target || '09xxxxxxxx'}</Text>
+              <Text style={styles.userNameText}>{profile?.fullName || 'Người dùng'}</Text>
+              {(profile?.phone || target) ? (
+                <Text style={styles.userPhoneText}>{profile?.phone || target}</Text>
+              ) : null}
             </View>
           </View>
 
