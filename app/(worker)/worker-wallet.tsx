@@ -374,13 +374,20 @@ export default function WorkerWalletScreen() {
                   <View style={styles.requestLeft}>
                     <MaterialIcons name="arrow-outward" size={20} color="#BA1A1A" />
                     <View>
-                      <Text style={styles.requestTitle}>Yêu cầu rút tiền</Text>
+                      <Text style={styles.requestTitle}>
+                        {req.payoutCode ? `Rút tiền • ${req.payoutCode}` : 'Yêu cầu rút tiền'}
+                      </Text>
                       <Text style={styles.transactionDate}>{formatDateTime(req.createdDate)}</Text>
                     </View>
                   </View>
                   <View style={styles.requestRight}>
                     <Text style={styles.requestAmount}>-{formatCurrency(req.amount)}</Text>
                     <Text style={styles.requestStatusText}>{getPayoutStatusLabel(req)}</Text>
+                    {getPayoutStatus(req) === 1 && req.gatewayTransactionRef ? (
+                      <Text style={[styles.requestStatusText, { color: '#006e20', fontSize: 11 }]}>
+                        🏦 {req.gatewayTransactionRef}
+                      </Text>
+                    ) : null}
                     {getPayoutStatus(req) === 3 && req.transferredAt ? (
                       <Text style={styles.requestStatusText}>
                         {formatDateTime(req.transferredAt)}

@@ -231,7 +231,7 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
             id: opt.id || opt.Id,
             workerServiceId: opt.workerServiceId || opt.WorkerServiceId,
             durationMinutes: typeof opt.durationMinutes === 'number' ? opt.durationMinutes : (typeof opt.DurationMinutes === 'number' ? opt.DurationMinutes : 60),
-            price: typeof opt.price === 'number' ? opt.price : (typeof opt.Price === 'number' ? opt.Price : (s.basePrice ?? 500000)),
+            price: typeof opt.price === 'number' ? opt.price : (typeof opt.Price === 'number' ? opt.Price : (s.basePrice ?? 0)),
             sortOrder: opt.sortOrder ?? opt.SortOrder ?? 1,
             isActive: opt.isActive ?? opt.IsActive ?? true,
           })),
@@ -349,15 +349,19 @@ export type PayoutAccount = {
 export type PayoutRequest = {
   id: string;
   payoutAccountId: string;
+  payoutCode: string;
   amount: number;
   status: number; // 0 = Pending, 1 = Approved, 2 = Rejected, 3 = Transferred
   createdDate: string;
   payoutAccount?: PayoutAccount;
   transferredAt?: string | null;
   rejectReason?: string | null;
+  gatewayTransactionRef?: string | null;
+  vietQrUrl?: string | null;
   accountNumber?: string;
   accountName?: string;
   bankName?: string;
+  bankCode?: string;
 };
 
 // ================= API Services =================
@@ -406,6 +410,7 @@ function mapBackendPayoutRequest(raw: any): PayoutRequest {
   return {
     id: String(raw?.id ?? `payout-req-${Date.now()}`),
     payoutAccountId: String(raw?.payoutAccountId ?? payoutAccountRaw?.id ?? ''),
+    payoutCode: String(raw?.payoutCode ?? ''),
     amount: Number(raw?.amount ?? 0),
     status: statusNum,
     createdDate: String(
@@ -414,11 +419,14 @@ function mapBackendPayoutRequest(raw: any): PayoutRequest {
     payoutAccount: payoutAccountRaw ? mapBackendPayoutAccount(payoutAccountRaw) : undefined,
     transferredAt: raw?.transferredAt ?? raw?.transferred_at ?? null,
     rejectReason: raw?.rejectReason ?? raw?.reject_reason ?? null,
+    gatewayTransactionRef: raw?.gatewayTransactionRef ?? null,
+    vietQrUrl: raw?.vietQrUrl ?? null,
     accountNumber:
       raw?.accountNumber ?? raw?.account_number ?? payoutAccountRaw?.accountNumber ?? undefined,
     accountName:
       raw?.accountName ?? raw?.account_name ?? payoutAccountRaw?.accountHolderName ?? undefined,
     bankName: raw?.bankName ?? raw?.bank_name ?? payoutAccountRaw?.bankName ?? undefined,
+    bankCode: raw?.bankCode ?? raw?.bank_code ?? payoutAccountRaw?.bankCode ?? undefined,
   };
 }
 

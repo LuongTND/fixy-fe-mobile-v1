@@ -36,6 +36,7 @@ import {
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import PayOSWebView from '@/components/PayOSWebView';
 
 export default function BookingCheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -65,6 +66,9 @@ export default function BookingCheckoutScreen() {
   const [showAddressModal, setShowAddressModal] = React.useState(false);
   const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<number>(PaymentMethod.Cash);
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
+  const [showPayOSWebView, setShowPayOSWebView] = React.useState(false);
+  const [payosUrl, setPayosUrl] = React.useState('');
+  const [confirmedBookingId, setConfirmedBookingId] = React.useState<string | null>(null);
 
   const [createdDraftId, setCreatedDraftId] = React.useState<string | null>(null);
   const activeDraftId = paramDraftId || createdDraftId;
@@ -173,7 +177,7 @@ export default function BookingCheckoutScreen() {
   const activeOption = activeWorkerService?.options?.find((opt) => opt.durationMinutes === durationNum)
     || activeWorkerService?.options?.[0];
 
-  const servicePrice = activeOption?.price || activeWorkerService?.basePrice || worker?.basePrice || 500000;
+  const servicePrice = activeOption?.price ?? activeWorkerService?.basePrice ?? worker?.basePrice ?? 0;
   const finalPrice = Math.max(0, servicePrice - discountAmount);
   const walletInsufficient = walletBalance < finalPrice;
 
@@ -242,6 +246,7 @@ export default function BookingCheckoutScreen() {
     },
     onSuccess: async (data) => {
       const targetUrl = `/booking-detail?bookingId=${data.bookingId}` as any;
+      setConfirmedBookingId(data.bookingId);
       if (data.type === 'wallet') {
         Alert.alert(
           'Đặt lịch & Thanh toán thành công',
@@ -256,13 +261,22 @@ export default function BookingCheckoutScreen() {
         router.replace(targetUrl);
       } else if (data.type === 'online') {
         if (data.paymentUrl) {
-          try {
-            await Linking.openURL(data.paymentUrl);
-          } catch (e) {
-            console.warn('Could not open payment URL', e);
+          // PayOS: Open in-app WebView to keep context
+          if (selectedPaymentMethod === PaymentMethod.PayOS || selectedPaymentMethod === PaymentMethod.Card) {
+            setPayosUrl(data.paymentUrl);
+            setShowPayOSWebView(true);
+          } else {
+            // VNPay / MoMo: Open in external browser
+            try {
+              await Linking.openURL(data.paymentUrl);
+            } catch (e) {
+              console.warn('Could not open payment URL', e);
+            }
+            router.replace(targetUrl);
           }
+        } else {
+          router.replace(targetUrl);
         }
-        router.replace(targetUrl);
       }
     },
     onError: (error: any) => {
@@ -312,6 +326,29 @@ export default function BookingCheckoutScreen() {
 
   return (
     <View style={styles.screen}>
+      {/* PayOS WebView Modal */}
+      <PayOSWebView
+        visible={showPayOSWebView}
+        paymentUrl={payosUrl}
+        onClose={() => setShowPayOSWebView(false)}
+        onSuccess={(transactionId, params) => {
+          setShowPayOSWebView(false);
+          Alert.alert(
+            'Thanh toán thành công! 🎉',
+            'Đơn dịch vụ của bạn đã được thanh toán thành công qua PayOS.'
+          );
+          if (confirmedBookingId) {
+            router.replace(`/booking-detail?bookingId=${confirmedBookingId}` as any);
+          }
+        }}
+        onError={(error) => {
+          setShowPayOSWebView(false);
+          Alert.alert('Thanh toán thất bại', error);
+          if (confirmedBookingId) {
+            router.replace(`/booking-detail?bookingId=${confirmedBookingId}` as any);
+          }
+        }}
+      />
       {/* Header Bar */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
