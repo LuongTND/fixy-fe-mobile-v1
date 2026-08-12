@@ -12,7 +12,8 @@ import {
   REGISTRATION_OTP_PURPOSE,
   WORKER_ROLE_REGISTER,
 } from '@/features/auth/constants';
-import { register, sendOtp, verifyOtp, login as loginRequest } from '@/features/auth/services/auth-api';
+import { promptGoogleSignIn } from '@/features/auth/services/google-auth';
+import { register, sendOtp, verifyOtp, login as loginRequest, loginGoogle } from '@/features/auth/services/auth-api';
 import { extractAuthTokens } from '@/features/auth/tokens';
 import { FieldErrors, validateRegisterForm } from '@/features/auth/validation';
 import { getApiErrorMessage } from '@/services/api/client';
@@ -29,8 +30,40 @@ export default function RegisterScreen() {
   const saveAuth = useAuthStore((state) => state.saveAuth);
   const setPendingOtp = useAuthStore((state) => state.setPendingOtp);
 
-  function googleSignIn() {
-    Alert.alert('Đăng nhập Google', 'Tính năng đăng nhập Google đang được phát triển.');
+  async function performGoogleLogin(credential: string) {
+    setLoading(true);
+    setApiError('');
+    try {
+      // Pass the selected role so Backend creates account with correct role
+      const roleValue = selectedRole ? ROLE_REGISTER_VALUE[selectedRole] : undefined;
+      const response = await loginGoogle(credential, roleValue);
+      const tokens = extractAuthTokens(response);
+      if (tokens) {
+        const userEmail = response?.data?.email ?? response?.email ?? '';
+        await saveAuth(tokens, userEmail);
+
+        // Navigate based on user's role
+        const roles = response?.data?.roles ?? response?.roles;
+        if (Array.isArray(roles) && roles.includes('WORKER')) {
+          router.replace('/worker-home' as any);
+        } else {
+          router.replace('/home' as any);
+        }
+      } else {
+        setApiError('Không thể lấy mã xác thực từ máy chủ.');
+      }
+    } catch (err) {
+      setApiError(getApiErrorMessage(err) || 'Đăng nhập bằng Google thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function googleSignIn() {
+    const credential = await promptGoogleSignIn();
+    if (credential) {
+      performGoogleLogin(credential);
+    }
   }
 
   const [step, setStep] = React.useState(1);
@@ -526,6 +559,20 @@ function RegisterForm({
                 )}
               </Pressable>
             </View>
+
+            {/* Google sign-in shortcut */}
+            <View style={styles.dividerRow}>
+              <View style={styles.divider} />
+              <Text style={styles.dividerText}>hoặc</Text>
+              <View style={styles.divider} />
+            </View>
+
+            <Pressable
+              style={styles.googleButton}
+              onPress={onGoogleSignIn}>
+              <GoogleIcon size={24} />
+              <Text style={styles.googleText}>Đăng ký với Google</Text>
+            </Pressable>
           </View>
         )}
 
@@ -582,19 +629,6 @@ function RegisterForm({
 
             <View style={styles.actions}>
               <AuthButton label="Đăng ký" loading={loading} onPress={onSubmit} />
-
-              <View style={styles.dividerRow}>
-                <View style={styles.divider} />
-                <Text style={styles.dividerText}>hoặc</Text>
-                <View style={styles.divider} />
-              </View>
-
-              <Pressable
-                style={styles.googleButton}
-                onPress={onGoogleSignIn}>
-                <GoogleIcon size={24} />
-                <Text style={styles.googleText}>Tiếp tục với Google</Text>
-              </Pressable>
             </View>
           </View>
         )}

@@ -3,6 +3,7 @@ export const AUTH_ENDPOINTS = {
   otpSend: '/auth/otp/send',
   otpVerify: '/auth/otp/verify',
   login: '/auth/login',
+  loginGoogle: '/auth/login/google',
   refreshToken: '/auth/token/refresh',
   changePassword: '/auth/password/change',
   resetPassword: '/auth/reset-password',
@@ -51,4 +52,12 @@ export function buildResetPasswordBody(target: string, newPassword: string) {
 
 export function buildForgotPasswordBody(target: string) {
   return { target };
+}
+
+export function buildGoogleLoginBody(credential: string, roleRegister?: number) {
+  const body: { credential: string; roleRegister?: number } = { credential };
+  if (roleRegister !== undefined) {
+    body.roleRegister = roleRegister;
+  }
+  return body;
 }
