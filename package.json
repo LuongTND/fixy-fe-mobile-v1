@@ -20,6 +20,7 @@
     "@microsoft/signalr": "^10.0.0",
     "@react-native-community/datetimepicker": "8.4.4",
     "@react-native-community/slider": "5.0.1",
+    "@react-native-google-signin/google-signin": "^16.1.4",
     "@react-native-picker/picker": "2.11.1",
     "@react-navigation/native": "^7.1.6",
     "@rn-primitives/avatar": "^1.4.0",

@@ -7,7 +7,8 @@ import { AuthButton } from '@/features/auth/components/auth-button';
 import { AuthScreen } from '@/features/auth/components/auth-screen';
 import { AuthTextField } from '@/features/auth/components/auth-text-field';
 import { GoogleIcon } from '@/features/auth/components/google-icon';
-import { login as loginRequest } from '@/features/auth/services/auth-api';
+import { promptGoogleSignIn } from '@/features/auth/services/google-auth';
+import { login as loginRequest, loginGoogle } from '@/features/auth/services/auth-api';
 import { extractAuthTokens } from '@/features/auth/tokens';
 import { FieldErrors, validateLoginForm } from '@/features/auth/validation';
 import { apiClient, getApiErrorMessage } from '@/services/api/client';
@@ -30,8 +31,38 @@ export default function LoginScreen() {
     return () => backHandler.remove();
   }, []);
 
-  function googleSignIn() {
-    Alert.alert('Đăng nhập Google', 'Tính năng đăng nhập Google đang được phát triển.');
+  async function performGoogleLogin(credential: string) {
+    setLoading(true);
+    setApiError('');
+    try {
+      const response = await loginGoogle(credential);
+      const tokens = extractAuthTokens(response);
+      if (tokens) {
+        const userEmail = response?.data?.email ?? response?.email ?? '';
+        await saveAuth(tokens, userEmail);
+
+        // Navigate based on user's role
+        const roles = response?.data?.roles ?? response?.roles;
+        if (Array.isArray(roles) && roles.includes('WORKER')) {
+          router.replace('/worker-home' as any);
+        } else {
+          router.replace('/home' as any);
+        }
+      } else {
+        setApiError('Không thể lấy mã xác thực từ máy chủ.');
+      }
+    } catch (err) {
+      setApiError(getApiErrorMessage(err) || 'Đăng nhập bằng Google thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function googleSignIn() {
+    const credential = await promptGoogleSignIn();
+    if (credential) {
+      performGoogleLogin(credential);
+    }
   }
   const [target, setTarget] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -155,7 +186,7 @@ export default function LoginScreen() {
             style={styles.googleButton}
             onPress={googleSignIn}>
             <GoogleIcon size={24} />
-            <Text style={styles.googleText}>Tiếp tục với Google</Text>
+            <Text style={styles.googleText}>Đăng nhập với Google</Text>
           </Pressable>
 
           <View style={styles.footerRow}>
