@@ -47,6 +47,18 @@ module.exports = ({ config }) => {
         process.env.VIETNAM_PROVINCES_API_URL ||
         envLocal.VIETNAM_PROVINCES_API_URL ||
         'https://provinces.open-api.vn/api/v2',
+      googleWebClientId:
+        process.env.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+        process.env.GOOGLE_WEB_CLIENT_ID ||
+        process.env.GOOGLE_CLIENT_ID ||
+        envLocal.EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID ||
+        envLocal.GOOGLE_WEB_CLIENT_ID ||
+        envLocal.GOOGLE_CLIENT_ID,
+      googleIosClientId:
+        process.env.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+        process.env.GOOGLE_IOS_CLIENT_ID ||
+        envLocal.EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID ||
+        envLocal.GOOGLE_IOS_CLIENT_ID,
     },
   };
 };
