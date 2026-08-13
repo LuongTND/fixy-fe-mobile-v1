@@ -14,7 +14,11 @@
         "API_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/api",
         "CHAT_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/chat",
         "NOTIFICATION_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/notifications",
-        "APP_NAME": "Fixy"
+        "APP_NAME": "Fixy",
+        "GOOGLE_CLIENT_ID": "227166328986-p4am6a4to65l2lrrvivb0k4do240n8g8.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "227166328986-p4am6a4to65l2lrrvivb0k4do240n8g8.apps.googleusercontent.com",
+        "GOOGLE_IOS_CLIENT_ID": "227166328986-vei2j6a16057rgjradg65tmhmo0387h6.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "227166328986-vei2j6a16057rgjradg65tmhmo0387h6.apps.googleusercontent.com"
       }
     },
     "preview": {
@@ -26,7 +30,11 @@
         "API_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/api",
         "CHAT_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/chat",
         "NOTIFICATION_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/notifications",
-        "APP_NAME": "Fixy"
+        "APP_NAME": "Fixy",
+        "GOOGLE_CLIENT_ID": "227166328986-p4am6a4to65l2lrrvivb0k4do240n8g8.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "227166328986-p4am6a4to65l2lrrvivb0k4do240n8g8.apps.googleusercontent.com",
+        "GOOGLE_IOS_CLIENT_ID": "227166328986-vei2j6a16057rgjradg65tmhmo0387h6.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "227166328986-vei2j6a16057rgjradg65tmhmo0387h6.apps.googleusercontent.com"
       }
     },
     "production": {
@@ -35,7 +43,11 @@
         "API_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/api",
         "CHAT_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/chat",
         "NOTIFICATION_HUB_URL": "https://fixy-api-v1-cdekdhg2dzgtcahv.eastasia-01.azurewebsites.net/hubs/notifications",
-        "APP_NAME": "Fixy"
+        "APP_NAME": "Fixy",
+        "GOOGLE_CLIENT_ID": "227166328986-p4am6a4to65l2lrrvivb0k4do240n8g8.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_WEB_CLIENT_ID": "227166328986-p4am6a4to65l2lrrvivb0k4do240n8g8.apps.googleusercontent.com",
+        "GOOGLE_IOS_CLIENT_ID": "227166328986-vei2j6a16057rgjradg65tmhmo0387h6.apps.googleusercontent.com",
+        "EXPO_PUBLIC_GOOGLE_IOS_CLIENT_ID": "227166328986-vei2j6a16057rgjradg65tmhmo0387h6.apps.googleusercontent.com"
       }
     }
   },
