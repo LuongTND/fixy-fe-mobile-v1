@@ -12,6 +12,7 @@ import { login as loginRequest, loginGoogle } from '@/features/auth/services/aut
 import { extractAuthTokens } from '@/features/auth/tokens';
 import { FieldErrors, validateLoginForm } from '@/features/auth/validation';
 import { apiClient, getApiErrorMessage } from '@/services/api/client';
+import { getWorkerProfileMe } from '@/services/api/workers';
 import { useAuthStore } from '@/store/store';
 
 export default function LoginScreen() {
@@ -44,7 +45,18 @@ export default function LoginScreen() {
         // Navigate based on user's role
         const roles = response?.data?.roles ?? response?.roles;
         if (Array.isArray(roles) && roles.includes('WORKER')) {
-          router.replace('/worker-home' as any);
+          // Check worker profile trước khi redirect
+          try {
+            const workerProfile = await getWorkerProfileMe();
+            if (workerProfile && workerProfile.status === 1) {
+              router.replace('/worker-home' as any);
+            } else {
+              router.replace('/worker-setup' as any);
+            }
+          } catch {
+            // 404 = chưa có profile → cần setup
+            router.replace('/worker-setup' as any);
+          }
         } else {
           router.replace('/home' as any);
         }
@@ -115,7 +127,18 @@ export default function LoginScreen() {
         }
 
         if (isWorker) {
-          router.replace('/worker-home' as any);
+          // Check worker profile trước khi redirect
+          try {
+            const workerProfile = await getWorkerProfileMe();
+            if (workerProfile && workerProfile.status === 1) {
+              router.replace('/worker-home' as any);
+            } else {
+              router.replace('/worker-setup' as any);
+            }
+          } catch {
+            // 404 = chưa có profile → cần setup
+            router.replace('/worker-setup' as any);
+          }
         } else {
           router.replace('/home' as any);
         }
