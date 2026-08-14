@@ -45,7 +45,8 @@ export default function RegisterScreen() {
         // Navigate based on user's role
         const roles = response?.data?.roles ?? response?.roles;
         if (Array.isArray(roles) && roles.includes('WORKER')) {
-          router.replace('/worker-home' as any);
+          // Worker mới đăng ký → luôn cần setup profile
+          router.replace('/worker-setup' as any);
         } else {
           router.replace('/home' as any);
         }

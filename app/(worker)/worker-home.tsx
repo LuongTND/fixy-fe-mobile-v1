@@ -26,6 +26,13 @@ export default function WorkerHomeScreen() {
     retry: false,
   });
 
+  // Auto-redirect: nếu worker chưa có profile → bắt buộc vào setup
+  React.useEffect(() => {
+    if (!isLoadingProfile && profile === null) {
+      router.replace('/(worker)/worker-setup' as any);
+    }
+  }, [isLoadingProfile, profile]);
+
   React.useEffect(() => {
     if (profile) {
       setIsReady(profile.isAcceptingJobs ?? profile.isOnline ?? true);
