@@ -14,13 +14,13 @@ export default function CustomerLayout() {
         <Stack.Screen name="orders" options={{ animation: 'none' }} />
         <Stack.Screen name="profile" options={{ animation: 'none' }} />
         <Stack.Screen name="profile-info" options={{ animation: 'slide_from_right' }} />
-        <Stack.Screen name="saved-addresses" options={{ animation: 'none' }} />
-        <Stack.Screen name="service-workers" options={{ animation: 'none' }} />
+        <Stack.Screen name="saved-addresses" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="service-workers" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="spa-services" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="spa-list" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="spa-detail" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="user-wallet" options={{ animation: 'none' }} />
-        <Stack.Screen name="worker-detail" options={{ animation: 'none' }} />
+        <Stack.Screen name="worker-detail" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="notifications" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="notifications-settings" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="support-tickets" options={{ animation: 'slide_from_right' }} />
