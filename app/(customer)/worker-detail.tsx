@@ -19,7 +19,7 @@ import { getWorkerReviews, Review } from '@/services/api/reviews';
 import { fetchCategories } from '@/services/api/categories';
 import { formatDateTime, formatDateOnly } from '@/utils/date';
 import { formatCurrency } from '@/utils/format';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocationStore } from '@/store/store';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -163,6 +163,7 @@ const HeroImageCarousel = React.memo(({
 
 export default function WorkerDetailScreen() {
   const insets = useSafeAreaInsets();
+  const queryClient = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
   const { selectedCity } = useLocationStore();
   const [showFullBio, setShowFullBio] = React.useState(false);
@@ -173,7 +174,22 @@ export default function WorkerDetailScreen() {
     queryFn: () => getWorkerDetails(id || ''),
     enabled: !!id,
     staleTime: 1000 * 30,
-    refetchOnMount: 'always',
+    initialData: () => {
+      if (!id) return undefined;
+      const cached = queryClient.getQueryData<WorkerProfile>(['worker', id]);
+      if (cached) return cached;
+      const allQueries = queryClient.getQueriesData<any>({ queryKey: [] });
+      for (const [, qData] of allQueries) {
+        if (Array.isArray(qData)) {
+          const found = qData.find((w: any) => w && (w.id === id || w.workerProfileId === id));
+          if (found) return found;
+        } else if (qData && typeof qData === 'object' && Array.isArray(qData.items)) {
+          const found = qData.items.find((w: any) => w && (w.id === id || w.workerProfileId === id));
+          if (found) return found;
+        }
+      }
+      return undefined;
+    },
   });
 
   const targetWorkerId = worker?.workerProfileId || worker?.id || id || '';
@@ -366,7 +382,7 @@ export default function WorkerDetailScreen() {
 
   if (loading) {
     return (
-      <View style={styles.centerContainer}>
+      <View style={[styles.screen, styles.centerContainer, { paddingTop: insets.top }]}>
         <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
@@ -639,6 +655,7 @@ const styles = StyleSheet.create({
   },
   centerContainer: {
     flex: 1,
+    backgroundColor: '#FBF9F5',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -37,6 +37,8 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PayOSWebView from '@/components/PayOSWebView';
+import VNPayWebView from '@/components/VNPayWebView';
+import { verifyVnpayCallback } from '@/services/api/payment';
 
 export default function BookingCheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -68,6 +70,8 @@ export default function BookingCheckoutScreen() {
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
   const [showPayOSWebView, setShowPayOSWebView] = React.useState(false);
   const [payosUrl, setPayosUrl] = React.useState('');
+  const [showVnpayWebView, setShowVnpayWebView] = React.useState(false);
+  const [vnpayUrl, setVnpayUrl] = React.useState('');
   const [confirmedBookingId, setConfirmedBookingId] = React.useState<string | null>(null);
 
   const [createdDraftId, setCreatedDraftId] = React.useState<string | null>(null);
@@ -261,12 +265,16 @@ export default function BookingCheckoutScreen() {
         router.replace(targetUrl);
       } else if (data.type === 'online') {
         if (data.paymentUrl) {
-          // PayOS: Open in-app WebView to keep context
-          if (selectedPaymentMethod === PaymentMethod.PayOS || selectedPaymentMethod === PaymentMethod.Card) {
+          if (selectedPaymentMethod === PaymentMethod.Vnpay) {
+            // VNPay: Open in-app WebView
+            setVnpayUrl(data.paymentUrl);
+            setShowVnpayWebView(true);
+          } else if (selectedPaymentMethod === PaymentMethod.PayOS || selectedPaymentMethod === PaymentMethod.Card) {
+            // PayOS: Open in-app WebView
             setPayosUrl(data.paymentUrl);
             setShowPayOSWebView(true);
           } else {
-            // VNPay / MoMo: Open in external browser
+            // MoMo / other external gateway
             try {
               await Linking.openURL(data.paymentUrl);
             } catch (e) {
@@ -343,6 +351,36 @@ export default function BookingCheckoutScreen() {
         }}
         onError={(error) => {
           setShowPayOSWebView(false);
+          Alert.alert('Thanh toán thất bại', error);
+          if (confirmedBookingId) {
+            router.replace(`/booking-detail?bookingId=${confirmedBookingId}` as any);
+          }
+        }}
+      />
+
+      {/* VNPay WebView Modal */}
+      <VNPayWebView
+        visible={showVnpayWebView}
+        paymentUrl={vnpayUrl}
+        onClose={() => setShowVnpayWebView(false)}
+        onSuccess={async (_transactionId, params) => {
+          setShowVnpayWebView(false);
+          try {
+            await verifyVnpayCallback(params);
+            Alert.alert(
+              'Thanh toán thành công! 🎉',
+              'Đơn dịch vụ của bạn đã được thanh toán thành công qua VNPay.'
+            );
+          } catch (err) {
+            console.warn('Xác thực VNPay callback thất bại:', err);
+          } finally {
+            if (confirmedBookingId) {
+              router.replace(`/booking-detail?bookingId=${confirmedBookingId}` as any);
+            }
+          }
+        }}
+        onError={(error) => {
+          setShowVnpayWebView(false);
           Alert.alert('Thanh toán thất bại', error);
           if (confirmedBookingId) {
             router.replace(`/booking-detail?bookingId=${confirmedBookingId}` as any);
