@@ -26,13 +26,17 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import {
   Booking,
   BookingChatMessage,
+  BookingStatus,
   getBookingChatMessages,
   getBookingDetails,
+  getMyBookings,
+  getWorkerBookings,
   markBookingChatRead,
   normalizeChatMessage,
   sendBookingChatMessage,
 } from '@/services/api/bookings';
 import { getApiErrorMessage } from '@/services/api/client';
+import { getMediaUrl } from '@/services/api/media';
 import { useAuthStore } from '@/store/store';
 import { formatTime } from '@/utils/date';
 
@@ -52,9 +56,10 @@ type ChatMessage = BookingChatMessage & { status?: 'sending' | 'sent' | 'failed'
 export default function BookingChatScreen() {
   const insets = useSafeAreaInsets();
   const { height: windowHeight } = useWindowDimensions();
-  const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+  const { bookingId } = useLocalSearchParams<{ bookingId?: string }>();
   const flatListRef = React.useRef<FlatList>(null);
 
+  const [activeBookingId, setActiveBookingId] = React.useState<string | null>(bookingId || null);
   const [booking, setBooking] = React.useState<Booking | null>(null);
   const [messages, setMessages] = React.useState<ChatMessage[]>([]);
   const [inputText, setInputText] = React.useState('');
@@ -66,6 +71,8 @@ export default function BookingChatScreen() {
 
   const accessToken = useAuthStore((state) => state.accessToken);
   const chatHubUrl = Constants.expoConfig?.extra?.chatHubUrl;
+
+  const currentBookingId = bookingId || activeBookingId;
 
   const scrollToLatestMessage = React.useCallback((animated = true) => {
     requestAnimationFrame(() => {
@@ -139,30 +146,88 @@ export default function BookingChatScreen() {
 
   // Load static info & history
   React.useEffect(() => {
-    if (!bookingId) return;
+    let isMounted = true;
 
     async function loadInitialData() {
+      setIsLoading(true);
       try {
+        let targetId = bookingId || activeBookingId;
+
+        // Auto discover active booking if bookingId param is missing
+        if (!targetId) {
+          try {
+            const customerBookings = await getMyBookings();
+            const activeCustomer =
+              customerBookings.find(
+                (b) =>
+                  Number(b.status) >= BookingStatus.Pending &&
+                  Number(b.status) <= BookingStatus.PendingPayment
+              ) || customerBookings[0];
+
+            if (activeCustomer) {
+              targetId = activeCustomer.id;
+            } else {
+              const workerBookings = await getWorkerBookings();
+              const activeWorker =
+                workerBookings.find(
+                  (b) =>
+                    Number(b.status) >= BookingStatus.Pending &&
+                    Number(b.status) <= BookingStatus.PendingPayment
+                ) || workerBookings[0];
+              if (activeWorker) {
+                targetId = activeWorker.id;
+              }
+            }
+          } catch (e) {
+            console.warn('[chat] Auto-discover booking error:', e);
+          }
+        }
+
+        if (!targetId) {
+          if (isMounted) {
+            setActiveBookingId(null);
+            setIsLoading(false);
+          }
+          return;
+        }
+
+        if (isMounted) {
+          setActiveBookingId(targetId);
+        }
+
         const [details, history] = await Promise.all([
-          getBookingDetails(bookingId!),
-          getBookingChatMessages(bookingId!),
+          getBookingDetails(targetId),
+          getBookingChatMessages(targetId),
         ]);
-        setBooking(details);
-        setMessages(history);
-        await markBookingChatRead(bookingId!);
+
+        if (isMounted) {
+          setBooking(details);
+          setMessages(history);
+        }
+
+        await markBookingChatRead(targetId).catch(() => {});
       } catch (err) {
         console.warn('Error loading initial chat data:', err);
       } finally {
-        setIsLoading(false);
+        if (isMounted) {
+          setIsLoading(false);
+        }
       }
     }
 
     loadInitialData();
+
+    return () => {
+      isMounted = false;
+      if (currentBookingId) {
+        markBookingChatRead(currentBookingId).catch(() => {});
+      }
+    };
   }, [bookingId]);
 
   // SignalR Hub Connection Setup
   React.useEffect(() => {
-    if (!bookingId || !chatHubUrl || !accessToken) return;
+    if (!currentBookingId || !chatHubUrl || !accessToken) return;
 
     let connection: HubConnection | null = null;
 
@@ -177,7 +242,7 @@ export default function BookingChatScreen() {
 
       try {
         connection = new HubConnectionBuilder()
-          .withUrl(`${chatHubUrl}?bookingId=${bookingId}`, {
+          .withUrl(`${chatHubUrl}?bookingId=${currentBookingId}`, {
             accessTokenFactory: () => accessToken || '',
           })
           .withAutomaticReconnect()
@@ -187,13 +252,14 @@ export default function BookingChatScreen() {
         // Listeners for message reception
         const handleNewMessage = (msg: any) => {
           const normalized = normalizeChatMessage(msg);
-          if (normalized && normalized.bookingId?.toLowerCase() === bookingId?.toLowerCase()) {
+          if (
+            normalized &&
+            normalized.bookingId?.toLowerCase() === currentBookingId?.toLowerCase()
+          ) {
             setMessages((prev) => {
-              // 1. If we already have a message with the same real ID, ignore
               if (prev.some((m) => m.id?.toLowerCase() === normalized.id?.toLowerCase()))
                 return prev;
 
-              // 2. If it's sent by me, check if there's an optimistic message matching it to replace
               const isMe = normalized.senderId?.toLowerCase() === currentUserId?.toLowerCase();
               if (isMe) {
                 const isImage = normalized.type === 1 || !!normalized.mediaUrl;
@@ -218,12 +284,10 @@ export default function BookingChatScreen() {
                 }
               }
 
-              // 3. Otherwise, append it
               return [...prev, normalized];
             });
             scrollToLatestMessage();
-            // Mark read when receiving message if screen is active
-            markBookingChatRead(bookingId!).catch(() => {});
+            markBookingChatRead(currentBookingId!).catch(() => {});
           }
         };
 
@@ -232,12 +296,12 @@ export default function BookingChatScreen() {
 
         await connection.start();
         setIsConnected(true);
-        await connection.invoke('JoinChatGroup', bookingId);
+        await connection.invoke('JoinChatGroup', currentBookingId);
       } catch (err: any) {
         console.error('SignalR start failed:', err);
         if (err?.message?.includes('401') || String(err).includes('401')) {
           console.log('[chat] SignalR 401 detected. Triggering token refresh...');
-          getBookingDetails(bookingId!).catch(() => {});
+          getBookingDetails(currentBookingId!).catch(() => {});
         }
       }
     }
@@ -245,49 +309,68 @@ export default function BookingChatScreen() {
     startSignalR();
 
     return () => {
-      const activeConnection = connection;
-      if (activeConnection) {
-        activeConnection
-          .invoke('LeaveChatGroup', bookingId)
-          .then(() => activeConnection.stop())
+      const activeConn = connection;
+      if (activeConn) {
+        activeConn
+          .invoke('LeaveChatGroup', currentBookingId)
+          .then(() => activeConn.stop())
           .catch((err) => {
             console.warn('Error during SignalR cleanup:', err);
-            activeConnection.stop().catch(() => {});
+            activeConn.stop().catch(() => {});
           });
       }
       setIsConnected(false);
     };
-  }, [bookingId, chatHubUrl, accessToken, scrollToLatestMessage]);
+  }, [currentBookingId, chatHubUrl, accessToken, scrollToLatestMessage, currentUserId]);
 
   // Partner display name and details
   const partnerInfo = React.useMemo(() => {
     if (!booking) return { name: 'Kỹ thuật viên', phone: '', avatar: null };
 
-    // If current user matches customer ID, partner is worker
-    const isCustomer = currentUserId === booking.worker?.id ? false : true;
+    const isWorker =
+      (booking.worker?.id && currentUserId?.toLowerCase() === booking.worker.id.toLowerCase()) ||
+      (booking.workerId && currentUserId?.toLowerCase() === booking.workerId.toLowerCase()) ||
+      (booking.workerProfileId && currentUserId?.toLowerCase() === booking.workerProfileId.toLowerCase());
 
-    if (isCustomer) {
+    if (!isWorker) {
+      const rawWorkerAvatar = booking.workerAvatarUrl || (booking as any).WorkerAvatarUrl || booking.worker?.avatarUrl;
       return {
         name: booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên',
         phone: booking.worker?.phone || booking.workerPhone || '',
-        avatar: booking.worker?.avatarUrl || booking.workerAvatarUrl || null,
+        avatar: rawWorkerAvatar
+          ? rawWorkerAvatar.startsWith('http')
+            ? rawWorkerAvatar
+            : getMediaUrl(rawWorkerAvatar)
+          : null,
       };
     } else {
+      const rawCustAvatar = booking.customerAvatarUrl || (booking as any).CustomerAvatarUrl;
       return {
-        name: 'Khách hàng',
-        phone: booking.workerPhone || '0987654321',
-        avatar: null,
+        name: booking.customerName || 'Khách hàng',
+        phone: booking.customerPhone || '',
+        avatar: rawCustAvatar
+          ? rawCustAvatar.startsWith('http')
+            ? rawCustAvatar
+            : getMediaUrl(rawCustAvatar)
+          : null,
       };
     }
   }, [booking, currentUserId]);
 
+  const bookingStatusNum = Number(booking?.status);
+  const isFinished = bookingStatusNum === BookingStatus.Completed || bookingStatusNum === BookingStatus.Cancelled;
+
   const sendTextMessage = async (text: string) => {
-    if (!bookingId) return;
+    if (!currentBookingId) return;
+    if (isFinished) {
+      Alert.alert('Thông báo', 'Đơn hàng đã hoàn thành hoặc đã bị hủy, không thể gửi tin nhắn.');
+      return;
+    }
 
     const tempId = `temp-${Date.now()}`;
     const optimisticMsg: ChatMessage = {
       id: tempId,
-      bookingId,
+      bookingId: currentBookingId,
       senderId: currentUserId || '',
       senderName: 'Me',
       type: 0,
@@ -301,7 +384,7 @@ export default function BookingChatScreen() {
     scrollToLatestMessage();
 
     try {
-      const sentMsg = await sendBookingChatMessage(bookingId, {
+      const sentMsg = await sendBookingChatMessage(currentBookingId, {
         type: 0,
         content: text,
       });
@@ -317,12 +400,16 @@ export default function BookingChatScreen() {
   };
 
   const sendImageMessage = async (localUri: string, fileObj: any) => {
-    if (!bookingId) return;
+    if (!currentBookingId) return;
+    if (isFinished) {
+      Alert.alert('Thông báo', 'Đơn hàng đã hoàn thành hoặc đã bị hủy, không thể gửi tin nhắn.');
+      return;
+    }
 
     const tempId = `temp-${Date.now()}`;
     const optimisticMsg: ChatMessage = {
       id: tempId,
-      bookingId,
+      bookingId: currentBookingId,
       senderId: currentUserId || '',
       senderName: 'Me',
       type: 1,
@@ -337,7 +424,7 @@ export default function BookingChatScreen() {
     scrollToLatestMessage();
 
     try {
-      const sentMsg = await sendBookingChatMessage(bookingId, {
+      const sentMsg = await sendBookingChatMessage(currentBookingId, {
         type: 1,
         file: fileObj,
       });
@@ -351,7 +438,6 @@ export default function BookingChatScreen() {
       );
     }
   };
-
   const handleRetry = async (failedMsg: ChatMessage) => {
     setMessages((prev) => prev.filter((m) => m.id !== failedMsg.id));
 
@@ -373,14 +459,14 @@ export default function BookingChatScreen() {
 
   const handleSendText = async () => {
     const text = inputText.trim();
-    if (!text || !bookingId) return;
+    if (!text || !currentBookingId) return;
 
     setInputText('');
     await sendTextMessage(text);
   };
 
   const handleSendImage = async () => {
-    if (!bookingId) return;
+    if (!currentBookingId) return;
 
     try {
       const result = await ImagePicker.launchImageLibraryAsync({
@@ -451,7 +537,7 @@ export default function BookingChatScreen() {
               </Pressable>
             )}
             {isMe && status === 'sending' && (
-              <ActivityIndicator size="small" color="#FF8228" style={styles.sendingSpinner} />
+              <ActivityIndicator size="small" color="#0F382C" style={styles.sendingSpinner} />
             )}
 
             <View
@@ -491,8 +577,44 @@ export default function BookingChatScreen() {
   if (isLoading) {
     return (
       <View style={[styles.centerContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#FF8228" />
+        <ActivityIndicator size="large" color="#0F382C" />
         <Text style={styles.loadingText}>Đang kết nối hội thoại...</Text>
+      </View>
+    );
+  }
+
+  if (!currentBookingId && !isLoading) {
+    return (
+      <View style={[styles.screen, { paddingTop: insets.top }]}>
+        <View style={styles.header}>
+          <Pressable style={styles.headerBtn} onPress={() => router.back()}>
+            <MaterialIcons name="arrow-back" size={24} color="#0F382C" />
+          </Pressable>
+          <Text style={styles.headerTitle}>Hội thoại</Text>
+          <View style={{ width: 40 }} />
+        </View>
+        <View style={styles.centerContainer}>
+          <MaterialIcons name="chat-bubble-outline" size={56} color="#818A91" />
+          <Text style={{ fontFamily: 'Montserrat_700Bold', fontSize: 16, color: '#1C2526', marginTop: 12 }}>
+            Chưa có cuộc trò chuyện nào
+          </Text>
+          <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 13, color: '#818A91', textAlign: 'center', marginHorizontal: 32, marginTop: 6, lineHeight: 18 }}>
+            Bạn chưa có đơn dịch vụ nào cần trao đổi. Hãy đặt lịch dịch vụ để trò chuyện trực tiếp với KTV!
+          </Text>
+          <Pressable
+            style={{
+              backgroundColor: '#0F382C',
+              paddingHorizontal: 20,
+              paddingVertical: 12,
+              borderRadius: 12,
+              marginTop: 20,
+            }}
+            onPress={() => router.replace('/home' as any)}>
+            <Text style={{ fontFamily: 'Montserrat_700Bold', color: '#ffffff', fontSize: 14 }}>
+              Trở về Trang chủ
+            </Text>
+          </Pressable>
+        </View>
       </View>
     );
   }
@@ -518,7 +640,7 @@ export default function BookingChatScreen() {
         </View>
 
         <Pressable style={styles.headerBtn} onPress={handleCall}>
-          <MaterialIcons name="phone" size={22} color="#FF8228" />
+          <MaterialIcons name="phone" size={22} color="#0F382C" />
         </Pressable>
       </View>
 
@@ -553,33 +675,48 @@ export default function BookingChatScreen() {
         behavior={Platform.OS === 'ios' ? 'padding' : undefined}
         keyboardVerticalOffset={0}
         style={styles.inputDock}>
-        <View
-          style={[styles.inputPanel, { paddingBottom: Math.max(insets.bottom, 12) }]}
-          onLayout={(event) => {
-            setInputPanelHeight(event.nativeEvent.layout.height);
-          }}>
-          <Pressable style={styles.attachBtn} onPress={handleSendImage}>
-            <MaterialIcons name="image" size={24} color="#FF8228" />
-          </Pressable>
+        {isFinished ? (
+          <View
+            style={[styles.finishedBanner, { paddingBottom: Math.max(insets.bottom, 14) }]}
+            onLayout={(event) => {
+              setInputPanelHeight(event.nativeEvent.layout.height);
+            }}>
+            <MaterialIcons name="lock" size={18} color="#818A91" />
+            <Text style={styles.finishedBannerText}>
+              {bookingStatusNum === BookingStatus.Completed
+                ? 'Đơn hàng đã hoàn thành. Cuộc trò chuyện đã kết thúc.'
+                : 'Đơn hàng đã bị hủy. Cuộc trò chuyện đã kết thúc.'}
+            </Text>
+          </View>
+        ) : (
+          <View
+            style={[styles.inputPanel, { paddingBottom: Math.max(insets.bottom, 12) }]}
+            onLayout={(event) => {
+              setInputPanelHeight(event.nativeEvent.layout.height);
+            }}>
+            <Pressable style={styles.attachBtn} onPress={handleSendImage}>
+              <MaterialIcons name="image" size={24} color="#0F382C" />
+            </Pressable>
 
-          <TextInput
-            style={styles.textInput}
-            placeholder="Nhập tin nhắn..."
-            placeholderTextColor="#9A9A9A"
-            value={inputText}
-            onChangeText={setInputText}
-            multiline
-            maxLength={1000}
-            onFocus={handleInputFocus}
-          />
+            <TextInput
+              style={styles.textInput}
+              placeholder="Nhập tin nhắn..."
+              placeholderTextColor="#9A9A9A"
+              value={inputText}
+              onChangeText={setInputText}
+              multiline
+              maxLength={1000}
+              onFocus={handleInputFocus}
+            />
 
-          <Pressable
-            style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
-            onPress={handleSendText}
-            disabled={!inputText.trim()}>
-            <MaterialIcons name="send" size={20} color="#ffffff" />
-          </Pressable>
-        </View>
+            <Pressable
+              style={[styles.sendBtn, !inputText.trim() && styles.sendBtnDisabled]}
+              onPress={handleSendText}
+              disabled={!inputText.trim()}>
+              <MaterialIcons name="send" size={20} color="#ffffff" />
+            </Pressable>
+          </View>
+        )}
       </KeyboardAvoidingView>
 
       {/* Image Preview Modal */}
@@ -609,13 +746,13 @@ export default function BookingChatScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   centerContainer: {
     flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
     gap: 12,
   },
   loadingText: {
@@ -631,9 +768,9 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#DDDDDD',
+    borderBottomColor: '#EFECE6',
     elevation: 2,
-    shadowColor: '#000',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.05,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
@@ -653,7 +790,7 @@ const styles = StyleSheet.create({
   headerTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#1b1c1c',
+    color: '#0F382C',
   },
   statusRowHeader: {
     flexDirection: 'row',
@@ -668,7 +805,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#818A91',
   },
   statusDotActive: {
-    backgroundColor: '#39B54A',
+    backgroundColor: '#059669',
   },
   statusTextHeader: {
     fontFamily: 'Montserrat_500Medium',
@@ -711,7 +848,7 @@ const styles = StyleSheet.create({
   partnerAvatarPlaceholder: {
     width: '100%',
     height: '100%',
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -729,7 +866,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     paddingHorizontal: 14,
     paddingVertical: 10,
-    shadowColor: '#000',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.02,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 1 },
@@ -739,10 +876,10 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     borderBottomLeftRadius: 2,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
   },
   bubbleRight: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     borderBottomRightRadius: 2,
   },
   bubbleImageFrame: {
@@ -756,7 +893,7 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   messageTextLeft: {
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   messageTextRight: {
     color: '#ffffff',
@@ -765,7 +902,7 @@ const styles = StyleSheet.create({
     width: 200,
     height: 150,
     borderRadius: 8,
-    backgroundColor: '#EAE5E3',
+    backgroundColor: '#EFECE6',
   },
   timestampText: {
     fontFamily: 'Montserrat_400Regular',
@@ -804,8 +941,25 @@ const styles = StyleSheet.create({
     paddingTop: 8,
     backgroundColor: '#ffffff',
     borderTopWidth: 1,
-    borderTopColor: '#DDDDDD',
+    borderTopColor: '#EFECE6',
     gap: 12,
+  },
+  finishedBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingHorizontal: 16,
+    paddingTop: 14,
+    backgroundColor: '#F4F1EA',
+    borderTopWidth: 1,
+    borderTopColor: '#EFECE6',
+    gap: 8,
+  },
+  finishedBannerText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    color: '#818A91',
+    textAlign: 'center',
   },
   attachBtn: {
     width: 44,
@@ -815,9 +969,9 @@ const styles = StyleSheet.create({
   },
   textInput: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#F4F1EA',
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     borderRadius: 20,
     paddingHorizontal: 16,
     paddingTop: 10,
@@ -825,13 +979,13 @@ const styles = StyleSheet.create({
     maxHeight: 100,
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   sendBtn: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },

@@ -6,6 +6,7 @@ import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import * as ImagePicker from 'expo-image-picker';
 import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import {
   ActivityIndicator,
   Alert,
@@ -42,11 +43,26 @@ import { formatCurrency, formatToIsoDateTime } from '@/utils/format';
 type PickerType = 'province' | 'ward';
 type AddressPickerOption = { name: string; code?: number };
 
+const GOONG_API_KEY = Constants.expoConfig?.extra?.goongApiKey || '';
+
 interface CertificateItem {
   title: string;
   issuedBy: string;
   issuedAt: string;
   uri?: string;
+}
+
+export interface WorkerServiceFormOption {
+  durationMinutes: number;
+  price: number;
+  sortOrder?: number;
+  isActive?: boolean;
+}
+
+export interface WorkerServiceFormItem {
+  categoryId: string;
+  basePrice: number;
+  options: WorkerServiceFormOption[];
 }
 
 export default function WorkerSetupScreen() {
@@ -85,15 +101,21 @@ export default function WorkerSetupScreen() {
   const [phone, setPhone] = React.useState('');
   const [bio, setBio] = React.useState('');
   const [experienceYears, setExperienceYears] = React.useState('3');
+
   const [selectedServices, setSelectedServices] = React.useState<
-    Record<string, { categoryId: string; basePrice: number }>
+    Record<string, WorkerServiceFormItem>
   >({});
 
   // STEP 2: Credentials Verification
   const [citizenIdNumber, setCitizenIdNumber] = React.useState('');
   const [citizenIdIssueDate, setCitizenIdIssueDate] = React.useState('');
   const [citizenIdIssuePlace, setCitizenIdIssuePlace] = React.useState('');
-  const [cccdUris, setCccdUris] = React.useState<string[]>([]);
+  const [cccdFrontUri, setCccdFrontUri] = React.useState<string | null>(null);
+  const [cccdBackUri, setCccdBackUri] = React.useState<string | null>(null);
+
+  const cccdUris = React.useMemo(() => {
+    return [cccdFrontUri, cccdBackUri].filter(Boolean) as string[];
+  }, [cccdFrontUri, cccdBackUri]);
   const [scanningCccd, setScanningCccd] = React.useState(false);
   const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
 
@@ -101,6 +123,7 @@ export default function WorkerSetupScreen() {
   const [certificates, setCertificates] = React.useState<CertificateItem[]>([]);
   const [certTitle, setCertTitle] = React.useState('');
   const [certIssuedBy, setCertIssuedBy] = React.useState('');
+  const [certIssuedAt, setCertIssuedAt] = React.useState('');
   const [certUri, setCertUri] = React.useState<string | null>(null);
 
   // STEP 3: Address & Portfolio
@@ -121,6 +144,117 @@ export default function WorkerSetupScreen() {
   // Date picker states
   const [showDatePicker, setShowDatePicker] = React.useState(false);
 
+  // Goong Place AutoComplete & GPS states
+  const [autoCompleteResults, setAutoCompleteResults] = React.useState<any[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = React.useState(false);
+  const [showAutoCompleteDropdown, setShowAutoCompleteDropdown] = React.useState(false);
+  const [isGpsLoading, setIsGpsLoading] = React.useState(false);
+
+  const autoCompleteTimeoutRef = React.useRef<any>(null);
+
+  const fetchAddressAutoComplete = (query: string) => {
+    if (autoCompleteTimeoutRef.current) {
+      clearTimeout(autoCompleteTimeoutRef.current);
+    }
+    if (!query.trim() || query.trim().length < 2) {
+      setAutoCompleteResults([]);
+      setShowAutoCompleteDropdown(false);
+      return;
+    }
+
+    autoCompleteTimeoutRef.current = setTimeout(async () => {
+      setIsSearchingAddress(true);
+      try {
+        const url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${GOONG_API_KEY}&input=${encodeURIComponent(query)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.predictions && data.predictions.length > 0) {
+          setAutoCompleteResults(data.predictions);
+          setShowAutoCompleteDropdown(true);
+        } else {
+          setAutoCompleteResults([]);
+          setShowAutoCompleteDropdown(false);
+        }
+      } catch (err) {
+        console.warn('[worker-setup] AutoComplete error:', err);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 350);
+  };
+
+  const handleSelectAutoCompletePlace = async (item: any) => {
+    setShowAutoCompleteDropdown(false);
+    const mainText = item.structured_formatting?.main_text || item.description;
+    setAddrDetail(mainText);
+
+    if (item.place_id) {
+      try {
+        const url = `https://rsapi.goong.io/Place/Detail?api_key=${GOONG_API_KEY}&place_id=${item.place_id}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.result && data.result.geometry?.location) {
+          const { lat, lng } = data.result.geometry.location;
+          setLatitude(lat);
+          setLongitude(lng);
+
+          const comps = data.result.address_components || [];
+          const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
+          const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+
+          if (cityComp) setAddrCity(cityComp);
+          if (wardComp) setAddrWard(wardComp);
+        }
+      } catch (err) {
+        console.warn('[worker-setup] Place Detail error:', err);
+      }
+    }
+  };
+
+  const handleGetCurrentGpsLocation = async () => {
+    setIsGpsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền vị trí', 'Vui lòng cấp quyền truy cập vị trí GPS cho ứng dụng.');
+        return;
+      }
+
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      setLatitude(lat);
+      setLongitude(lng);
+
+      const url = `https://rsapi.goong.io/Geocode?latlng=${lat},${lng}&api_key=${GOONG_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.results && data.results.length > 0) {
+        const first = data.results[0];
+        setAddrDetail(first.formatted_address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+
+        const comps = first.address_components || [];
+        const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
+        const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+
+        if (cityComp) setAddrCity(cityComp);
+        if (wardComp) setAddrWard(wardComp);
+
+        Alert.alert('Thành công', 'Đã tự động lấy vị trí GPS hiện tại!');
+      } else {
+        setAddrDetail(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      }
+    } catch (err) {
+      console.warn('[worker-setup] GPS Error:', err);
+      Alert.alert('Lỗi', 'Không thể lấy vị trí GPS hiện tại.');
+    } finally {
+      setIsGpsLoading(false);
+    }
+  };
+
 
 
   // Load previous profile fields if Rejected (edit mode)
@@ -133,7 +267,8 @@ export default function WorkerSetupScreen() {
       setCitizenIdNumber(profile.citizenIdNumber || '');
       setCitizenIdIssueDate(profile.citizenIdIssueDate ? profile.citizenIdIssueDate.split('T')[0] : '');
       setCitizenIdIssuePlace(profile.citizenIdIssuePlace || '');
-      setCccdUris(profile.identificationImages?.map((img: any) => img.url) || []);
+      setCccdFrontUri(profile.identificationImages?.[0]?.url || null);
+      setCccdBackUri(profile.identificationImages?.[1]?.url || null);
       setCertificates(
         (profile.certificates || []).map((c: any) => ({
           title: c.title,
@@ -153,9 +288,25 @@ export default function WorkerSetupScreen() {
         setPortfolioUris(profile.portfolioImages.map((img: any) => img.url) || []);
       }
       if (profile.services) {
-        const serviceMap: Record<string, { categoryId: string; basePrice: number }> = {};
+        const serviceMap: Record<string, WorkerServiceFormItem> = {};
         profile.services.forEach((s: any) => {
-          serviceMap[s.categoryId] = { categoryId: s.categoryId, basePrice: s.basePrice };
+          serviceMap[s.categoryId] = {
+            categoryId: s.categoryId,
+            basePrice: s.basePrice || 150000,
+            options:
+              s.options && s.options.length > 0
+                ? s.options.map((opt: any, idx: number) => ({
+                    durationMinutes: opt.durationMinutes || 60,
+                    price: opt.price || 150000,
+                    sortOrder: opt.sortOrder ?? idx + 1,
+                    isActive: opt.isActive ?? true,
+                  }))
+                : [
+                    { durationMinutes: 60, price: s.basePrice || 500000, sortOrder: 1, isActive: true },
+                    { durationMinutes: 90, price: (s.basePrice || 500000) + 150000, sortOrder: 2, isActive: true },
+                    { durationMinutes: 120, price: (s.basePrice || 500000) + 300000, sortOrder: 3, isActive: true },
+                  ],
+          };
         });
         setSelectedServices(serviceMap);
       }
@@ -258,11 +409,28 @@ export default function WorkerSetupScreen() {
   };
 
   // File pickers
-  const handleSelectCccdSource = () => {
-    handlePickCccd();
+  const handlePickCccdSlot = (slot: 'front' | 'back') => {
+    if (slot === 'back' && !cccdFrontUri) {
+      Alert.alert('Yêu cầu', 'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước.');
+      return;
+    }
+
+    const slotTitle = slot === 'front' ? 'Mặt trước CCCD' : 'Mặt sau CCCD';
+
+    Alert.alert('Tải ảnh CCCD', `Chọn phương thức tải ảnh cho ${slotTitle}:`, [
+      {
+        text: 'Chụp ảnh từ Camera',
+        onPress: () => handleCameraCccdSlot(slot),
+      },
+      {
+        text: 'Chọn từ Thư viện ảnh',
+        onPress: () => handleLibraryCccdSlot(slot),
+      },
+      { text: 'Hủy', style: 'cancel' },
+    ]);
   };
 
-  const handleCameraCccd = async () => {
+  const handleCameraCccdSlot = async (slot: 'front' | 'back') => {
     const { status } = await ImagePicker.requestCameraPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Quyền truy cập', 'Vui lòng cho phép quyền truy cập camera để chụp ảnh CCCD.');
@@ -275,37 +443,37 @@ export default function WorkerSetupScreen() {
     });
 
     if (!result.canceled && result.assets[0]?.uri) {
-      const newUri = result.assets[0].uri;
-      setCccdUris((prev) => {
-        const next = [...prev, newUri];
-        handleScanCccdSlot(newUri);
-        return next;
-      });
+      const uri = result.assets[0].uri;
+      if (slot === 'front') {
+        setCccdFrontUri(uri);
+        handleScanCccdSlot(uri);
+      } else {
+        setCccdBackUri(uri);
+      }
     }
   };
 
-  const handlePickCccd = async () => {
+  const handleLibraryCccdSlot = async (slot: 'front' | 'back') => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
     if (status !== 'granted') {
       Alert.alert('Quyền truy cập', 'Vui lòng cho phép quyền truy cập thư viện ảnh để chọn CCCD.');
       return;
     }
-    const remainingLimit = 2 - cccdUris.length;
-    if (remainingLimit <= 0) return;
 
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ['images'],
-      allowsMultipleSelection: remainingLimit > 1,
-      selectionLimit: remainingLimit,
+      allowsMultipleSelection: false,
       quality: 0.8,
     });
-    if (!result.canceled && result.assets.length > 0) {
-      const newUris = result.assets.map((a) => a.uri);
-      setCccdUris((prev) => {
-        const next = [...prev, ...newUris].slice(0, 2);
-        handleScanCccdSlot(newUris[0]);
-        return next;
-      });
+
+    if (!result.canceled && result.assets[0]?.uri) {
+      const uri = result.assets[0].uri;
+      if (slot === 'front') {
+        setCccdFrontUri(uri);
+        handleScanCccdSlot(uri);
+      } else {
+        setCccdBackUri(uri);
+      }
     }
   };
 
@@ -376,12 +544,13 @@ export default function WorkerSetupScreen() {
     const newItem: CertificateItem = {
       title: certTitle,
       issuedBy: certIssuedBy,
-      issuedAt: new Date().toISOString().split('T')[0],
+      issuedAt: certIssuedAt.trim() || new Date().toISOString().split('T')[0],
       uri: certUri || undefined,
     };
     setCertificates([...certificates, newItem]);
     setCertTitle('');
     setCertIssuedBy('');
+    setCertIssuedAt('');
     setCertUri(null);
   };
 
@@ -410,16 +579,99 @@ export default function WorkerSetupScreen() {
     if (next[catId]) {
       delete next[catId];
     } else {
-      next[catId] = { categoryId: catId, basePrice: 150000 };
+      next[catId] = {
+        categoryId: catId,
+        basePrice: 500000,
+        options: [
+          { durationMinutes: 60, price: 500000, sortOrder: 1, isActive: true },
+          { durationMinutes: 90, price: 650000, sortOrder: 2, isActive: true },
+          { durationMinutes: 120, price: 800000, sortOrder: 3, isActive: true },
+        ],
+      };
     }
     setSelectedServices(next);
   };
 
-  const handleServicePriceChange = (catId: string, priceText: string) => {
+  const handleOptionPriceChange = (catId: string, optIndex: number, priceText: string) => {
     const priceNum = parseInt(priceText.replace(/\D/g, ''), 10) || 0;
+    const currentItem = selectedServices[catId];
+    if (!currentItem) return;
+
+    const newOptions = [...currentItem.options];
+    newOptions[optIndex] = { ...newOptions[optIndex], price: priceNum };
+
+    const minPrice = Math.min(...newOptions.map((o) => o.price));
+
     setSelectedServices({
       ...selectedServices,
-      [catId]: { ...selectedServices[catId], basePrice: priceNum },
+      [catId]: {
+        ...currentItem,
+        basePrice: minPrice > 0 ? minPrice : currentItem.basePrice,
+        options: newOptions,
+      },
+    });
+  };
+
+  const handleOptionDurationChange = (catId: string, optIndex: number, durationText: string) => {
+    const durationNum = parseInt(durationText.replace(/\D/g, ''), 10) || 0;
+    const currentItem = selectedServices[catId];
+    if (!currentItem) return;
+
+    const newOptions = [...currentItem.options];
+    newOptions[optIndex] = { ...newOptions[optIndex], durationMinutes: durationNum };
+
+    setSelectedServices({
+      ...selectedServices,
+      [catId]: {
+        ...currentItem,
+        options: newOptions,
+      },
+    });
+  };
+
+  const handleAddOption = (catId: string) => {
+    const currentItem = selectedServices[catId];
+    if (!currentItem) return;
+
+    const lastOpt = currentItem.options[currentItem.options.length - 1];
+    const nextDuration = lastOpt ? lastOpt.durationMinutes + 30 : 60;
+    const nextPrice = lastOpt ? lastOpt.price + 150000 : 500000;
+
+    const newOptions = [
+      ...currentItem.options,
+      {
+        durationMinutes: nextDuration,
+        price: nextPrice,
+        sortOrder: currentItem.options.length + 1,
+        isActive: true,
+      },
+    ];
+
+    setSelectedServices({
+      ...selectedServices,
+      [catId]: { ...currentItem, options: newOptions },
+    });
+  };
+
+  const handleRemoveOption = (catId: string, optIndex: number) => {
+    const currentItem = selectedServices[catId];
+    if (!currentItem) return;
+
+    if (currentItem.options.length <= 1) {
+      Alert.alert('Lưu ý', 'Mỗi dịch vụ cần có ít nhất 1 gói thời gian & giá.');
+      return;
+    }
+
+    const newOptions = currentItem.options.filter((_, idx) => idx !== optIndex);
+    const minPrice = Math.min(...newOptions.map((o) => o.price));
+
+    setSelectedServices({
+      ...selectedServices,
+      [catId]: {
+        ...currentItem,
+        basePrice: minPrice > 0 ? minPrice : currentItem.basePrice,
+        options: newOptions,
+      },
     });
   };
 
@@ -482,6 +734,17 @@ export default function WorkerSetupScreen() {
       return;
     }
 
+    // Active Certificates (including unsubmitted cert input fields)
+    const activeCertificates = [...certificates];
+    if (certTitle.trim() && certIssuedBy.trim()) {
+      activeCertificates.push({
+        title: certTitle.trim(),
+        issuedBy: certIssuedBy.trim(),
+        issuedAt: certIssuedAt.trim() || new Date().toISOString().split('T')[0],
+        uri: certUri || undefined,
+      });
+    }
+
     if (isEditMode) {
       try {
         const userPayload = {
@@ -507,6 +770,12 @@ export default function WorkerSetupScreen() {
             categoryId: s.categoryId,
             basePrice: Number(s.basePrice) || 0,
             isPrimary: s.categoryId === servicesList[0].categoryId,
+            options: (s.options || []).map((opt, oIdx) => ({
+              durationMinutes: Number(opt.durationMinutes) || 60,
+              price: Number(opt.price) || 0,
+              sortOrder: opt.sortOrder ?? oIdx + 1,
+              isActive: opt.isActive ?? true,
+            })),
           })),
         };
 
@@ -520,7 +789,7 @@ export default function WorkerSetupScreen() {
 
         const certificatesPayload = {
           workerProfileId: profile?.workerProfileId || profile?.id || '',
-          dtos: certificates.map((c) => ({
+          dtos: activeCertificates.map((c) => ({
             title: c.title,
             issuedBy: c.issuedBy,
             issuedAt: formatToIsoDateTime(c.issuedAt),
@@ -542,6 +811,12 @@ export default function WorkerSetupScreen() {
 
     const formData = new FormData();
     formData.append('Target', target || '');
+    if (fullName) {
+      formData.append('FullName', fullName);
+    }
+    if (phone) {
+      formData.append('Phone', phone);
+    }
     formData.append('Bio', bio);
     formData.append('ExperienceYears', experienceYears);
     formData.append('MaxDistanceKm', String(maxDistanceKm));
@@ -563,6 +838,14 @@ export default function WorkerSetupScreen() {
       formData.append(`WorkerService[${idx}].CategoryId`, s.categoryId);
       formData.append(`WorkerService[${idx}].BasePrice`, String(s.basePrice));
       formData.append(`WorkerService[${idx}].IsPrimary`, idx === 0 ? 'true' : 'false');
+      if (s.options && s.options.length > 0) {
+        s.options.forEach((opt, optIdx) => {
+          formData.append(`WorkerService[${idx}].Options[${optIdx}].DurationMinutes`, String(opt.durationMinutes));
+          formData.append(`WorkerService[${idx}].Options[${optIdx}].Price`, String(opt.price));
+          formData.append(`WorkerService[${idx}].Options[${optIdx}].SortOrder`, String(opt.sortOrder || optIdx + 1));
+          formData.append(`WorkerService[${idx}].Options[${optIdx}].IsActive`, 'true');
+        });
+      }
     });
 
     // Identification images
@@ -588,8 +871,8 @@ export default function WorkerSetupScreen() {
     });
 
     // Certificates
-    for (let idx = 0; idx < certificates.length; idx++) {
-      const c = certificates[idx];
+    for (let idx = 0; idx < activeCertificates.length; idx++) {
+      const c = activeCertificates[idx];
       formData.append(`CertificateUploads[${idx}].Title`, c.title);
       formData.append(`CertificateUploads[${idx}].IssuedBy`, c.issuedBy);
       formData.append(`CertificateUploads[${idx}].IssuedAt`, formatToIsoDateTime(c.issuedAt));
@@ -612,7 +895,7 @@ export default function WorkerSetupScreen() {
   if (isLoadingProfile) {
     return (
       <View style={styles.loadingContainer}>
-        <ActivityIndicator size="large" color="#FF8228" />
+        <ActivityIndicator size="large" color="#0F382C" />
         <Text style={styles.loadingText}>Đang tải cấu hình thiết lập...</Text>
       </View>
     );
@@ -626,7 +909,7 @@ export default function WorkerSetupScreen() {
           onPress={() => router.replace('/(worker)/worker-home' as any)}>
           <MaterialIcons name="arrow-back" size={24} color="#383838" />
         </Pressable>
-        <Text style={styles.headerTitle}>Thiết lập hồ sơ thợ</Text>
+        <Text style={styles.headerTitle}>Thiết lập hồ sơ Kỹ thuật viên Spa</Text>
         <Pressable style={styles.logoutBtn} onPress={handleLogout}>
           <MaterialIcons name="logout" size={20} color="#ba1a1a" />
         </Pressable>
@@ -712,10 +995,10 @@ export default function WorkerSetupScreen() {
             </Text>
 
             <Text style={styles.sectionTitle}>Dịch vụ cung cấp</Text>
-            <Text style={styles.subLabel}>Chọn các lĩnh vực sửa chữa và đặt giá sàn:</Text>
+            <Text style={styles.subLabel}>Chọn các dịch vụ Spa & Massage bạn cung cấp và thiết lập gói giá:</Text>
 
             {isLoadingCategories ? (
-              <ActivityIndicator size="small" color="#FF8228" />
+              <ActivityIndicator size="small" color="#0F382C" />
             ) : (
               categories.map((cat) => {
                 const isSelected = !!selectedServices[cat.id];
@@ -727,22 +1010,53 @@ export default function WorkerSetupScreen() {
                       <MaterialIcons
                         name={isSelected ? 'check-box' : 'check-box-outline-blank'}
                         size={22}
-                        color={isSelected ? '#FF8228' : '#818A91'}
+                        color={isSelected ? '#0F382C' : '#818A91'}
                       />
                       <Text style={styles.catName}>{cat.name}</Text>
                     </Pressable>
 
                     {isSelected && (
                       <View style={styles.priceContainer}>
-                        <Text style={styles.priceLabel}>Giá cơ bản sàn (VND)</Text>
-                        <TextInput
-                          style={styles.priceInput}
-                          value={String(selectedServices[cat.id]?.basePrice || '')}
-                          onChangeText={(val) => handleServicePriceChange(cat.id, val)}
-                          keyboardType="number-pad"
-                          placeholder="150,000"
-                          placeholderTextColor="#9A9A9A"
-                        />
+                        <Text style={styles.priceLabel}>Các gói thời gian & Giá dịch vụ (VNĐ)</Text>
+                        {selectedServices[cat.id]?.options?.map((opt, optIdx) => (
+                          <View key={optIdx} style={styles.optionItemRow}>
+                            <View style={styles.optionDurationBox}>
+                              <Text style={styles.optionDurationLabel}>Thời gian (phút)</Text>
+                              <TextInput
+                                style={styles.optionDurationInput}
+                                value={String(opt.durationMinutes || '')}
+                                onChangeText={(val) => handleOptionDurationChange(cat.id, optIdx, val)}
+                                keyboardType="number-pad"
+                                placeholder="60"
+                                placeholderTextColor="#9A9A9A"
+                              />
+                            </View>
+                            <View style={styles.optionPriceBox}>
+                              <Text style={styles.optionPriceLabel}>Giá dịch vụ (VNĐ)</Text>
+                              <TextInput
+                                style={styles.optionPriceInput}
+                                value={String(opt.price || '')}
+                                onChangeText={(val) => handleOptionPriceChange(cat.id, optIdx, val)}
+                                keyboardType="number-pad"
+                                placeholder="500,000"
+                                placeholderTextColor="#9A9A9A"
+                              />
+                            </View>
+                            {selectedServices[cat.id]?.options?.length > 1 && (
+                              <Pressable
+                                style={styles.removeOptionBtn}
+                                onPress={() => handleRemoveOption(cat.id, optIdx)}>
+                                <MaterialIcons name="delete-outline" size={20} color="#BA1A1A" />
+                              </Pressable>
+                            )}
+                          </View>
+                        ))}
+                        <Pressable
+                          style={styles.addOptionBtn}
+                          onPress={() => handleAddOption(cat.id)}>
+                          <MaterialIcons name="add-circle-outline" size={18} color="#0F382C" />
+                          <Text style={styles.addOptionText}>Thêm gói thời gian</Text>
+                        </Pressable>
                       </View>
                     )}
                   </View>
@@ -791,32 +1105,60 @@ export default function WorkerSetupScreen() {
               Tải ảnh mặt trước/mặt sau của Citizen Identity Card để duyệt xác thực:
             </Text>
 
-            <View style={styles.cccdUploadBoxRow}>
-              {cccdUris.map((uri, idx) => (
-                <View key={uri} style={styles.cccdSlotPreviewWrapper}>
-                  <Pressable
-                    style={{ width: '100%', height: '100%' }}
-                    onPress={() => setActivePreviewImage(uri)}>
-                    <Image source={{ uri }} style={styles.cccdSlotPreview} />
+            <View style={styles.cccdTwoSlotsRow}>
+              {/* Slot 1: Mặt trước */}
+              <View style={styles.cccdSingleSlotWrapper}>
+                <Text style={styles.cccdSlotHeaderLabel}>Mặt trước CCCD *</Text>
+                {cccdFrontUri ? (
+                  <View style={styles.cccdSlotCardFilled}>
+                    <Pressable style={{ flex: 1 }} onPress={() => setActivePreviewImage(cccdFrontUri)}>
+                      <Image source={{ uri: cccdFrontUri }} style={styles.cccdSlotImage} />
+                    </Pressable>
+                    <View style={styles.cccdSlotActionRow}>
+                      <Pressable style={styles.cccdSlotChangeBtn} onPress={() => handlePickCccdSlot('front')}>
+                        <MaterialIcons name="photo-camera" size={14} color="#0F382C" />
+                        <Text style={styles.cccdSlotChangeText}>Đổi ảnh</Text>
+                      </Pressable>
+                      <Pressable style={styles.cccdSlotDeleteIconBtn} onPress={() => setCccdFrontUri(null)}>
+                        <MaterialIcons name="delete" size={16} color="#BA1A1A" />
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <Pressable style={styles.cccdSlotCardEmpty} onPress={() => handlePickCccdSlot('front')}>
+                    <MaterialIcons name="add-a-photo" size={28} color="#0F382C" />
+                    <Text style={styles.cccdSlotEmptyTitle}>Tải Mặt trước</Text>
+                    <Text style={styles.cccdSlotEmptySub}>Chụp hoặc chọn 1 ảnh</Text>
                   </Pressable>
-                  <Pressable
-                    style={styles.cccdSlotDeleteBtn}
-                    onPress={() => setCccdUris((prev) => prev.filter((_, i) => i !== idx))}>
-                    <MaterialIcons name="cancel" size={20} color="#BA1A1A" />
-                  </Pressable>
-                </View>
-              ))}
+                )}
+              </View>
 
-              {cccdUris.length < 2 && (
-                <Pressable
-                  style={cccdUris.length === 0 ? styles.cccdSlotUploadBtnFull : styles.cccdSlotUploadBtn}
-                  onPress={handleSelectCccdSource}>
-                  <MaterialIcons name="add-a-photo" size={cccdUris.length === 0 ? 32 : 24} color="#FF8228" />
-                  <Text style={cccdUris.length === 0 ? styles.cccdSlotUploadTextFull : styles.cccdSlotUploadText}>
-                    {cccdUris.length === 0 ? 'Tải ảnh CCCD (Mặt trước & Mặt sau)' : 'Tải ảnh mặt thứ hai'}
-                  </Text>
-                </Pressable>
-              )}
+              {/* Slot 2: Mặt sau */}
+              <View style={styles.cccdSingleSlotWrapper}>
+                <Text style={styles.cccdSlotHeaderLabel}>Mặt sau CCCD *</Text>
+                {cccdBackUri ? (
+                  <View style={styles.cccdSlotCardFilled}>
+                    <Pressable style={{ flex: 1 }} onPress={() => setActivePreviewImage(cccdBackUri)}>
+                      <Image source={{ uri: cccdBackUri }} style={styles.cccdSlotImage} />
+                    </Pressable>
+                    <View style={styles.cccdSlotActionRow}>
+                      <Pressable style={styles.cccdSlotChangeBtn} onPress={() => handlePickCccdSlot('back')}>
+                        <MaterialIcons name="photo-camera" size={14} color="#0F382C" />
+                        <Text style={styles.cccdSlotChangeText}>Đổi ảnh</Text>
+                      </Pressable>
+                      <Pressable style={styles.cccdSlotDeleteIconBtn} onPress={() => setCccdBackUri(null)}>
+                        <MaterialIcons name="delete" size={16} color="#BA1A1A" />
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <Pressable style={styles.cccdSlotCardEmpty} onPress={() => handlePickCccdSlot('back')}>
+                    <MaterialIcons name="add-a-photo" size={28} color={cccdFrontUri ? "#0F382C" : "#A0A0A0"} />
+                    <Text style={[styles.cccdSlotEmptyTitle, !cccdFrontUri && { color: '#A0A0A0' }]}>Tải Mặt sau</Text>
+                    <Text style={styles.cccdSlotEmptySub}>Chụp hoặc chọn 1 ảnh</Text>
+                  </Pressable>
+                )}
+              </View>
             </View>
 
             {cccdUris.length > 0 && (
@@ -869,7 +1211,7 @@ export default function WorkerSetupScreen() {
                 style={styles.textInput}
                 value={certTitle}
                 onChangeText={setCertTitle}
-                placeholder="Tên chứng chỉ (ví dụ: Kỹ thuật điện dân dụng)"
+                placeholder="Tên chứng chỉ (ví dụ: Chứng chỉ Chăm sóc da / Spa)"
                 placeholderTextColor="#9A9A9A"
               />
               <TextInput
@@ -877,6 +1219,13 @@ export default function WorkerSetupScreen() {
                 value={certIssuedBy}
                 onChangeText={setCertIssuedBy}
                 placeholder="Nơi cấp chứng chỉ"
+                placeholderTextColor="#9A9A9A"
+              />
+              <TextInput
+                style={styles.textInput}
+                value={certIssuedAt}
+                onChangeText={setCertIssuedAt}
+                placeholder="Ngày nhận chứng chỉ (yyyy-MM-dd, ví dụ: 2022-05-15)"
                 placeholderTextColor="#9A9A9A"
               />
               {certUri ? (
@@ -895,7 +1244,7 @@ export default function WorkerSetupScreen() {
                 </View>
               ) : (
                 <Pressable style={styles.certPhotoBtn} onPress={handlePickCertImage}>
-                  <MaterialIcons name="add-a-photo" size={18} color="#FF8228" />
+                  <MaterialIcons name="add-a-photo" size={18} color="#0F382C" />
                   <Text style={styles.certPhotoBtnText}>Tải ảnh chứng chỉ đính kèm</Text>
                 </Pressable>
               )}
@@ -913,11 +1262,13 @@ export default function WorkerSetupScreen() {
                         <Image source={{ uri: c.uri }} style={styles.certThumbnail} />
                       </Pressable>
                     ) : (
-                      <MaterialIcons name="workspace-premium" size={20} color="#FF8228" />
+                      <MaterialIcons name="workspace-premium" size={20} color="#0F382C" />
                     )}
                     <View style={styles.certInfo}>
                       <Text style={styles.certTitleText}>{c.title}</Text>
-                      <Text style={styles.certSubText}>Cấp bởi: {c.issuedBy}</Text>
+                      <Text style={styles.certSubText}>
+                        Cấp bởi: {c.issuedBy} {c.issuedAt ? `• Ngày cấp: ${c.issuedAt}` : ''}
+                      </Text>
                     </View>
                   </View>
                 ))}
@@ -938,11 +1289,12 @@ export default function WorkerSetupScreen() {
                     );
                     return;
                   }
-                  if (cccdUris.length < 2) {
+                  if (!cccdFrontUri || !cccdBackUri) {
                     Alert.alert(
-                      'Cảnh báo',
-                      'Nên cung cấp đủ 2 ảnh mặt trước và sau của CCCD để tránh bị từ chối duyệt.'
+                      'Thiếu ảnh CCCD',
+                      'Vui lòng tải đủ 2 mặt (Mặt trước và Mặt sau) của CCCD để tiếp tục.'
                     );
+                    return;
                   }
                   setCurrentStep(3);
                 }}>
@@ -982,36 +1334,78 @@ export default function WorkerSetupScreen() {
               <MaterialIcons name="arrow-drop-down" size={24} color="#574237" />
             </Pressable>
 
-            <Text style={styles.fieldLabel}>Địa chỉ chi tiết (Số nhà, đường...)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={addrDetail}
-              onChangeText={setAddrDetail}
-              placeholder="Ví dụ: 36 Nguyễn Hữu Thọ"
-              placeholderTextColor="#9A9A9A"
-            />
+            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+              <Text style={styles.fieldLabel}>Địa chỉ chi tiết (Số nhà, đường...)</Text>
+              <Pressable
+                style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 }}
+                onPress={handleGetCurrentGpsLocation}
+                disabled={isGpsLoading}>
+                {isGpsLoading ? (
+                  <ActivityIndicator size="small" color="#0F382C" />
+                ) : (
+                  <MaterialIcons name="my-location" size={16} color="#0F382C" />
+                )}
+                <Text style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 12, color: '#0F382C' }}>
+                  Lấy GPS
+                </Text>
+              </Pressable>
+            </View>
+
+            <View style={{ position: 'relative', zIndex: 100 }}>
+              <TextInput
+                style={styles.textInput}
+                value={addrDetail}
+                onChangeText={(text) => {
+                  setAddrDetail(text);
+                  fetchAddressAutoComplete(text);
+                }}
+                placeholder="Ví dụ: 36 Nguyễn Hữu Thọ (Hoặc nhập để gợi ý)"
+                placeholderTextColor="#9A9A9A"
+              />
+
+              {showAutoCompleteDropdown && autoCompleteResults.length > 0 && (
+                <View style={styles.autoCompleteContainer}>
+                  {autoCompleteResults.map((item, idx) => (
+                    <Pressable
+                      key={item.place_id || idx}
+                      style={styles.autoCompleteRow}
+                      onPress={() => handleSelectAutoCompletePlace(item)}>
+                      <MaterialIcons name="location-on" size={18} color="#0F382C" style={{ marginRight: 8, marginTop: 2 }} />
+                      <View style={{ flex: 1 }}>
+                        <Text style={styles.autoCompleteMainText}>
+                          {item.structured_formatting?.main_text || item.description}
+                        </Text>
+                        <Text style={styles.autoCompleteSubText} numberOfLines={1}>
+                          {item.structured_formatting?.secondary_text || item.description}
+                        </Text>
+                      </View>
+                    </Pressable>
+                  ))}
+                </View>
+              )}
+            </View>
 
             <Text style={styles.fieldLabel}>Bán kính di chuyển tối đa: {maxDistanceKm} km</Text>
             <Slider
               style={{ width: '100%', height: 40 }}
-              minimumValue={5}
-              maximumValue={100}
-              step={5}
+              minimumValue={10}
+              maximumValue={50}
+              step={1}
               value={maxDistanceKm}
               onValueChange={setMaxDistanceKm}
-              minimumTrackTintColor="#FF8228"
+              minimumTrackTintColor="#0F382C"
               maximumTrackTintColor="#DDDDDD"
-              thumbTintColor="#FF8228"
+              thumbTintColor="#0F382C"
             />
 
             <Text style={styles.sectionTitle}>Hình ảnh hoạt động thực tế (Portfolio)</Text>
             <Text style={styles.subLabel}>
-              Tải ảnh các công trình đã sửa chữa của bạn để tăng độ tin cậy:
+              Tải ảnh hình ảnh thực tế / Dịch vụ của bạn để tăng độ tin cậy:
             </Text>
 
             <View style={styles.cccdUploadBox}>
               <Pressable style={styles.uploadBtn} onPress={handlePickPortfolio}>
-                <MaterialIcons name="add-photo-alternate" size={32} color="#FF8228" />
+                <MaterialIcons name="add-photo-alternate" size={32} color="#0F382C" />
                 <Text style={styles.uploadText}>Chọn ảnh thực tế</Text>
               </Pressable>
 
@@ -1059,12 +1453,12 @@ export default function WorkerSetupScreen() {
           <View style={styles.statusBoxContainer}>
             {profile?.status === 0 && (
               <View style={styles.statusBox}>
-                <View style={[styles.statusIconCircle, { backgroundColor: '#FFF7F2' }]}>
-                  <MaterialIcons name="hourglass-empty" size={48} color="#FF8228" />
+                <View style={[styles.statusIconCircle, { backgroundColor: '#F2F7F2' }]}>
+                  <MaterialIcons name="hourglass-empty" size={48} color="#0F382C" />
                 </View>
                 <Text style={styles.statusTitle}>Hồ sơ đang chờ duyệt</Text>
                 <Text style={styles.statusDesc}>
-                  Đội ngũ quản trị viên Fixy đang kiểm tra và đối chiếu tài liệu CCCD/Chứng chỉ của
+                  Đội ngũ quản trị viên Fixy Spa đang kiểm tra và đối chiếu tài liệu CCCD/Chứng chỉ của
                   bạn. Quá trình này sẽ hoàn tất trong vòng 24 - 48 giờ.
                 </Text>
                 <Pressable
@@ -1238,7 +1632,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   wizardDotActive: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   wizardDotText: {
     fontFamily: 'Montserrat_700Bold',
@@ -1255,7 +1649,7 @@ const styles = StyleSheet.create({
     marginHorizontal: 8,
   },
   wizardLineActive: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   scrollContent: {
     padding: 16,
@@ -1319,8 +1713,8 @@ const styles = StyleSheet.create({
     gap: 10,
   },
   catCardSelected: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF7F2',
+    borderColor: '#0F382C',
+    backgroundColor: '#F2F7F2',
   },
   catCardHeader: {
     flexDirection: 'row',
@@ -1334,30 +1728,84 @@ const styles = StyleSheet.create({
   },
   priceContainer: {
     borderTopWidth: 1,
-    borderColor: '#FFD3B8',
+    borderColor: '#C6DFC6',
     paddingTop: 10,
-    gap: 6,
+    gap: 8,
   },
   priceLabel: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 12,
-    color: '#574237',
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#0F382C',
   },
-  priceInput: {
-    height: 44,
+  optionItemRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 8,
+    marginTop: 4,
+  },
+  optionDurationBox: {
+    width: 110,
+  },
+  optionDurationLabel: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+    color: '#574237',
+    marginBottom: 4,
+  },
+  optionDurationInput: {
+    height: 42,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
+    paddingHorizontal: 8,
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 15,
-    color: '#FF8228',
+    fontSize: 14,
+    color: '#0F382C',
+    textAlign: 'center',
+  },
+  optionPriceBox: {
+    flex: 1,
+  },
+  optionPriceLabel: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+    color: '#574237',
+    marginBottom: 4,
+  },
+  optionPriceInput: {
+    height: 42,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#0F382C',
+    backgroundColor: '#ffffff',
+    paddingHorizontal: 10,
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#0F382C',
+  },
+  removeOptionBtn: {
+    height: 42,
+    width: 36,
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  addOptionBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 8,
+    paddingVertical: 6,
+  },
+  addOptionText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#0F382C',
   },
   nextBtn: {
     height: 54,
     borderRadius: 14,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 20,
@@ -1391,6 +1839,84 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
   },
+  cccdTwoSlotsRow: {
+    flexDirection: 'row',
+    gap: 12,
+    width: '100%',
+    marginBottom: 16,
+  },
+  cccdSingleSlotWrapper: {
+    flex: 1,
+    gap: 6,
+  },
+  cccdSlotHeaderLabel: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#1B1C1C',
+  },
+  cccdSlotCardEmpty: {
+    height: 120,
+    borderRadius: 12,
+    borderWidth: 1.5,
+    borderColor: '#0F382C',
+    borderStyle: 'dashed',
+    backgroundColor: '#F2F7F2',
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 10,
+    gap: 4,
+  },
+  cccdSlotEmptyTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#0F382C',
+    textAlign: 'center',
+  },
+  cccdSlotEmptySub: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 10,
+    color: '#818A91',
+    textAlign: 'center',
+  },
+  cccdSlotCardFilled: {
+    height: 120,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#C6DFC6',
+    backgroundColor: '#FFFFFF',
+    overflow: 'hidden',
+    position: 'relative',
+  },
+  cccdSlotImage: {
+    width: '100%',
+    height: '100%',
+    resizeMode: 'cover',
+  },
+  cccdSlotActionRow: {
+    position: 'absolute',
+    bottom: 0,
+    left: 0,
+    right: 0,
+    backgroundColor: 'rgba(255, 255, 255, 0.9)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  cccdSlotChangeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  cccdSlotChangeText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+    color: '#0F382C',
+  },
+  cccdSlotDeleteIconBtn: {
+    padding: 2,
+  },
   cccdUploadBoxRow: {
     flexDirection: 'row',
     gap: 12,
@@ -1412,11 +1938,11 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF2EA',
+    backgroundColor: '#F2F7F2',
     gap: 6,
   },
   cccdSlotUploadBtnFull: {
@@ -1424,22 +1950,22 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     borderStyle: 'dashed',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FFF2EA',
+    backgroundColor: '#F2F7F2',
     gap: 6,
   },
   cccdSlotUploadText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 11,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   cccdSlotUploadTextFull: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   cccdSlotPreviewWrapper: {
     flex: 1,
@@ -1486,7 +2012,7 @@ const styles = StyleSheet.create({
   uploadText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   scanBtn: {
     height: 44,
@@ -1525,20 +2051,20 @@ const styles = StyleSheet.create({
   certPhotoBtnText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 12,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   addCertBtn: {
     height: 40,
     borderRadius: 8,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
   addCertBtnText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   certList: {
     gap: 8,
@@ -1595,20 +2121,20 @@ const styles = StyleSheet.create({
     height: 54,
     borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
   backBtnText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   nextBtnHalf: {
     flex: 1.5,
     height: 54,
     borderRadius: 14,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1694,7 +2220,7 @@ const styles = StyleSheet.create({
   },
   refreshBtn: {
     height: 48,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',
@@ -1777,5 +2303,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#818A91',
     marginVertical: 20,
+  },
+  autoCompleteContainer: {
+    position: 'absolute',
+    top: 52,
+    left: 0,
+    right: 0,
+    backgroundColor: '#ffffff',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    maxHeight: 220,
+    elevation: 8,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.15,
+    shadowRadius: 8,
+    zIndex: 999,
+  },
+  autoCompleteRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EDF2F7',
+  },
+  autoCompleteMainText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#2D3748',
+  },
+  autoCompleteSubText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 11,
+    color: '#718096',
+    marginTop: 2,
   },
 });

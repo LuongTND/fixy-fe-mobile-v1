@@ -7,11 +7,11 @@ const NAV_THEME: { light: Theme; dark: Theme } = {
     dark: false,
     colors: {
       background: COLORS.light.background,
-      border: COLORS.light.grey5,
+      border: COLORS.light.border,
       card: COLORS.light.card,
       notification: COLORS.light.destructive,
       primary: COLORS.light.primary,
-      text: COLORS.black,
+      text: COLORS.light.foreground,
     },
     fonts: DefaultTheme.fonts,
   },
@@ -19,14 +19,14 @@ const NAV_THEME: { light: Theme; dark: Theme } = {
     dark: true,
     colors: {
       background: COLORS.dark.background,
-      border: COLORS.dark.grey5,
-      card: COLORS.dark.grey6,
+      border: COLORS.dark.border,
+      card: COLORS.dark.card,
       notification: COLORS.dark.destructive,
       primary: COLORS.dark.primary,
-      text: COLORS.white,
+      text: COLORS.dark.foreground,
     },
     fonts: DarkTheme.fonts,
   },
 };
 
-export { NAV_THEME };
+export { NAV_THEME, COLORS };

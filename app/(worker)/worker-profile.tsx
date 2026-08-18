@@ -17,9 +17,13 @@ import {
   View,
   Image,
 } from 'react-native';
+import * as Location from 'expo-location';
+import Constants from 'expo-constants';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { vietnamProvincesApi, matchAddressOption, cleanSearchText } from '@/services/api/provinces';
+
+const GOONG_API_KEY = Constants.expoConfig?.extra?.goongApiKey || '';
 
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
 import { useAuthStore } from '@/store/store';
@@ -74,10 +78,10 @@ function filterAddressOptions(options: AddressPickerOption[], searchQuery: strin
   return keyword ? options.filter((item) => matchesAddressKeyword(item.name, keyword)) : options;
 }
 
-const WEEKDAY_NAMES = ['Chủ Nhật', 'Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7'];
+const WEEKDAY_NAMES = ['Thứ 2', 'Thứ 3', 'Thứ 4', 'Thứ 5', 'Thứ 6', 'Thứ 7', 'Chủ Nhật'];
 
 function formatScheduleSlotTime(slot: WorkerScheduleWeekly) {
-  return slot.isActive ? `${slot.startTime.slice(0, 5)} - ${slot.endTime.slice(0, 5)}` : 'Nghá»‰';
+  return slot.isActive ? `${slot.startTime.slice(0, 5)} - ${slot.endTime.slice(0, 5)}` : 'Nghỉ';
 }
 
 type WeeklyScheduleCardProps = Readonly<{
@@ -111,8 +115,8 @@ function WeeklyScheduleCard({ weeklySchedule, onEditSlot, onToggleSlot }: Weekly
             <Switch
               value={slot.isActive}
               onValueChange={() => onToggleSlot(index)}
-              trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-              thumbColor={slot.isActive ? '#FF8228' : '#8b7265'}
+              trackColor={{ false: '#dcd9d9', true: '#C6DFC6' }}
+              thumbColor={slot.isActive ? '#0F382C' : '#818A91'}
             />
           </View>
         ))}
@@ -139,7 +143,7 @@ function DayOffExceptionsCard({
           Đăng ký nghỉ phép (Exception)
         </Text>
         <Pressable className="pr-3" onPress={onAddDayOff}>
-          <Text className="font-montserrat-semibold text-xs text-[#FF8228] flex-shrink-0">
+          <Text className="font-montserrat-semibold text-xs text-[#0F382C] flex-shrink-0">
             + Thêm ngày nghỉ
           </Text>
         </Pressable>
@@ -245,6 +249,119 @@ export default function WorkerProfileScreen() {
   const [addrDetail, setAddrDetail] = React.useState('');
   const [addrCity, setAddrCity] = React.useState('');
   const [addrWard, setAddrWard] = React.useState('');
+  const [latitude, setLatitude] = React.useState<number>(16.0749);
+  const [longitude, setLongitude] = React.useState<number>(108.2291);
+
+  // Goong Place AutoComplete & GPS states
+  const [autoCompleteResults, setAutoCompleteResults] = React.useState<any[]>([]);
+  const [isSearchingAddress, setIsSearchingAddress] = React.useState(false);
+  const [showAutoCompleteDropdown, setShowAutoCompleteDropdown] = React.useState(false);
+  const [isGpsLoading, setIsGpsLoading] = React.useState(false);
+
+  const autoCompleteTimeoutRef = React.useRef<any>(null);
+
+  const fetchAddressAutoComplete = (query: string) => {
+    if (autoCompleteTimeoutRef.current) {
+      clearTimeout(autoCompleteTimeoutRef.current);
+    }
+    if (!query.trim() || query.trim().length < 2) {
+      setAutoCompleteResults([]);
+      setShowAutoCompleteDropdown(false);
+      return;
+    }
+
+    autoCompleteTimeoutRef.current = setTimeout(async () => {
+      setIsSearchingAddress(true);
+      try {
+        const url = `https://rsapi.goong.io/Place/AutoComplete?api_key=${GOONG_API_KEY}&input=${encodeURIComponent(query)}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.predictions && data.predictions.length > 0) {
+          setAutoCompleteResults(data.predictions);
+          setShowAutoCompleteDropdown(true);
+        } else {
+          setAutoCompleteResults([]);
+          setShowAutoCompleteDropdown(false);
+        }
+      } catch (err) {
+        console.warn('[worker-profile] AutoComplete error:', err);
+      } finally {
+        setIsSearchingAddress(false);
+      }
+    }, 350);
+  };
+
+  const handleSelectAutoCompletePlace = async (item: any) => {
+    setShowAutoCompleteDropdown(false);
+    const mainText = item.structured_formatting?.main_text || item.description;
+    setAddrDetail(mainText);
+
+    if (item.place_id) {
+      try {
+        const url = `https://rsapi.goong.io/Place/Detail?api_key=${GOONG_API_KEY}&place_id=${item.place_id}`;
+        const res = await fetch(url);
+        const data = await res.json();
+        if (data.result && data.result.geometry?.location) {
+          const { lat, lng } = data.result.geometry.location;
+          setLatitude(lat);
+          setLongitude(lng);
+
+          const comps = data.result.address_components || [];
+          const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
+          const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+
+          if (cityComp) setAddrCity(cityComp);
+          if (wardComp) setAddrWard(wardComp);
+        }
+      } catch (err) {
+        console.warn('[worker-profile] Place Detail error:', err);
+      }
+    }
+  };
+
+  const handleGetCurrentGpsLocation = async () => {
+    setIsGpsLoading(true);
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Quyền vị trí', 'Vui lòng cấp quyền truy cập vị trí GPS cho ứng dụng.');
+        return;
+      }
+
+      const pos = await Location.getCurrentPositionAsync({
+        accuracy: Location.Accuracy.Balanced,
+      });
+      const lat = pos.coords.latitude;
+      const lng = pos.coords.longitude;
+      setLatitude(lat);
+      setLongitude(lng);
+
+      const url = `https://rsapi.goong.io/Geocode?latlng=${lat},${lng}&api_key=${GOONG_API_KEY}`;
+      const res = await fetch(url);
+      const data = await res.json();
+
+      if (data.results && data.results.length > 0) {
+        const first = data.results[0];
+        setAddrDetail(first.formatted_address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+
+        const comps = first.address_components || [];
+        const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
+        const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+
+        if (cityComp) setAddrCity(cityComp);
+        if (wardComp) setAddrWard(wardComp);
+
+        Alert.alert('Thành công', 'Đã tự động lấy vị trí GPS hiện tại!');
+      } else {
+        setAddrDetail(`${lat.toFixed(5)}, ${lng.toFixed(5)}`);
+      }
+    } catch (err) {
+      console.warn('[worker-profile] GPS Error:', err);
+      Alert.alert('Lỗi', 'Không thể lấy vị trí GPS hiện tại.');
+    } finally {
+      setIsGpsLoading(false);
+    }
+  };
 
   const [selectedProvinceCode, setSelectedProvinceCode] = React.useState<number | null>(null);
 
@@ -352,6 +469,47 @@ export default function WorkerProfileScreen() {
   const [scheduleEndTime, setScheduleEndTime] = React.useState(() => timeStringToDate('17:00:00'));
   const [schedulePickerTarget, setSchedulePickerTarget] = React.useState<'start' | 'end'>('start');
 
+  const [isUploadingAvatar, setIsUploadingAvatar] = React.useState(false);
+
+  const handlePickAvatar = async () => {
+    try {
+      const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để đổi ảnh đại diện.');
+        return;
+      }
+
+      const result = await ImagePicker.launchImageLibraryAsync({
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        allowsEditing: true,
+        aspect: [1, 1],
+        quality: 0.8,
+      });
+
+      if (!result.canceled && result.assets && result.assets.length > 0) {
+        const asset = result.assets[0];
+        setIsUploadingAvatar(true);
+        try {
+          await updateWorkerProfile({
+            avatarFile: {
+              uri: asset.uri,
+              type: asset.type || 'image/jpeg',
+              name: asset.fileName || 'avatar.jpg',
+            },
+          });
+          queryClient.invalidateQueries({ queryKey: ['workerProfileMe'] });
+          Alert.alert('Thành công', 'Đã cập nhật ảnh đại diện mới.');
+        } catch (err: any) {
+          Alert.alert('Lỗi', err?.message || 'Không thể tải lên ảnh đại diện.');
+        } finally {
+          setIsUploadingAvatar(false);
+        }
+      }
+    } catch (err) {
+      console.warn('Avatar picker error:', err);
+    }
+  };
+
   // Mutations
   const updateProfileMutation = useMutation({
     mutationFn: updateWorkerProfile,
@@ -365,16 +523,16 @@ export default function WorkerProfileScreen() {
   const updateAddressMutation = useMutation({
     mutationFn: async () => {
       await updateWorkerProfile({
-        phone: profile?.phone || '',
-        bio: profile?.bio || '',
+        phone: profile?.phone || undefined,
+        bio: profile?.bio || undefined,
         address: {
           label: 'Địa chỉ làm việc',
           city: addrCity,
           district: null,
           ward: addrWard,
           detail: addrDetail,
-          lat: profile?.address?.lat || 16,
-          lng: profile?.address?.lng || 108,
+          lat: latitude || profile?.address?.lat || 16.0749,
+          lng: longitude || profile?.address?.lng || 108.2291,
           isDefault: true,
         } as any,
       });
@@ -674,31 +832,52 @@ export default function WorkerProfileScreen() {
 
   if (isLoadingProfile) {
     return (
-      <View className="flex-1 items-center justify-center bg-[#fbf9f8]">
-        <ActivityIndicator size="large" color="#FF8228" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF9F5' }}>
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
 
   return (
     <View className="flex-1 bg-[#fbf9f8]">
-      <View className="h-24 flex-row items-center justify-between px-4 bg-white border-b border-gray-200" style={{ paddingTop: insets.top }}>
-        <View className="w-10 h-10 items-center justify-center" />
+      <View className="pb-3 flex-row items-center justify-between px-4 bg-white border-b border-gray-200" style={{ paddingTop: Math.max(insets.top, 12) }}>
+        <View className="w-9 h-9" />
         <Text className="font-montserrat-bold text-base text-[#1b1c1c]">Tài khoản</Text>
-        <View className="w-10 h-10 items-center justify-center" />
+        <Pressable
+          className="w-9 h-9 rounded-full bg-[#F4F1EA] items-center justify-center"
+          onPress={() => router.push('/(customer)/support-tickets' as any)}>
+          <MaterialIcons name="headset-mic" size={20} color="#0F382C" />
+        </Pressable>
       </View>
 
       <KeyboardAwareScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false} bottomOffset={44}>
         {/* Profile Card (styled using NativeWind) */}
         <View className="bg-white border border-gray-300 rounded-2xl p-5 items-center mb-5 shadow-sm">
-          <Image
-            source={{
-              uri:
-                profile?.avatarUrl ||
-                'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-            }}
-            className="w-20 h-20 rounded-full border-2 border-orange-500 mb-3"
-          />
+          <View className="relative mb-3">
+            <Pressable onPress={handlePickAvatar} disabled={isUploadingAvatar}>
+              {profile?.avatarUrl ? (
+                <Image
+                  source={{ uri: profile.avatarUrl }}
+                  className="w-20 h-20 rounded-full border-2 border-[#0F382C]"
+                />
+              ) : (
+                <View className="w-20 h-20 rounded-full border-2 border-[#0F382C] bg-[#D6CFC4] items-center justify-center">
+                  <Text style={{ fontSize: 28, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                    {(profile?.fullName || '').charAt(0).toUpperCase() || '?'}
+                  </Text>
+                </View>
+              )}
+              {isUploadingAvatar ? (
+                <View className="absolute inset-0 rounded-full bg-black/40 items-center justify-center">
+                  <ActivityIndicator size="small" color="#ffffff" />
+                </View>
+              ) : (
+                <View className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#0F382C] border-2 border-white items-center justify-center shadow">
+                  <MaterialIcons name="photo-camera" size={14} color="#ffffff" />
+                </View>
+              )}
+            </Pressable>
+          </View>
           <Text className="text-lg text-gray-800 font-montserrat-bold">
             {profile?.fullName || 'Kỹ thuật viên'}
           </Text>
@@ -721,7 +900,7 @@ export default function WorkerProfileScreen() {
             <View className="w-px h-7 bg-gray-200" />
             <View className="flex-1 items-center">
               <View className="flex-row items-center gap-1">
-                <MaterialIcons name="done-all" size={18} color="#FF8228" />
+                <MaterialIcons name="done-all" size={18} color="#0F382C" />
                 <Text className="text-base text-gray-800 font-montserrat-bold">
                   {profile?.completedJobs ?? 0}
                 </Text>
@@ -762,7 +941,7 @@ export default function WorkerProfileScreen() {
                     <Text className="text-gray-500 font-montserrat-semibold text-xs">Hủy</Text>
                   </Pressable>
                   <Pressable
-                    className="py-2 px-4 rounded-md bg-[#FF8228]"
+                    className="py-2 px-4 rounded-md bg-[#0F382C]"
                     onPress={() =>
                       updateProfileMutation.mutate({
                         bio: editBio,
@@ -784,8 +963,8 @@ export default function WorkerProfileScreen() {
                   <Text className="font-montserrat-bold">Giới thiệu: </Text>
                   {profile?.bio || 'Kỹ thuật viên chưa cập nhật giới thiệu.'}
                 </Text>
-                <Pressable className="self-start py-1.5 px-3 rounded-md border border-[#FF8228] mt-1.5" onPress={() => setIsEditingProfile(true)}>
-                  <Text className="text-[#FF8228] font-montserrat-semibold text-xs">Chỉnh sửa thông tin</Text>
+                <Pressable className="self-start py-1.5 px-3 rounded-md border border-[#0F382C] mt-1.5" onPress={() => setIsEditingProfile(true)}>
+                  <Text className="text-[#0F382C] font-montserrat-semibold text-xs">Chỉnh sửa thông tin</Text>
                 </Pressable>
               </View>
             )}
@@ -799,7 +978,7 @@ export default function WorkerProfileScreen() {
             {/* Địa điểm hoạt động */}
             <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setAddressModalOpen(true)}>
               <View className="flex-row items-center gap-3">
-                <MaterialIcons name="my-location" size={22} color="#ff8228" />
+                <MaterialIcons name="my-location" size={22} color="#0F382C" />
                 <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Địa điểm hoạt động</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
@@ -810,7 +989,7 @@ export default function WorkerProfileScreen() {
             {/* Hình ảnh hoạt động (Portfolio) */}
             <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setPortfolioModalOpen(true)}>
               <View className="flex-row items-center gap-3">
-                <MaterialIcons name="photo-library" size={22} color="#ff8228" />
+                <MaterialIcons name="photo-library" size={22} color="#0F382C" />
                 <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Hình ảnh hoạt động (Portfolio)</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
@@ -821,7 +1000,7 @@ export default function WorkerProfileScreen() {
             {/* Xác minh danh tính */}
             <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setIdentificationModalOpen(true)}>
               <View className="flex-row items-center gap-3">
-                <MaterialIcons name="badge" size={22} color="#ff8228" />
+                <MaterialIcons name="badge" size={22} color="#0F382C" />
                 <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Xác minh danh tính (CCCD)</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
@@ -832,7 +1011,7 @@ export default function WorkerProfileScreen() {
             {/* Chứng chỉ & Bằng cấp */}
             <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setCertificatesModalOpen(true)}>
               <View className="flex-row items-center gap-3">
-                <MaterialIcons name="workspace-premium" size={22} color="#ff8228" />
+                <MaterialIcons name="workspace-premium" size={22} color="#0F382C" />
                 <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Chứng chỉ & Bằng cấp</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
@@ -848,7 +1027,7 @@ export default function WorkerProfileScreen() {
               className="flex-row items-center justify-between py-3 px-3"
               onPress={() => router.push('/(customer)/support-tickets' as any)}>
               <View className="flex-row items-center gap-3">
-                <MaterialIcons name="support-agent" size={22} color="#ff8228" />
+                <MaterialIcons name="support-agent" size={20} color="#0F382C" />
                 <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Trung tâm trợ giúp & Khiếu nại</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
@@ -986,14 +1165,60 @@ export default function WorkerProfileScreen() {
                 <ScrollView
                   className="max-h-[420px] w-full"
                   keyboardShouldPersistTaps="handled">
-                  <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Địa chỉ chi tiết (Số nhà, Tên đường):</Text>
-                  <TextInput
-                    className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
-                    placeholder="Ví dụ: 305 Trần Hưng Đạo"
-                    placeholderTextColor="#9A9A9A"
-                    value={addrDetail}
-                    onChangeText={setAddrDetail}
-                  />
+                  <View className="flex-row justify-between items-center mb-0.5">
+                    <Text className="font-montserrat-semibold text-xs text-gray-500">Địa chỉ chi tiết (Số nhà, Tên đường):</Text>
+                    <Pressable
+                      className="flex-row items-center gap-1 py-1"
+                      onPress={handleGetCurrentGpsLocation}
+                      disabled={isGpsLoading}>
+                      {isGpsLoading ? (
+                        <ActivityIndicator size="small" color="#0F382C" />
+                      ) : (
+                        <MaterialIcons name="my-location" size={14} color="#0F382C" />
+                      )}
+                      <Text className="font-montserrat-semibold text-xs text-[#0F382C]">
+                        Lấy GPS
+                      </Text>
+                    </Pressable>
+                  </View>
+
+                  <View className="relative z-50 mb-4">
+                    <TextInput
+                      className="border border-gray-200 rounded-lg min-h-[52px] px-3 py-2 font-montserrat text-sm text-[#383838] leading-5"
+                      placeholder="Ví dụ: 305 Trần Hưng Đạo (Hoặc nhập để gợi ý)"
+                      placeholderTextColor="#9A9A9A"
+                      multiline={true}
+                      style={{ textAlignVertical: 'center' }}
+                      value={addrDetail}
+                      onChangeText={(text) => {
+                        setAddrDetail(text);
+                        fetchAddressAutoComplete(text);
+                      }}
+                    />
+
+                    {showAutoCompleteDropdown && autoCompleteResults.length > 0 && (
+                      <View className="absolute top-13 left-0 right-0 bg-white rounded-xl border border-gray-200 shadow-lg z-50 max-h-48">
+                        <ScrollView keyboardShouldPersistTaps="handled">
+                          {autoCompleteResults.map((item, idx) => (
+                            <Pressable
+                              key={item.place_id || idx}
+                              className="flex-row items-start p-2.5 border-b border-gray-100"
+                              onPress={() => handleSelectAutoCompletePlace(item)}>
+                              <MaterialIcons name="location-on" size={16} color="#0F382C" className="mr-2 mt-0.5" />
+                              <View className="flex-1">
+                                <Text className="font-montserrat-semibold text-xs text-gray-800">
+                                  {item.structured_formatting?.main_text || item.description}
+                                </Text>
+                                <Text className="font-montserrat text-[10px] text-gray-500 mt-0.5" numberOfLines={1}>
+                                  {item.structured_formatting?.secondary_text || item.description}
+                                </Text>
+                              </View>
+                            </Pressable>
+                          ))}
+                        </ScrollView>
+                      </View>
+                    )}
+                  </View>
 
                   <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Tỉnh / Thành phố:</Text>
                   <Pressable
@@ -1031,7 +1256,7 @@ export default function WorkerProfileScreen() {
                   </Pressable>
 
                   <Pressable
-                    className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center ${(!addrCity || !addrWard || !addrDetail.trim() || updateAddressMutation.isPending) ? 'bg-[#EAE5E3]' : ''}`}
+                    className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center ${(!addrCity || !addrWard || !addrDetail.trim() || updateAddressMutation.isPending) ? 'bg-[#EAE5E3]' : ''}`}
                     onPress={() => updateAddressMutation.mutate()}
                     disabled={
                       !addrCity ||
@@ -1089,7 +1314,7 @@ export default function WorkerProfileScreen() {
             </ScrollView>
 
             <Pressable
-              className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center mt-4 ${addPortfolioImageMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
+              className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center mt-4 ${addPortfolioImageMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
               onPress={handlePickPortfolioImages}
               disabled={addPortfolioImageMutation.isPending}>
               {addPortfolioImageMutation.isPending ? (
@@ -1162,19 +1387,19 @@ export default function WorkerProfileScreen() {
 
                 {idLocalUris.length < 2 && (
                   <Pressable
-                    className={idLocalUris.length === 0 ? "flex-1 h-[100px] border border-dashed border-[#FF8228] rounded-lg items-center justify-center bg-[#FFF2EA]" : "flex-1 h-[100px] border border-dashed border-[#FF8228] rounded-lg items-center justify-center bg-[#FFF2EA]"}
+                    className={idLocalUris.length === 0 ? "flex-1 h-[100px] border border-dashed border-[#0F382C] rounded-lg items-center justify-center bg-[#F2F7F2]" : "flex-1 h-[100px] border border-dashed border-[#0F382C] rounded-lg items-center justify-center bg-[#F2F7F2]"}
                     onPress={handleSelectCccdSource}
                     disabled={cccdRecognitionLoading}>
                     <MaterialIcons
                       name="add-a-photo"
                       size={idLocalUris.length === 0 ? 32 : 24}
-                      color="#FF8228"
+                      color="#0F382C"
                     />
                     <Text
                       className={
                         idLocalUris.length === 0
-                          ? 'font-montserrat-bold text-xs text-[#FF8228]'
-                          : 'font-montserrat-semibold text-[11px] text-[#FF8228]'
+                          ? 'font-montserrat-bold text-xs text-[#0F382C]'
+                          : 'font-montserrat-semibold text-[11px] text-[#0F382C]'
                       }>
                       {idLocalUris.length === 0
                         ? 'Tải ảnh CCCD (Mặt trước & Mặt sau)'
@@ -1185,17 +1410,17 @@ export default function WorkerProfileScreen() {
               </View>
 
               {idLocalUris.length > 0 && (
-                <View className="min-h-[42px] rounded-lg border border-[#FFE6D5] bg-[#FFF8F4] flex-row items-center gap-2 px-3 py-2 mb-2.5">
+                <View className="min-h-[42px] rounded-lg border border-[#C6DFC6] bg-[#F2F7F2] flex-row items-center gap-2 px-3 py-2 mb-2.5">
                   {cccdRecognitionLoading ? (
                     <>
-                      <ActivityIndicator size="small" color="#FF8228" />
+                      <ActivityIndicator size="small" color="#0F382C" />
                       <Text className="flex-1 font-montserrat text-xs text-[#574237] leading-4">
                         Đang nhận diện thông tin CCCD...
                       </Text>
                     </>
                   ) : (
                     <>
-                      <MaterialIcons name="document-scanner" size={18} color="#FF8228" />
+                      <MaterialIcons name="document-scanner" size={18} color="#0F382C" />
                       <Text className="flex-1 font-montserrat text-xs text-[#574237] leading-4">
                         Thông tin đã nhận diện có thể chỉnh sửa trước khi gửi.
                       </Text>
@@ -1205,14 +1430,14 @@ export default function WorkerProfileScreen() {
               )}
 
               {idLocalUris.length > 0 && !cccdRecognitionLoading && (
-                <Pressable className="h-[38px] rounded-lg border border-[#FF8228] bg-white flex-row items-center justify-center gap-1.5 mb-3" onPress={handleRecognizeCccdImages}>
-                  <MaterialIcons name="refresh" size={16} color="#FF8228" />
-                  <Text className="font-montserrat-semibold text-xs text-[#FF8228]">Quét lại thông tin CCCD</Text>
+                <Pressable className="h-[38px] rounded-lg border border-[#0F382C] bg-white flex-row items-center justify-center gap-1.5 mb-3" onPress={handleRecognizeCccdImages}>
+                  <MaterialIcons name="refresh" size={16} color="#0F382C" />
+                  <Text className="font-montserrat-semibold text-xs text-[#0F382C]">Quét lại thông tin CCCD</Text>
                 </Pressable>
               )}
 
               <Pressable
-                className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center mt-4 ${!canSubmitIdentification ? 'bg-[#EAE5E3]' : ''}`}
+                className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center mt-4 ${!canSubmitIdentification ? 'bg-[#EAE5E3]' : ''}`}
                 onPress={() => updateCccdMutation.mutate()}
                 disabled={!canSubmitIdentification}>
                 {updateCccdMutation.isPending ? (
@@ -1251,7 +1476,7 @@ export default function WorkerProfileScreen() {
                       <Image source={{ uri: c.imageUrl }} className="w-11 h-11 rounded bg-gray-100" />
                     </Pressable>
                   ) : (
-                    <MaterialIcons name="workspace-premium" size={28} color="#FF8228" />
+                    <MaterialIcons name="workspace-premium" size={28} color="#0F382C" />
                   )}
                   <View style={{ flex: 1 }}>
                     <Text className="font-montserrat-bold text-sm text-[#1b1c1c]">{c.title}</Text>
@@ -1270,7 +1495,7 @@ export default function WorkerProfileScreen() {
               <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5 mt-2">Tên chứng chỉ:</Text>
               <TextInput
                 className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
-                placeholder="Ví dụ: Chứng chỉ kỹ thuật viên điện"
+                placeholder="Ví dụ: Chứng chỉ kỹ thuật viên Spa"
                 placeholderTextColor="#9A9A9A"
                 value={newCertTitle}
                 onChangeText={setNewCertTitle}
@@ -1279,7 +1504,7 @@ export default function WorkerProfileScreen() {
               <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Nơi cấp chứng chỉ:</Text>
               <TextInput
                 className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
-                placeholder="Ví dụ: Trường Cao đẳng nghề Đà Nẵng"
+                placeholder="Ví dụ: Trường Đào tạo Spa & Thẩm mỹ"
                 placeholderTextColor="#9A9A9A"
                 value={newCertIssuedBy}
                 onChangeText={setNewCertIssuedBy}
@@ -1292,7 +1517,7 @@ export default function WorkerProfileScreen() {
                     <Image source={{ uri: newCertLocalUris[0] }} className="w-[100px] h-[100px] rounded-lg bg-[#efedec]" />
                   </Pressable>
                   <Pressable
-                    className="h-13 rounded-lg border border-dashed border-[#FF8228] flex-row items-center justify-center bg-[#FFF2EA] gap-2 px-4 flex-1"
+                    className="h-13 rounded-lg border border-dashed border-[#0F382C] flex-row items-center justify-center bg-[#F2F7F2] gap-2 px-4 flex-1"
                     onPress={() => setNewCertLocalUris([])}>
                     <MaterialIcons name="delete" size={20} color="#BA1A1A" />
                     <Text className="font-montserrat-semibold text-sm text-[#BA1A1A]">
@@ -1301,14 +1526,14 @@ export default function WorkerProfileScreen() {
                   </Pressable>
                 </View>
               ) : (
-                <Pressable className="h-13 rounded-lg border border-dashed border-[#FF8228] flex-row items-center justify-center bg-[#FFF2EA] gap-2 px-4 my-2" onPress={handlePickCertImage}>
-                  <MaterialIcons name="add-photo-alternate" size={24} color="#FF8228" />
-                  <Text className="font-montserrat-semibold text-sm text-[#FF8228]">Chọn ảnh chứng chỉ</Text>
+                <Pressable className="h-13 rounded-lg border border-dashed border-[#0F382C] flex-row items-center justify-center bg-[#F2F7F2] gap-2 px-4 my-2" onPress={handlePickCertImage}>
+                  <MaterialIcons name="add-photo-alternate" size={24} color="#0F382C" />
+                  <Text className="font-montserrat-semibold text-sm text-[#0F382C]">Chọn ảnh chứng chỉ</Text>
                 </Pressable>
               )}
 
               <Pressable
-                className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center mt-4 ${(!newCertTitle.trim() || !newCertIssuedBy.trim() || newCertLocalUris.length === 0 || addCertificateMutation.isPending) ? 'bg-[#EAE5E3]' : ''}`}
+                className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center mt-4 ${(!newCertTitle.trim() || !newCertIssuedBy.trim() || newCertLocalUris.length === 0 || addCertificateMutation.isPending) ? 'bg-[#EAE5E3]' : ''}`}
                 onPress={() => addCertificateMutation.mutate()}
                 disabled={
                   !newCertTitle.trim() ||
@@ -1340,8 +1565,8 @@ export default function WorkerProfileScreen() {
             </View>
 
             <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Chọn ngày nghỉ:</Text>
-            <View className="min-h-[48px] border border-[#FF8228] rounded-lg px-3 mb-2.5 flex-row items-center gap-2.5 bg-[#FFF2EA]">
-              <MaterialIcons name="event" size={20} color="#FF8228" />
+            <View className="min-h-[48px] border border-[#0F382C] rounded-lg px-3 mb-2.5 flex-row items-center gap-2.5 bg-[#F2F7F2]">
+              <MaterialIcons name="event" size={20} color="#0F382C" />
               <Text className="font-montserrat-bold text-base text-[#383838]">{dateToDateOnly(dayOffDate)}</Text>
             </View>
             <View className="items-center min-h-[180px] mb-3">
@@ -1368,7 +1593,7 @@ export default function WorkerProfileScreen() {
             />
 
             <Pressable
-              className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center ${addDayOffMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
+              className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center ${addDayOffMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
               onPress={() => {
                 addDayOffMutation.mutate({
                   workerProfileId,
@@ -1402,20 +1627,20 @@ export default function WorkerProfileScreen() {
 
             <View className="flex-row gap-2.5 mb-3.5">
               <Pressable
-                className={`flex-1 min-h-[68px] border border-gray-200 rounded-lg px-3 py-2.5 justify-center bg-white ${schedulePickerTarget === 'start' ? 'border-[#FF8228] bg-[#FFF2EA]' : ''}`}
+                className={`flex-1 min-h-[68px] border border-gray-200 rounded-lg px-3 py-2.5 justify-center bg-white ${schedulePickerTarget === 'start' ? 'border-[#0F382C] bg-[#F2F7F2]' : ''}`}
                 onPress={() => setSchedulePickerTarget('start')}>
                 <Text className="font-montserrat-semibold text-[11px] text-gray-500">Bắt đầu</Text>
                 <Text
-                  className={`font-montserrat-bold text-lg text-[#383838] mt-1 ${schedulePickerTarget === 'start' ? 'text-[#FF8228]' : ''}`}>
+                  className={`font-montserrat-bold text-lg text-[#383838] mt-1 ${schedulePickerTarget === 'start' ? 'text-[#0F382C]' : ''}`}>
                   {dateToTimeString(scheduleStartTime)}
                 </Text>
               </Pressable>
               <Pressable
-                className={`flex-1 min-h-[68px] border border-gray-200 rounded-lg px-3 py-2.5 justify-center bg-white ${schedulePickerTarget === 'end' ? 'border-[#FF8228] bg-[#FFF2EA]' : ''}`}
+                className={`flex-1 min-h-[68px] border border-gray-200 rounded-lg px-3 py-2.5 justify-center bg-white ${schedulePickerTarget === 'end' ? 'border-[#0F382C] bg-[#F2F7F2]' : ''}`}
                 onPress={() => setSchedulePickerTarget('end')}>
                 <Text className="font-montserrat-semibold text-[11px] text-gray-500">Kết thúc</Text>
                 <Text
-                  className={`font-montserrat-bold text-lg text-[#383838] mt-1 ${schedulePickerTarget === 'end' ? 'text-[#FF8228]' : ''}`}>
+                  className={`font-montserrat-bold text-lg text-[#383838] mt-1 ${schedulePickerTarget === 'end' ? 'text-[#0F382C]' : ''}`}>
                   {dateToTimeString(scheduleEndTime)}
                 </Text>
               </Pressable>
@@ -1441,7 +1666,7 @@ export default function WorkerProfileScreen() {
               />
             </View>
             <Pressable
-              className={`h-12 rounded-lg bg-[#FF8228] items-center justify-center ${updateWeeklyScheduleMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
+              className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center ${updateWeeklyScheduleMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
               onPress={submitScheduleEditor}
               disabled={updateWeeklyScheduleMutation.isPending}>
               {updateWeeklyScheduleMutation.isPending ? (

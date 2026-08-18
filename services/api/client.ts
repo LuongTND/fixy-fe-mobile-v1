@@ -67,7 +67,13 @@ function logApiResponseError(error: any) {
     return;
   }
 
-  console.error(`[API RESPONSE ERROR] ${status} ${originalRequest?.url}`, {
+  // Suppress expected 404/400 when fetching enums with fallback
+  if (originalRequest?.url?.includes('/enums/') && (status === 404 || status === 400)) {
+    console.log(`[API RESPONSE INFO] ${status} ${originalRequest.url} - Enum fallback used.`);
+    return;
+  }
+
+  console.warn(`[API RESPONSE ERROR] ${status} ${originalRequest?.url}`, {
     message: error.message,
     data: error.response?.data,
   });
@@ -169,7 +175,32 @@ function getAxiosMessage(error: AxiosError) {
 
   if (responseData && typeof responseData === 'object') {
     const record = responseData as Record<string, unknown>;
-    const message = record.message ?? record.error;
+    let message = record.message ?? record.error;
+
+    if (!message && record.data && typeof record.data === 'object') {
+      const innerData = record.data as Record<string, unknown>;
+      message = innerData.message ?? innerData.error;
+    }
+
+    if (!message && Array.isArray(record.errors) && record.errors.length > 0) {
+      const firstErr = record.errors[0];
+      if (typeof firstErr === 'string') {
+        message = firstErr;
+      } else if (firstErr && typeof firstErr === 'object') {
+        message = (firstErr as any).message ?? (firstErr as any).errorMessage;
+      }
+    }
+
+    if (!message && record.errors && typeof record.errors === 'object' && !Array.isArray(record.errors)) {
+      const errorValues = Object.values(record.errors);
+      if (errorValues.length > 0 && Array.isArray(errorValues[0]) && errorValues[0].length > 0) {
+        message = String(errorValues[0][0]);
+      }
+    }
+
+    if (!message && typeof record.title === 'string' && record.title.trim()) {
+      message = record.title;
+    }
 
     if (typeof message === 'string' && message.trim()) {
       const msgLower = message.toLowerCase();
@@ -178,6 +209,15 @@ function getAxiosMessage(error: AxiosError) {
       }
       if (msgLower.includes('worker profile not found')) {
         return 'Không tìm thấy hồ sơ kỹ thuật viên.';
+      }
+      if (msgLower.includes('outside working hours') || msgLower.includes('outside custom working hours')) {
+        return 'Kỹ thuật viên đang ngoài khung giờ làm việc.';
+      }
+      if (msgLower.includes('not working this day') || msgLower.includes('is on day off')) {
+        return 'Kỹ thuật viên không làm việc hoặc đang nghỉ làm vào ngày này.';
+      }
+      if (msgLower.includes('schedule not found') || msgLower.includes('schedule time is invalid')) {
+        return 'Lịch làm việc của Kỹ thuật viên không hợp lệ hoặc chưa được thiết lập.';
       }
       if (msgLower.includes('max file size exceeded') || msgLower.includes('limit')) {
         return 'Dung lượng file ảnh vượt quá giới hạn 5MB.';
@@ -190,6 +230,9 @@ function getAxiosMessage(error: AxiosError) {
     const msgLower = error.message.toLowerCase();
     if (msgLower.includes('network error')) {
       return 'Lỗi kết nối mạng. Vui lòng kiểm tra lại mạng Wifi/4G của bạn.';
+    }
+    if (msgLower.includes('outside working hours')) {
+      return 'Kỹ thuật viên đang ngoài khung giờ làm việc.';
     }
     return error.message;
   }

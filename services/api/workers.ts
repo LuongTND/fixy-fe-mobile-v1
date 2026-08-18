@@ -20,14 +20,21 @@ export type WorkerProfile = {
   id: string;
   workerProfileId?: string;
   fullName: string;
-  avatarUrl: string;
+  avatarUrl?: string;
+  avatarFile?: any;
   phone: string;
+  badge: number; // 0: NewArrival, 1: Updated, 2: Quality, 3: Gold
   rating: number;
   reviewsCount: number;
   completedJobs: number;
   distance: string;
+  distanceKm?: number | null;
+  city?: string;
+  estimatedArrivalMinutes?: number | null;
   basePrice: number;
   isOnline?: boolean;
+  isAcceptingJobs?: boolean;
+  isBusy?: boolean;
   isPro: boolean;
   specialties: string[];
   bio: string;
@@ -67,6 +74,14 @@ export type WorkerProfile = {
     categoryId: string;
     basePrice: number;
     isPrimary?: boolean;
+    options?: {
+      id?: string;
+      workerServiceId?: string;
+      durationMinutes: number;
+      price: number;
+      sortOrder?: number;
+      isActive?: boolean;
+    }[];
   }[];
 };
 
@@ -134,18 +149,30 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
     }
   }
 
+  // Format distance label from distanceKm
+  const distanceKm = typeof w.distanceKm === 'number' ? w.distanceKm : null;
+  const distanceLabel = distanceKm != null
+    ? (distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)} km`)
+    : '';
+
   return {
     id: w.userId || w.id,
-    workerProfileId: w.id,
+    workerProfileId: w.id || w.workerProfileId,
     fullName: w.fullName || 'Kỹ thuật viên',
-    avatarUrl: w.avatarUrl || 'https://images.unsplash.com/photo-1535713875002-d1d0cf377fde?w=150',
-    phone: w.phone || '0987654321',
-    rating: w.ratingAvg || 5,
-    reviewsCount: w.totalReviews || 0,
-    completedJobs: w.totalOrders || 0,
-    distance: '1.5 km',
+    avatarUrl: w.avatarUrl || w.AvatarUrl || w.avatar || w.Avatar || w.user?.avatarUrl || w.user?.AvatarUrl || undefined,
+    phone: w.phone || '',
+    badge: typeof w.badge === 'number' ? w.badge : (typeof w.badge === 'string' ? ({'NewArrival': 0, 'Updated': 1, 'Quality': 2, 'Gold': 3} as Record<string, number>)[w.badge] ?? 0 : 0),
+    rating: typeof w.ratingAvg === 'number' && w.ratingAvg > 0 ? w.ratingAvg : 5.0,
+    reviewsCount: typeof w.totalReviews === 'number' ? w.totalReviews : 0,
+    completedJobs: typeof w.totalOrders === 'number' ? w.totalOrders : 0,
+    distance: distanceLabel,
+    distanceKm,
+    city: w.city || w.address?.city || '',
+    estimatedArrivalMinutes: typeof w.estimatedArrivalMinutes === 'number' ? w.estimatedArrivalMinutes : null,
     basePrice: getWorkerBasePrice(w, categoryId),
-    isOnline: w.isOnline ?? w.online ?? w.isAvailableOnline,
+    isOnline: w.isOnline ?? w.online ?? w.isAvailableOnline ?? true,
+    isAcceptingJobs: w.isAcceptingJobs ?? w.isOnline ?? true,
+    isBusy: w.isBusy ?? w.IsBusy ?? false,
     isPro: w.experienceYears >= 5 || w.isPro || false,
     specialties: w.services?.map((s: any) => getCategorySlug(s.categoryId)) || w.specialties || [],
     bio: w.bio || 'Kỹ thuật viên chuyên nghiệp đã được xác thực bởi Fixy.',
@@ -194,11 +221,22 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
         })
       ),
     services:
-      w.services?.map((s: any) => ({
-        categoryId: s.categoryId,
-        basePrice: s.basePrice,
-        isPrimary: s.isPrimary,
-      })) || [],
+      (w.services || w.Services || [])?.map((s: any) => {
+        const rawOpts = s.options || s.Options || [];
+        return {
+          categoryId: s.categoryId || s.CategoryId,
+          basePrice: s.basePrice ?? s.BasePrice,
+          isPrimary: s.isPrimary ?? s.IsPrimary,
+          options: rawOpts.map((opt: any) => ({
+            id: opt.id || opt.Id,
+            workerServiceId: opt.workerServiceId || opt.WorkerServiceId,
+            durationMinutes: typeof opt.durationMinutes === 'number' ? opt.durationMinutes : (typeof opt.DurationMinutes === 'number' ? opt.DurationMinutes : 60),
+            price: typeof opt.price === 'number' ? opt.price : (typeof opt.Price === 'number' ? opt.Price : (s.basePrice ?? 0)),
+            sortOrder: opt.sortOrder ?? opt.SortOrder ?? 1,
+            isActive: opt.isActive ?? opt.IsActive ?? true,
+          })),
+        };
+      }) || [],
   };
 }
 
@@ -212,15 +250,37 @@ export async function getWorkersByService(serviceId: string): Promise<WorkerProf
 
 export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerProfile[]> {
   try {
+    const guidRegex = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+    let resolvedCategoryId = params.CategoryId;
+    if (resolvedCategoryId && !guidRegex.test(resolvedCategoryId)) {
+      resolvedCategoryId = getCategoryGuid(resolvedCategoryId);
+    }
+
+    const queryParams: Record<string, any> = {};
+    if (resolvedCategoryId && guidRegex.test(resolvedCategoryId)) {
+      queryParams.CategoryId = resolvedCategoryId;
+    }
+    if (params.PageNumber) queryParams.PageNumber = params.PageNumber;
+    if (params.PageSize) queryParams.PageSize = params.PageSize;
+    if (params.SearchTerm) queryParams.SearchTerm = params.SearchTerm;
+    if (params.MinPrice) queryParams.MinPrice = params.MinPrice;
+    if (params.MaxPrice) queryParams.MaxPrice = params.MaxPrice;
+    if (params.MinRating) queryParams.MinRating = params.MinRating;
+    if (params.City) queryParams.City = params.City;
+    if (params.IsOnline !== undefined) queryParams.IsOnline = params.IsOnline;
+    if (params.CustomerLat !== undefined) queryParams.CustomerLat = params.CustomerLat;
+    if (params.CustomerLng !== undefined) queryParams.CustomerLng = params.CustomerLng;
+    if (params.RadiusKm !== undefined) queryParams.RadiusKm = params.RadiusKm;
+    if (params.SortBy) queryParams.SortBy = params.SortBy;
+    if (params.SortDescending !== undefined) queryParams.SortDescending = params.SortDescending;
+
     const response = await apiClient.get('/worker-profiles/search', {
-      params: Object.fromEntries(
-        Object.entries(params).filter(([, value]) => value !== undefined && value !== '')
-      ),
+      params: queryParams,
     });
     const resData = response.data;
     const items = resData?.data?.items ?? resData?.data ?? resData;
     if (items && Array.isArray(items)) {
-      return items.map((w: any) => mapBackendWorkerToProfile(w, params.CategoryId));
+      return items.map((w: any) => mapBackendWorkerToProfile(w, resolvedCategoryId));
     }
     return [];
   } catch (error) {
@@ -230,13 +290,29 @@ export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerP
 }
 
 export async function getWorkerDetails(id: string): Promise<WorkerProfile | null> {
-  const response = await apiClient.get(`/worker-profiles/${id}/public`);
-  const resData = response.data;
-  const data = resData?.data ?? resData;
-  if (data && (data.id || data.userId)) {
-    return mapBackendWorkerToProfile(data);
+  try {
+    if (!id) return null;
+    try {
+      const response = await apiClient.get(`/worker-profiles/${id}/public`);
+      const resData = response.data;
+      const data = resData?.data ?? resData;
+      if (data && (data.id || data.userId)) {
+        return mapBackendWorkerToProfile(data);
+      }
+    } catch {
+      // Fallback: look up in search if endpoint by GUID failed
+      const searchRes = await apiClient.get('/worker-profiles/search', { params: { PageSize: 50 } });
+      const searchData = searchRes.data?.data?.items ?? searchRes.data?.items ?? [];
+      const match = searchData.find((w: any) => w.id === id || w.userId === id);
+      if (match) {
+        return mapBackendWorkerToProfile(match);
+      }
+    }
+    return null;
+  } catch (error) {
+    console.warn('[workers API] Error getting worker details:', error);
+    return null;
   }
-  return null;
 }
 
 // ================= Worker Types =================
@@ -244,7 +320,7 @@ export async function getWorkerDetails(id: string): Promise<WorkerProfile | null
 export type WorkerScheduleWeekly = {
   id?: string;
   workerProfileId: string;
-  dayOfWeek: number; // 0 = Sunday, 1 = Monday, etc.
+  dayOfWeek: number; // 0 = Monday, 1 = Tuesday, ..., 6 = Sunday
   startTime: string; // "HH:MM:ss"
   endTime: string; // "HH:MM:ss"
   isActive: boolean;
@@ -273,15 +349,19 @@ export type PayoutAccount = {
 export type PayoutRequest = {
   id: string;
   payoutAccountId: string;
+  payoutCode: string;
   amount: number;
   status: number; // 0 = Pending, 1 = Approved, 2 = Rejected, 3 = Transferred
   createdDate: string;
   payoutAccount?: PayoutAccount;
   transferredAt?: string | null;
   rejectReason?: string | null;
+  gatewayTransactionRef?: string | null;
+  vietQrUrl?: string | null;
   accountNumber?: string;
   accountName?: string;
   bankName?: string;
+  bankCode?: string;
 };
 
 // ================= API Services =================
@@ -330,6 +410,7 @@ function mapBackendPayoutRequest(raw: any): PayoutRequest {
   return {
     id: String(raw?.id ?? `payout-req-${Date.now()}`),
     payoutAccountId: String(raw?.payoutAccountId ?? payoutAccountRaw?.id ?? ''),
+    payoutCode: String(raw?.payoutCode ?? ''),
     amount: Number(raw?.amount ?? 0),
     status: statusNum,
     createdDate: String(
@@ -338,11 +419,14 @@ function mapBackendPayoutRequest(raw: any): PayoutRequest {
     payoutAccount: payoutAccountRaw ? mapBackendPayoutAccount(payoutAccountRaw) : undefined,
     transferredAt: raw?.transferredAt ?? raw?.transferred_at ?? null,
     rejectReason: raw?.rejectReason ?? raw?.reject_reason ?? null,
+    gatewayTransactionRef: raw?.gatewayTransactionRef ?? null,
+    vietQrUrl: raw?.vietQrUrl ?? null,
     accountNumber:
       raw?.accountNumber ?? raw?.account_number ?? payoutAccountRaw?.accountNumber ?? undefined,
     accountName:
       raw?.accountName ?? raw?.account_name ?? payoutAccountRaw?.accountHolderName ?? undefined,
     bankName: raw?.bankName ?? raw?.bank_name ?? payoutAccountRaw?.bankName ?? undefined,
+    bankCode: raw?.bankCode ?? raw?.bank_code ?? payoutAccountRaw?.bankCode ?? undefined,
   };
 }
 
@@ -369,7 +453,15 @@ export async function getWorkerProfileMe(): Promise<WorkerProfile | null> {
 
 export async function updateWorkerProfile(profile: Partial<WorkerProfile>): Promise<WorkerProfile> {
   const formData = new FormData();
-  if (profile.phone !== undefined) {
+  if (profile.avatarFile) {
+    const file = profile.avatarFile;
+    formData.append('Avatar', {
+      uri: file.uri,
+      type: file.type || 'image/jpeg',
+      name: file.name || 'avatar.jpg',
+    } as any);
+  }
+  if (profile.phone) {
     formData.append('Phone', profile.phone);
   }
   if (profile.bio !== undefined) {
@@ -377,14 +469,9 @@ export async function updateWorkerProfile(profile: Partial<WorkerProfile>): Prom
   }
   if (profile.maxDistanceKm !== undefined) {
     formData.append('MaxDistanceKm', String(profile.maxDistanceKm));
-  } else {
-    formData.append('MaxDistanceKm', '15');
   }
   if (profile.experienceYears !== undefined) {
     formData.append('ExperienceYears', String(profile.experienceYears));
-  } else {
-    const exp = profile.completedJobs ? Math.round(profile.completedJobs / 30) : 5;
-    formData.append('ExperienceYears', String(exp));
   }
 
   if (profile.address) {
@@ -403,6 +490,18 @@ export async function updateWorkerProfile(profile: Partial<WorkerProfile>): Prom
       formData.append(`Services[${index}].CategoryId`, s.categoryId);
       formData.append(`Services[${index}].BasePrice`, String(s.basePrice));
       formData.append(`Services[${index}].IsPrimary`, s.isPrimary ? 'true' : 'false');
+      if (s.options && s.options.length > 0) {
+        s.options.forEach((opt, optIndex) => {
+          formData.append(`Services[${index}].Options[${optIndex}].DurationMinutes`, String(opt.durationMinutes));
+          formData.append(`Services[${index}].Options[${optIndex}].Price`, String(opt.price));
+          if (opt.sortOrder !== undefined) {
+            formData.append(`Services[${index}].Options[${optIndex}].SortOrder`, String(opt.sortOrder));
+          }
+          if (opt.isActive !== undefined) {
+            formData.append(`Services[${index}].Options[${optIndex}].IsActive`, String(opt.isActive ? 'true' : 'false'));
+          }
+        });
+      }
     });
   }
 
@@ -708,4 +807,12 @@ export async function searchWorkerProfiles(
     hasPreviousPage: data?.hasPreviousPage ?? false,
     hasNextPage: data?.hasNextPage ?? false,
   };
+}
+
+/** PATCH /worker-profiles/me/working-status — Update worker online & job accepting status */
+export async function updateWorkingStatus(isAcceptingJobs: boolean, isOnline?: boolean): Promise<void> {
+  await apiClient.patch('/worker-profiles/me/working-status', {
+    isAcceptingJobs,
+    isOnline: isOnline ?? isAcceptingJobs,
+  });
 }

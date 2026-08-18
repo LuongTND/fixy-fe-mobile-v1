@@ -1,5 +1,5 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { router } from 'expo-router';
+import { router, useFocusEffect } from 'expo-router';
 import * as React from 'react';
 import {
   ActivityIndicator,
@@ -16,9 +16,17 @@ import { Address, deleteAddress, getMyAddresses, updateAddress } from '@/service
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 
+import { formatFullAddress } from '@/utils/format';
+
 export default function SavedAddressesScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
+
+  useFocusEffect(
+    React.useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['addresses'] });
+    }, [queryClient])
+  );
 
   const { data: addresses = [], isLoading } = useQuery<Address[]>({
     queryKey: ['addresses'],
@@ -106,7 +114,7 @@ export default function SavedAddressesScreen() {
       {/* Main Content */}
       {isLoading && addresses.length === 0 ? (
         <View style={styles.centerContainer}>
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <ScrollView
@@ -116,7 +124,7 @@ export default function SavedAddressesScreen() {
             {addresses.map((item) => (
               <View key={item.id} style={styles.addressCard}>
                 <View style={styles.addressIconWrapper}>
-                  <MaterialIcons name={getAddressIcon(item.label)} size={24} color="#FF8228" />
+                  <MaterialIcons name={getAddressIcon(item.label)} size={24} color="#0F382C" />
                 </View>
 
                 <View style={styles.addressDetails}>
@@ -129,7 +137,7 @@ export default function SavedAddressesScreen() {
                     )}
                   </View>
                   <Text style={styles.addressBody}>
-                    {item.detail}, {item.ward}, {item.district}, {item.city}
+                    {formatFullAddress(item)}
                   </Text>
                 </View>
 
@@ -163,7 +171,7 @@ export default function SavedAddressesScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#FBF9F5',
   },
   header: {
     height: 96,
@@ -172,7 +180,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     zIndex: 10,
   },
   backButton: {
@@ -183,7 +191,7 @@ const styles = StyleSheet.create({
   },
   brand: {
     marginLeft: 6,
-    color: '#383838',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
   },
@@ -202,13 +210,13 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#ffffff',
-    borderRadius: 12,
+    borderRadius: 16,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     padding: 14,
     marginBottom: 12,
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     shadowOffset: { width: 0, height: 2 },
     elevation: 2,
@@ -217,7 +225,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
     marginRight: 12,
@@ -232,18 +240,20 @@ const styles = StyleSheet.create({
     marginBottom: 4,
   },
   addressLabel: {
-    color: '#383838',
+    color: '#1C2526',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 15,
   },
   defaultBadge: {
-    backgroundColor: '#E7F8FC',
-    borderRadius: 4,
+    backgroundColor: '#F2F7F2',
+    borderRadius: 6,
     paddingHorizontal: 6,
     paddingVertical: 2,
+    borderWidth: 1,
+    borderColor: '#C6DFC6',
   },
   defaultBadgeText: {
-    color: '#01677d',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 9,
   },
@@ -267,29 +277,29 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#FBF9F5',
     paddingTop: 12,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderColor: '#efedec',
+    borderColor: '#EFECE6',
   },
   addButton: {
-    height: 56,
-    borderRadius: 12,
-    backgroundColor: '#FF8228',
+    height: 52,
+    borderRadius: 22,
+    backgroundColor: '#0F382C',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    shadowColor: '#FF8228',
-    shadowOpacity: 0.2,
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.15,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
   },
   addButtonText: {
     color: '#ffffff',
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
   },
 });

@@ -109,6 +109,9 @@ export default function BookingReviewScreen() {
       queryClient.invalidateQueries({ queryKey: ['bookingReview', params.bookingId] });
       queryClient.invalidateQueries({ queryKey: ['booking', params.bookingId] });
       queryClient.invalidateQueries({ queryKey: ['myBookings'] });
+      queryClient.invalidateQueries({ queryKey: ['worker'] });
+      queryClient.invalidateQueries({ queryKey: ['workerReviews'] });
+      queryClient.invalidateQueries({ queryKey: ['workers'] });
 
       Alert.alert('Thành công', 'Cảm ơn bạn đã đánh giá dịch vụ!', [
         {
@@ -142,7 +145,7 @@ export default function BookingReviewScreen() {
       {/* Header */}
       <View style={styles.header}>
         <Pressable style={styles.headerBtn} onPress={handleGoBack}>
-          <MaterialIcons name="arrow-back" size={24} color="#FF8228" />
+          <MaterialIcons name="arrow-back" size={24} color="#0F382C" />
         </Pressable>
         <Text style={styles.headerTitle}>Đánh giá dịch vụ</Text>
         <View style={styles.headerBtn} />
@@ -174,7 +177,7 @@ export default function BookingReviewScreen() {
                 <MaterialIcons
                   name="star"
                   size={40}
-                  color={star <= rating ? '#FF8228' : '#dcd9d9'}
+                  color={star <= rating ? '#D4AF37' : '#dcd9d9'}
                 />
               </Pressable>
             ))}
@@ -233,7 +236,7 @@ export default function BookingReviewScreen() {
             ))}
             {images.length < 5 && (
               <Pressable style={styles.addImageBtn} onPress={handlePickImage}>
-                <MaterialIcons name="photo-camera" size={24} color="#FF8228" />
+                <MaterialIcons name="photo-camera" size={24} color="#0F382C" />
                 <Text style={styles.addImageText}>+ Thêm ảnh</Text>
               </Pressable>
             )}
@@ -248,7 +251,7 @@ export default function BookingReviewScreen() {
           onPress={handleSubmit}
           disabled={isSubmitting}>
           <LinearGradient
-            colors={['#FF8228', '#F45100']}
+            colors={['#0F382C', '#1A4D3E']}
             start={{ x: 0, y: 0 }}
             end={{ x: 1, y: 0 }}
             style={styles.submitBtnGradient}>
@@ -287,17 +290,17 @@ export default function BookingReviewScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   header: {
-    height: 56,
+    height: 60,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderBottomColor: '#DDDDDD',
+    borderBottomColor: '#EFECE6',
   },
   headerBtn: {
     width: 40,
@@ -310,7 +313,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
     lineHeight: 24,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   scrollContent: {
     padding: 16,
@@ -322,38 +325,38 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 12,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 12,
+    borderRadius: 16,
+    padding: 14,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    shadowColor: '#000',
-    shadowOpacity: 0.08,
+    borderColor: '#EFECE6',
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
     shadowRadius: 8,
-    shadowOffset: { width: 0, height: 8 },
+    shadowOffset: { width: 0, height: 4 },
     elevation: 3,
   },
   workerAvatar: {
     width: 64,
     height: 64,
     borderRadius: 32,
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOpacity: 0.05,
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
     shadowRadius: 4,
     elevation: 2,
   },
   workerName: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 15,
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
     lineHeight: 20,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   workerSpecialty: {
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 14,
-    lineHeight: 21,
+    fontSize: 13,
+    lineHeight: 18,
     color: '#818A91',
     marginTop: 2,
   },
@@ -365,7 +368,7 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
     lineHeight: 22,
-    color: '#1b1c1c',
+    color: '#0F382C',
     marginBottom: 16,
   },
   starsRow: {
@@ -376,17 +379,17 @@ const styles = StyleSheet.create({
     padding: 4,
   },
   ratingLabel: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#FF8228',
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 15,
+    color: '#D4AF37',
     marginTop: 12,
   },
   section: {},
   sectionTitle: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 15,
     lineHeight: 21,
-    color: '#1b1c1c',
+    color: '#0F382C',
     marginBottom: 12,
   },
   chipsRow: {
@@ -395,38 +398,38 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   chip: {
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
     paddingVertical: 8,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#ffffff',
   },
   chipSelected: {
-    borderColor: '#FF8228',
-    backgroundColor: 'rgba(255, 230, 213, 0.3)',
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
   },
   chipText: {
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 14,
+    fontSize: 13,
     lineHeight: 21,
-    color: '#574237',
+    color: '#6B7280',
   },
   chipTextSelected: {
-    color: '#FF8228',
-    fontFamily: 'Montserrat_600SemiBold',
+    color: '#0F382C',
+    fontFamily: 'Montserrat_700Bold',
   },
   textArea: {
     height: 120,
-    borderRadius: 10,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    backgroundColor: '#ffffff',
+    borderColor: '#EFECE6',
+    backgroundColor: '#F4F1EA',
     padding: 12,
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
     lineHeight: 21,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   imagesRow: {
     flexDirection: 'row',
@@ -462,17 +465,17 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#FF8228',
-    backgroundColor: 'rgba(255, 230, 213, 0.2)',
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
     gap: 4,
   },
   addImageText: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: 'Montserrat_600SemiBold',
     fontSize: 12,
     lineHeight: 18,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   bottomBar: {
     position: 'absolute',
@@ -482,16 +485,16 @@ const styles = StyleSheet.create({
     backgroundColor: '#ffffff',
     padding: 16,
     borderTopWidth: 1,
-    borderTopColor: '#DDDDDD',
-    shadowColor: '#000',
+    borderTopColor: '#EFECE6',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.1,
     shadowRadius: 16,
     shadowOffset: { width: 0, height: -16 },
     elevation: 12,
   },
   submitBtn: {
-    height: 48,
-    borderRadius: 12,
+    height: 52,
+    borderRadius: 22,
     overflow: 'hidden',
   },
   submitBtnDisabled: {
@@ -503,8 +506,8 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   submitBtnText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 15,
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
     lineHeight: 20,
     color: '#ffffff',
   },

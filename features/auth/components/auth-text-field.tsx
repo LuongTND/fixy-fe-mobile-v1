@@ -19,7 +19,7 @@ export function AuthTextField({ icon, error, secureTextEntry, ...props }: AuthTe
           ...styles.field,
           ...(error ? styles.fieldError : {}),
         }}>
-        <MaterialIcons name={icon} size={20} color="#574237" />
+        <MaterialIcons name={icon} size={20} color="#0F382C" />
         <TextInput
           {...props}
           secureTextEntry={isPassword && hidePassword}
@@ -47,25 +47,25 @@ const styles = StyleSheet.create({
     width: '100%',
   },
   field: {
-    height: 60,
-    minHeight: 60,
+    height: 56,
+    minHeight: 56,
     flexDirection: 'row',
     alignItems: 'center',
-    borderRadius: 12,
+    borderRadius: 14,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#ffffff',
-    paddingHorizontal: 12,
+    paddingHorizontal: 14,
   },
   fieldError: {
     borderColor: '#BA1A1A',
   },
   input: {
-    marginLeft: 12,
+    marginLeft: 10,
     flex: 1,
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 18,
-    color: '#383838',
+    fontSize: 16,
+    color: '#1C2526',
     paddingVertical: 0,
   },
   eyeIcon: {

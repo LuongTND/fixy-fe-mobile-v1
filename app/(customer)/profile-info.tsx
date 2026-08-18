@@ -25,8 +25,8 @@ import { prepareUploadFile } from '@/services/api/media';
 import { getUserProfile, updateUserProfile, UserProfile } from '@/services/api/user';
 
 enum GenderEnum {
-  Female = 0,
-  Male = 1,
+  Male = 0,
+  Female = 1,
   Other = 2,
 }
 
@@ -67,10 +67,10 @@ export default function ProfileInfoScreen() {
       }
       if (profile.gender !== null && profile.gender !== undefined) {
         const gStr = String(profile.gender).toLowerCase();
-        if (gStr === 'female' || gStr === '0' || gStr === 'nữ') {
-          setGender(GenderEnum.Female);
-        } else if (gStr === 'male' || gStr === '1' || gStr === 'nam') {
+        if (gStr === 'male' || gStr === '0' || gStr === 'nam') {
           setGender(GenderEnum.Male);
+        } else if (gStr === 'female' || gStr === '1' || gStr === 'nữ') {
+          setGender(GenderEnum.Female);
         } else {
           setGender(GenderEnum.Other);
         }
@@ -198,7 +198,7 @@ export default function ProfileInfoScreen() {
 
       {isLoading ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <KeyboardAwareScrollView
@@ -269,7 +269,7 @@ export default function ProfileInfoScreen() {
               <Text style={[styles.textInputDisplay, !dateOfBirth && { color: '#9A9A9A' }]}>
                 {formatDateDisplay(dateOfBirth)}
               </Text>
-              <MaterialIcons name="calendar-today" size={18} color="#FF8228" />
+              <MaterialIcons name="calendar-today" size={18} color="#0F382C" />
             </Pressable>
 
             <Text style={styles.fieldLabel}>Giới tính</Text>
@@ -280,7 +280,7 @@ export default function ProfileInfoScreen() {
                 <MaterialIcons
                   name="male"
                   size={20}
-                  color={gender === GenderEnum.Male ? '#FF8228' : '#818A91'}
+                  color={gender === GenderEnum.Male ? '#0F382C' : '#818A91'}
                 />
                 <Text
                   style={[
@@ -297,7 +297,7 @@ export default function ProfileInfoScreen() {
                 <MaterialIcons
                   name="female"
                   size={20}
-                  color={gender === GenderEnum.Female ? '#FF8228' : '#818A91'}
+                  color={gender === GenderEnum.Female ? '#0F382C' : '#818A91'}
                 />
                 <Text
                   style={[
@@ -314,7 +314,7 @@ export default function ProfileInfoScreen() {
                 <MaterialIcons
                   name="transgender"
                   size={20}
-                  color={gender === GenderEnum.Other ? '#FF8228' : '#818A91'}
+                  color={gender === GenderEnum.Other ? '#0F382C' : '#818A91'}
                 />
                 <Text
                   style={[
@@ -396,7 +396,7 @@ export default function ProfileInfoScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   centerContent: {
     flex: 1,
@@ -411,7 +411,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     zIndex: 10,
   },
   headerButton: {
@@ -423,7 +423,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#0F382C',
     textAlign: 'center',
   },
   scrollContent: {
@@ -439,9 +439,9 @@ const styles = StyleSheet.create({
     height: 100,
     borderRadius: 50,
     borderWidth: 3,
-    borderColor: '#FF8228',
-    shadowColor: '#FF8228',
-    shadowOpacity: 0.2,
+    borderColor: '#0F382C',
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.15,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
@@ -455,7 +455,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     width: 32,
     height: 32,
     borderRadius: 16,
@@ -475,7 +475,7 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 16,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     shadowColor: '#000000',
     shadowOpacity: 0.03,
     shadowRadius: 8,
@@ -543,8 +543,8 @@ const styles = StyleSheet.create({
     backgroundColor: '#F5F3F2',
   },
   genderBtnActive: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF2E8',
+    borderColor: '#0F382C',
+    backgroundColor: '#E6F0EB',
   },
   genderBtnText: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -552,16 +552,16 @@ const styles = StyleSheet.create({
     color: '#818A91',
   },
   genderBtnTextActive: {
-    color: '#FF8228',
+    color: '#0F382C',
   },
   saveButton: {
     height: 52,
-    borderRadius: 16,
-    backgroundColor: '#FF8228',
+    borderRadius: 22,
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8228',
-    shadowOpacity: 0.25,
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
     elevation: 4,
@@ -616,6 +616,6 @@ const styles = StyleSheet.create({
   pickerDoneText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#FF8228',
+    color: '#0F382C',
   },
 });

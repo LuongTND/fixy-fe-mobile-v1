@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getUserProfile, UserProfile } from '@/services/api/user';
+import { Address, getMyAddresses } from '@/services/api/addresses';
 import { useAuthStore } from '@/store/store';
 
 export default function ProfileScreen() {
@@ -25,11 +26,12 @@ export default function ProfileScreen() {
   const isAuthenticated = useAuthStore((state) => state.isAuthenticated);
 
   const [profile, setProfile] = React.useState<UserProfile | null>(null);
+  const [addresses, setAddresses] = React.useState<Address[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const [selectedLanguage, setSelectedLanguage] = React.useState('Tiếng Việt');
 
-  // Redirect to login if not authenticated, otherwise fetch profile on focus
   useFocusEffect(
     React.useCallback(() => {
       if (!isAuthenticated) {
@@ -39,12 +41,16 @@ export default function ProfileScreen() {
 
       async function fetchProfile() {
         try {
-          const response = await getUserProfile();
+          const [response, addressesData] = await Promise.all([
+            getUserProfile(),
+            getMyAddresses().catch(() => []),
+          ]);
           if (response.isSuccess) {
             setProfile(response.data);
           }
+          setAddresses(addressesData || []);
         } catch {
-          // Fallback to offline defaults
+          // Offline fallback
         } finally {
           setLoading(false);
         }
@@ -53,6 +59,8 @@ export default function ProfileScreen() {
       fetchProfile();
     }, [isAuthenticated])
   );
+
+  const defaultAddress = addresses.find((a) => a.isDefault) || addresses[0];
 
   function handleLogout() {
     setLogoutConfirmOpen(true);
@@ -72,213 +80,211 @@ export default function ProfileScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* TopAppBar */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
-        <View style={{ width: 40 }} />
+      {/* Header */}
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
+        <View style={{ width: 36 }} />
         <Text style={styles.headerTitle}>Tài khoản</Text>
         <Pressable
           style={styles.headerButton}
           onPress={() => router.push('/(customer)/support-tickets' as any)}>
-          <MaterialIcons name="help-outline" size={24} color="#9a4600" />
+          <MaterialIcons name="headset-mic" size={20} color="#0F382C" />
         </Pressable>
       </View>
 
-      {/* Main Content */}
       {loading ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <ScrollView
           contentContainerStyle={[
             styles.scrollContent,
-            { paddingBottom: insets.bottom + 90 }, // Extra padding to avoid overlaying BottomNavBar
+            { paddingBottom: insets.bottom + 90 },
           ]}
           showsVerticalScrollIndicator={false}>
-          {/* Profile Header */}
-          <View style={styles.profileHeader}>
-            <View style={styles.avatarContainer}>
-              <Image
-                source={{
-                  uri:
-                    profile?.avatarUrl ??
-                    'https://lh3.googleusercontent.com/aida-public/AB6AXuDopKrdEjn_YIPe8wWQUvOUP7Fg0rVJLe61nRSrAXfNowRvy_vcW1xwzyluNv_w-T1BTrTrQv9d3gFxIzlmfjybmiS8bZWbKxlqYHDKTC2SPQOOjLcvHtIdVtd-l4DkJ7HY4XyrGOQrl-a_WsMGYAQvdiNvcQ49Dz1ARPV3zT-thTZ012QOjHR9VSqie_b_W18k6NN0JhSH8SALrpDcA8xe0OI5Jxat8pY80opLG5-Ues6SaX4L53e-JIZkZdDu5L8Vb7bBrPhZ__g',
-                }}
-                style={styles.avatar}
-                resizeMode="cover"
-              />
+          {/* User Profile Header */}
+          <View style={styles.userHeaderCard}>
+            <View style={styles.avatarWrapper}>
+              {profile?.avatarUrl ? (
+                <Image
+                  source={{ uri: profile.avatarUrl }}
+                  style={styles.avatarImage}
+                />
+              ) : (
+                <View style={[styles.avatarImage, { backgroundColor: '#D6CFC4', alignItems: 'center', justifyContent: 'center' }]}>
+                  <Text style={{ fontSize: 22, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                    {(profile?.fullName || '').charAt(0).toUpperCase() || '?'}
+                  </Text>
+                </View>
+              )}
               <Pressable
-                style={styles.editAvatarButton}
+                style={styles.cameraBadge}
                 onPress={() => router.push('/(customer)/profile-info' as any)}>
-                <MaterialIcons name="edit" size={14} color="#FFFFFF" />
+                <MaterialIcons name="photo-camera" size={14} color="#ffffff" />
               </Pressable>
             </View>
-            <Text style={styles.profileName}>{profile?.fullName ?? ''}</Text>
-            <Text style={styles.profilePhone}>{profile?.phone ?? target ?? ''}</Text>
-          </View>
 
-          {/* Section 1: Account */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Tài khoản</Text>
-            <View style={styles.cardContent}>
-              <Pressable
-                style={styles.item}
-                onPress={() => router.push('/(customer)/profile-info' as any)}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="person" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Thông tin cá nhân</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
-              <View style={styles.divider} />
-              <Pressable style={styles.item} onPress={() => router.push('/saved-addresses' as any)}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="location-on" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Địa chỉ đã lưu</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
-              <View style={styles.divider} />
-              <Pressable style={styles.item} onPress={() => router.push('/user-wallet' as any)}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="account-balance-wallet" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Ví của tôi</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
-              <View style={styles.divider} />
-              <Pressable
-                style={styles.item}
-                onPress={() => Alert.alert('Phương thức thanh toán', 'Tính năng đang phát triển')}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="payment" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Phương thức thanh toán</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
+            <View style={styles.userMeta}>
+              <Text style={styles.userNameText}>{profile?.fullName || 'Người dùng'}</Text>
+              {(profile?.phone || target) ? (
+                <Text style={styles.userPhoneText}>{profile?.phone || target}</Text>
+              ) : null}
             </View>
           </View>
 
-          {/* Section 2: Activity */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Hoạt động</Text>
-            <View style={styles.cardContent}>
-              <Pressable
-                style={styles.item}
-                onPress={() => router.push('/(customer)/orders' as any)}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="history" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Lịch sử đặt chỗ</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
-              <View style={styles.divider} />
-              <Pressable
-                style={styles.item}
-                onPress={() => Alert.alert('Voucher của tôi', 'Tính năng đang phát triển')}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="local-offer" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Voucher của tôi</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
-              <View style={styles.divider} />
-              <Pressable
-                style={styles.item}
-                onPress={() => Alert.alert('Đánh giá của tôi', 'Tính năng đang phát triển')}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="star-rate" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Đánh giá của tôi</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
-            </View>
+          {/* Dual Action Cards Matching Spec 4.10 */}
+          <View style={styles.dualCardsRow}>
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => router.push('/(worker)/worker-setup' as any)}>
+              <View style={[styles.actionIconCircle, { backgroundColor: '#E6F0EB' }]}>
+                <MaterialIcons name="handshake" size={22} color="#0F382C" />
+              </View>
+              <Text style={styles.actionCardTitle}>Trở thành</Text>
+              <Text style={styles.actionCardSub}>Đối tác Fixy</Text>
+            </Pressable>
+
+            <Pressable
+              style={styles.actionCard}
+              onPress={() => Alert.alert('Giới thiệu bạn bè', 'Chia sẻ mã giới thiệu của bạn để cả 2 nhận ngay Voucher 50k!')}>
+              <View style={[styles.actionIconCircle, { backgroundColor: '#FEF3C7' }]}>
+                <MaterialIcons name="card-giftcard" size={22} color="#D97706" />
+              </View>
+              <Text style={styles.actionCardTitle}>Giới thiệu</Text>
+              <Text style={styles.actionCardSub}>bạn bè 🎁</Text>
+            </Pressable>
           </View>
 
-          {/* Section 3: General */}
-          <View style={styles.card}>
-            <Text style={styles.cardTitle}>Chung</Text>
-            <View style={styles.cardContent}>
-              <Pressable
-                style={styles.item}
-                onPress={() => Alert.alert('Cài đặt', 'Tính năng đang phát triển')}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="settings" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Cài đặt</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
-              <View style={styles.divider} />
-              <Pressable
-                style={styles.item}
-                onPress={() => router.push('/(customer)/support-tickets' as any)}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="support-agent" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Trung tâm trợ giúp</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
-              <View style={styles.divider} />
-              <Pressable
-                style={styles.item}
-                onPress={() => Alert.alert('Về Fixy', 'Phiên bản 1.0.0')}>
-                <View style={styles.itemLeft}>
-                  <MaterialIcons name="info" size={22} color="#ff8228" />
-                  <Text style={styles.itemText}>Về Fixy</Text>
-                </View>
-                <MaterialIcons name="chevron-right" size={22} color="#574237" />
-              </Pressable>
-            </View>
-          </View>
+          {/* Menu Items Group Matching Spec 4.10 */}
+          <View style={styles.menuGroupCard}>
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() => router.push('/(customer)/orders' as any)}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="assignment" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Lịch sử hoạt động</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+            </Pressable>
 
-          {/* Logout Button */}
-          <View style={styles.logoutContainer}>
-            <Pressable style={styles.logoutButton} onPress={handleLogout}>
-              <MaterialIcons name="logout" size={20} color="#ba1a1a" />
-              <Text style={styles.logoutText}>Đăng xuất</Text>
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() => router.push('/(customer)/profile-info' as any)}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="person-outline" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Thông tin cá nhân</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() => router.push('/(customer)/saved-addresses' as any)}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="location-on" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Địa chỉ đã lưu</Text>
+              </View>
+              <View style={styles.menuRightValue}>
+                <Text style={styles.valueText} numberOfLines={1}>
+                  {defaultAddress ? defaultAddress.label : '+ Thêm địa chỉ'}
+                </Text>
+                <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+              </View>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() =>
+                Alert.alert('Ngôn ngữ', 'Hiện tại ứng dụng hỗ trợ mặc định Tiếng Việt 🇻🇳', [
+                  { text: 'Tiếng Việt', onPress: () => setSelectedLanguage('Tiếng Việt') },
+                ])
+              }>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="language" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Ngôn ngữ</Text>
+              </View>
+              <View style={styles.menuRightValue}>
+                <Text style={styles.valueText}>{selectedLanguage}</Text>
+                <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+              </View>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable style={styles.menuItemRow} onPress={() => Alert.alert('Quốc gia', 'Khu vực hiện tại: Vietnam 🇻🇳')}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="public" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Quốc gia</Text>
+              </View>
+              <View style={styles.menuRightValue}>
+                <Text style={styles.valueText}>🇻🇳 Vietnam</Text>
+                <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+              </View>
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() => Alert.alert('Về Fixy', 'FIXY – SPA TẠI NHÀ\nNền tảng kết nối Kỹ thuật viên Spa & Khách hàng.\nPhiên bản 1.0 (2026)')}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="info-outline" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Về chúng tôi</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() => router.push('/(customer)/support-tickets' as any)}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="support-agent" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Hỗ trợ & Khiếu nại</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
+            <Pressable style={styles.menuItemRow} onPress={handleLogout}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="logout" size={22} color="#DC2626" />
+                <Text style={[styles.menuItemText, { color: '#DC2626' }]}>Đăng xuất</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
             </Pressable>
           </View>
         </ScrollView>
       )}
 
-      {/* BottomNavBar */}
-      <BottomTabBar activeTab="profile" />
-
+      {/* Logout Confirmation Modal */}
       <Modal visible={logoutConfirmOpen} transparent animationType="fade">
-        <View style={styles.centeredModalOverlay}>
-          <Pressable
-            style={StyleSheet.absoluteFill}
-            onPress={() => {
-              if (!isLoggingOut) setLogoutConfirmOpen(false);
-            }}
-          />
-          <View style={styles.logoutConfirmContent}>
-            <Text style={styles.logoutConfirmTitle}>Đăng xuất</Text>
-            <Text style={styles.logoutConfirmText}>Bạn có chắc chắn muốn đăng xuất?</Text>
-            <View style={styles.logoutConfirmActions}>
-              <Pressable
-                style={styles.logoutCancelButton}
-                onPress={() => setLogoutConfirmOpen(false)}
-                disabled={isLoggingOut}>
-                <Text style={styles.logoutCancelText}>Hủy</Text>
+        <View style={styles.modalOverlay}>
+          <View style={styles.logoutModal}>
+            <Text style={styles.logoutModalTitle}>Xác nhận đăng xuất</Text>
+            <Text style={styles.logoutModalBody}>Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?</Text>
+            <View style={styles.logoutModalActions}>
+              <Pressable style={styles.cancelBtn} onPress={() => setLogoutConfirmOpen(false)}>
+                <Text style={styles.cancelBtnText}>Hủy</Text>
               </Pressable>
-              <Pressable
-                style={[
-                  styles.logoutConfirmButton,
-                  isLoggingOut && styles.logoutConfirmButtonDisabled,
-                ]}
-                onPress={confirmLogout}
-                disabled={isLoggingOut}>
-                {isLoggingOut ? (
-                  <ActivityIndicator size="small" color="#ffffff" />
-                ) : (
-                  <Text style={styles.logoutConfirmButtonText}>Đăng xuất</Text>
-                )}
+              <Pressable style={styles.confirmLogoutBtn} onPress={confirmLogout}>
+                <Text style={styles.confirmLogoutBtnText}>Đăng xuất</Text>
               </Pressable>
             </View>
           </View>
         </View>
       </Modal>
+
+      {/* Bottom Navigation Tab Bar */}
+      <BottomTabBar activeTab="profile" />
     </View>
   );
 }
@@ -286,262 +292,205 @@ export default function ProfileScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
-  },
-  centerContent: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
+    backgroundColor: '#FBF9F5',
   },
   header: {
-    height: 96,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
-  },
-  headerButton: {
-    padding: 8,
+    borderColor: '#EFECE6',
   },
   headerTitle: {
-    flex: 1,
-    textAlign: 'center',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
-  scrollContent: {
-    paddingTop: 16,
-    paddingHorizontal: 16,
-  },
-  profileHeader: {
+  headerButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
-    marginVertical: 16,
   },
-  avatarContainer: {
+  centerContent: {
+    flex: 1,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  scrollContent: {
+    padding: 16,
+    gap: 14,
+  },
+  userHeaderCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 16,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+  },
+  avatarWrapper: {
     position: 'relative',
-    width: 96,
-    height: 96,
-    borderRadius: 48,
-    borderWidth: 2,
-    borderColor: '#9a4600',
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
-    marginBottom: 8,
   },
-  avatar: {
-    width: '100%',
-    height: '100%',
-    borderRadius: 46,
+  avatarImage: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
   },
-  editAvatarButton: {
+  cameraBadge: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    backgroundColor: '#9a4600',
-    width: 24,
-    height: 24,
-    borderRadius: 12,
+    width: 22,
+    height: 22,
+    borderRadius: 11,
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#ffffff',
   },
-  profileName: {
+  userMeta: {
+    flex: 1,
+  },
+  userNameText: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 22,
-    color: '#1b1c1c',
+    fontSize: 18,
+    color: '#1C2526',
   },
-  profilePhone: {
+  userPhoneText: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-    color: '#574237',
-    marginTop: 4,
+    color: '#6B7280',
+    marginTop: 2,
   },
-  card: {
+  dualCardsRow: {
+    flexDirection: 'row',
+    gap: 12,
+  },
+  actionCard: {
+    flex: 1,
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    padding: 8,
-    marginVertical: 8,
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 8,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 2,
+    borderRadius: 18,
+    padding: 16,
+    alignItems: 'flex-start',
+    borderWidth: 1,
+    borderColor: '#EFECE6',
   },
-  cardTitle: {
+  actionIconCircle: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginBottom: 10,
+  },
+  actionCardTitle: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
-    color: '#1b1c1c',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
+    fontSize: 14,
+    color: '#1C2526',
   },
-  cardContent: {
-    borderRadius: 8,
-    overflow: 'hidden',
+  actionCardSub: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#6B7280',
+    marginTop: 2,
   },
-  item: {
+  menuGroupCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    paddingVertical: 6,
+    paddingHorizontal: 14,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+  },
+  menuItemRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
-    paddingHorizontal: 12,
+    paddingVertical: 14,
   },
-  itemLeft: {
+  menuLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
   },
-  itemText: {
+  menuItemText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 15,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
-  divider: {
-    height: 1,
-    backgroundColor: '#DDDDDD',
-    marginHorizontal: 12,
-  },
-  logoutContainer: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginVertical: 24,
-  },
-  logoutButton: {
+  menuRightValue: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 8,
-    borderWidth: 1,
-    borderColor: '#ba1a1a',
-    backgroundColor: 'transparent',
-    paddingVertical: 12,
-    paddingHorizontal: 32,
-    borderRadius: 8,
-    minHeight: 44,
+    gap: 4,
   },
-  logoutText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#ba1a1a',
+  valueText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    color: '#6B7280',
   },
-  centeredModalOverlay: {
+  menuDivider: {
+    height: 1,
+    backgroundColor: '#EFECE6',
+  },
+  modalOverlay: {
     flex: 1,
-    backgroundColor: 'rgba(0,0,0,0.5)',
-    justifyContent: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.4)',
     alignItems: 'center',
-    paddingHorizontal: 20,
+    justifyContent: 'center',
+    padding: 24,
   },
-  logoutConfirmContent: {
-    width: '100%',
-    maxWidth: 360,
+  logoutModal: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
+    borderRadius: 20,
     padding: 20,
+    width: '100%',
   },
-  logoutConfirmTitle: {
+  logoutModalTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#1C2526',
     marginBottom: 8,
   },
-  logoutConfirmText: {
+  logoutModalBody: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-    lineHeight: 20,
-    color: '#574237',
+    color: '#6B7280',
     marginBottom: 20,
   },
-  logoutConfirmActions: {
+  logoutModalActions: {
     flexDirection: 'row',
     justifyContent: 'flex-end',
     gap: 12,
   },
-  logoutCancelButton: {
-    minHeight: 44,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    alignItems: 'center',
-    justifyContent: 'center',
+  cancelBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#F4F1EA',
   },
-  logoutCancelText: {
+  cancelBtnText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
-    color: '#574237',
+    color: '#4B5563',
   },
-  logoutConfirmButton: {
-    minHeight: 44,
-    minWidth: 120,
-    paddingHorizontal: 18,
-    borderRadius: 8,
-    backgroundColor: '#ba1a1a',
-    alignItems: 'center',
-    justifyContent: 'center',
+  confirmLogoutBtn: {
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderRadius: 14,
+    backgroundColor: '#DC2626',
   },
-  logoutConfirmButtonDisabled: {
-    opacity: 0.65,
-  },
-  logoutConfirmButtonText: {
+  confirmLogoutBtnText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
     color: '#ffffff',
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderColor: '#EAE5E3',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
-    paddingHorizontal: 12,
-  },
-  tab: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    flex: 1,
-    paddingVertical: 4,
-  },
-  activeIconIndicator: {
-    width: 64,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFE6D5', // primary-container
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inactiveIconIndicator: {
-    width: 64,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 11,
-    color: '#818A91',
-    marginTop: 4,
-  },
-  activeTabText: {
-    color: '#622a00',
-    fontFamily: 'Montserrat_700Bold',
   },
 });

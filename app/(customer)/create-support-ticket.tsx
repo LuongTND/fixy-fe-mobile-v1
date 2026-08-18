@@ -63,9 +63,9 @@ export default function CreateSupportTicketScreen() {
   return (
     <View style={styles.screen}>
       {/* Top Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <Pressable style={styles.headerButton} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back-ios" size={20} color="#1b1c1c" />
+          <MaterialIcons name="arrow-back-ios" size={18} color="#1b1c1c" />
         </Pressable>
         <Text style={styles.headerTitle}>Gửi yêu cầu hỗ trợ</Text>
         <View style={{ width: 40 }} />
@@ -185,17 +185,17 @@ export default function CreateSupportTicketScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   header: {
-    height: 96,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     zIndex: 10,
   },
   headerButton: {
@@ -207,7 +207,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#0F382C',
     textAlign: 'center',
   },
   scrollContent: {
@@ -216,7 +216,7 @@ const styles = StyleSheet.create({
   label: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
-    color: '#383838',
+    color: '#0F382C',
     marginTop: 18,
     marginBottom: 8,
   },
@@ -229,14 +229,14 @@ const styles = StyleSheet.create({
   optionCard: {
     paddingVertical: 8,
     paddingHorizontal: 16,
-    borderRadius: 8,
+    borderRadius: 12,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#ffffff',
   },
   activeOptionCard: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFE6D5',
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
   },
   urgentOptionCard: {
     borderColor: '#ba1a1a',
@@ -245,10 +245,10 @@ const styles = StyleSheet.create({
   optionText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#574237',
+    color: '#6B7280',
   },
   activeOptionText: {
-    color: '#FF8228',
+    color: '#0F382C',
   },
   urgentOptionText: {
     color: '#ba1a1a',
@@ -256,8 +256,8 @@ const styles = StyleSheet.create({
   inputContainer: {
     backgroundColor: '#ffffff',
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 10,
+    borderColor: '#EFECE6',
+    borderRadius: 12,
     minHeight: 48,
     paddingHorizontal: 12,
     justifyContent: 'center',
@@ -270,21 +270,21 @@ const styles = StyleSheet.create({
   textInput: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 14,
-    color: '#1b1c1c',
+    color: '#1C2526',
     flex: 1,
   },
   textArea: {
     height: 120,
   },
   submitButton: {
-    backgroundColor: '#FF8228',
-    borderRadius: 12,
+    backgroundColor: '#0F382C',
+    borderRadius: 20,
     height: 50,
     alignItems: 'center',
     justifyContent: 'center',
     marginTop: 32,
     marginBottom: 40,
-    shadowColor: '#FF8228',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.15,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },

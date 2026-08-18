@@ -9,6 +9,7 @@ import {
   Linking,
   Keyboard,
   Modal,
+  Platform,
   Pressable,
   ScrollView,
   StyleSheet,
@@ -18,10 +19,13 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import * as ImagePicker from 'expo-image-picker';
+import * as Location from 'expo-location';
 
 import {
   Booking,
   BookingStatus,
+  PaymentMethod,
+  PAYMENT_METHOD_LABELS,
   acceptBooking,
   declineBooking,
   proposeBooking,
@@ -30,6 +34,7 @@ import {
   startWork,
   completeBooking,
   getBookingDetails,
+  updateWorkerLocation,
 } from '@/services/api/bookings';
 import { getMediaUrl, uploadMediaFiles, MediaCategory, MediaOwnerType } from '@/services/api/media';
 import { getApiErrorMessage } from '@/services/api/client';
@@ -69,9 +74,9 @@ const STATUS_MAP: Record<
     icon: 'hail',
   },
   [BookingStatus.InProgress]: {
-    label: 'Đang tiến hành sửa chữa',
+    label: 'Đang thực hiện dịch vụ Spa',
     style: { color: '#7C3AED', bg: '#F5F3FF', border: '#DDD6FE' },
-    icon: 'build',
+    icon: 'spa',
   },
   [BookingStatus.Completed]: {
     label: 'Công việc hoàn thành',
@@ -142,26 +147,108 @@ export default function WorkerJobDetailScreen() {
     enabled: !!id && job !== null && Number(job.status) === BookingStatus.Completed,
   });
 
+  // GPS location tracking ref — holds the subscription handle for watchPositionAsync
+  const locationWatchRef = React.useRef<Location.LocationSubscription | null>(null);
+  const locationIntervalRef = React.useRef<ReturnType<typeof setInterval> | null>(null);
+  const lastSentLocationRef = React.useRef<{ lat: number; lng: number; time: number } | null>(null);
+
+  // Cleanup location tracking on unmount or when booking is no longer active
+  React.useEffect(() => {
+    return () => {
+      stopLocationTracking();
+    };
+  }, []);
+
+  // Auto-stop tracking if booking status moves past Traveling (e.g. Arrived, InProgress, etc.)
+  React.useEffect(() => {
+    const status = Number(job?.status);
+    if (status >= BookingStatus.Arrived && locationWatchRef.current) {
+      stopLocationTracking();
+    }
+  }, [job?.status]);
+
+  /** Start GPS tracking and send location updates to server */
+  async function startLocationTracking() {
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status !== 'granted') {
+        Alert.alert(
+          'Cần quyền vị trí',
+          'Vui lòng cho phép ứng dụng truy cập vị trí để khách hàng có thể theo dõi bạn trên bản đồ.'
+        );
+        return;
+      }
+
+      // Get initial position and send immediately
+      try {
+        const initialPos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        await updateWorkerLocation(initialPos.coords.latitude, initialPos.coords.longitude);
+        lastSentLocationRef.current = {
+          lat: initialPos.coords.latitude,
+          lng: initialPos.coords.longitude,
+          time: Date.now(),
+        };
+      } catch (e) {
+        console.warn('[LocationTracking] Failed to get initial position:', e);
+      }
+
+      // Watch position continuously
+      const subscription = await Location.watchPositionAsync(
+        {
+          accuracy: Location.Accuracy.Balanced,
+          timeInterval: 10000, // minimum 10 seconds between updates
+          distanceInterval: 20, // minimum 20 meters between updates
+        },
+        (location) => {
+          const { latitude, longitude } = location.coords;
+          const now = Date.now();
+          const last = lastSentLocationRef.current;
+
+          // Throttle: only send if 10+ seconds passed since last send
+          if (last && now - last.time < 10000) return;
+
+          lastSentLocationRef.current = { lat: latitude, lng: longitude, time: now };
+          updateWorkerLocation(latitude, longitude).catch((err) =>
+            console.warn('[LocationTracking] Failed to send location:', err)
+          );
+        }
+      );
+
+      locationWatchRef.current = subscription;
+      console.log('[LocationTracking] Started GPS tracking');
+    } catch (error) {
+      console.error('[LocationTracking] Error starting GPS tracking:', error);
+    }
+  }
+
+  /** Stop GPS tracking */
+  function stopLocationTracking() {
+    if (locationWatchRef.current) {
+      locationWatchRef.current.remove();
+      locationWatchRef.current = null;
+      console.log('[LocationTracking] Stopped GPS tracking');
+    }
+    if (locationIntervalRef.current) {
+      clearInterval(locationIntervalRef.current);
+      locationIntervalRef.current = null;
+    }
+    lastSentLocationRef.current = null;
+  }
+
   const category = categories.find((c) => c.id === job?.categoryId || c.code === job?.categoryId);
   const categoryName =
     category?.name ||
-    (job?.categoryId === 'dien'
-      ? 'Điện gia dụng'
-      : job?.categoryId === 'nuoc'
-        ? 'Sửa đường nước'
-        : job?.categoryId === 'dieuhoa'
-          ? 'Bảo dưỡng điều hòa'
-          : job?.categoryId === 'maygiat'
-            ? 'Sửa máy giặt'
-            : job?.categoryId === 'xemay'
-              ? 'Sửa xe máy/ô tô'
-              : job?.categoryId === 'moc'
-                ? 'Đồ gỗ & Nội thất'
-                : job?.categoryId === 'son'
-                  ? 'Sơn & Trát tường'
-                  : job?.categoryId === 'vesinh'
-                    ? 'Vệ sinh nhà cửa'
-                    : 'Dịch vụ sửa chữa');
+    (job?.categoryId === 'facial'
+      ? 'Chăm sóc da mặt'
+      : job?.categoryId === 'massage'
+        ? 'Massage toàn thân'
+        : job?.categoryId === 'body'
+          ? 'Tẩy tế bào chết toàn thân'
+          : job?.categoryId === 'combo'
+            ? 'Gói Spa Chăm sóc toàn diện'
+            : 'Dịch vụ Spa');
 
   // Mutations
   const acceptMutation = useMutation({
@@ -221,7 +308,9 @@ export default function WorkerJobDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
-      Alert.alert('Bắt đầu di chuyển', 'Chúc bạn thượng lộ bình an!');
+      // Start GPS tracking so location is broadcast to customer
+      startLocationTracking();
+      Alert.alert('Bắt đầu di chuyển', 'Chúc bạn thượng lộ bình an! Vị trí của bạn đang được chia sẻ với khách hàng.');
     },
     onError: (err) => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
@@ -237,9 +326,11 @@ export default function WorkerJobDetailScreen() {
   const arriveMutation = useMutation({
     mutationFn: () => arriveBooking(id || ''),
     onSuccess: () => {
+      // Stop GPS tracking when worker arrives
+      stopLocationTracking();
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
-      Alert.alert('Đã đến nơi', 'Vui lòng khảo sát hiện trạng và sửa chữa.');
+      Alert.alert('Đã đến nơi', 'Vui lòng chuẩn bị và tiến hành dịch vụ Spa.');
     },
     onError: (err) => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
@@ -257,7 +348,7 @@ export default function WorkerJobDetailScreen() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
-      Alert.alert('Bắt đầu sửa chữa', 'Bắt đầu bấm giờ thi công.');
+      Alert.alert('Bắt đầu dịch vụ', 'Bắt đầu bấm giờ dịch vụ Spa.');
     },
     onError: (err) => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
@@ -266,7 +357,7 @@ export default function WorkerJobDetailScreen() {
       if (errMsg.includes('Current status:')) {
         return;
       }
-      Alert.alert('Lỗi', errMsg || 'Không thể bắt đầu sửa chữa.');
+      Alert.alert('Lỗi', errMsg || 'Không thể bắt đầu dịch vụ Spa.');
     },
   });
 
@@ -321,8 +412,22 @@ export default function WorkerJobDetailScreen() {
 
   const openMapDirections = () => {
     if (!job) return;
-    const url = `https://www.google.com/maps/dir/?api=1&destination=${job.lat},${job.lng}`;
-    Linking.openURL(url);
+    const hasCoords = Boolean(job.lat && job.lng && (Number(job.lat) !== 0 || Number(job.lng) !== 0));
+    const dest = hasCoords ? `${job.lat},${job.lng}` : encodeURIComponent(job.address || '');
+
+    if (!dest) {
+      Alert.alert('Thông báo', 'Không tìm thấy thông tin địa chỉ hoặc tọa độ của khách hàng.');
+      return;
+    }
+
+    const url =
+      Platform.OS === 'ios'
+        ? `https://maps.apple.com/?daddr=${dest}`
+        : `https://www.google.com/maps/dir/?api=1&destination=${dest}`;
+
+    Linking.openURL(url).catch(() => {
+      Linking.openURL(`https://www.google.com/maps/dir/?api=1&destination=${dest}`);
+    });
   };
 
   const handlePickImage = async () => {
@@ -361,7 +466,7 @@ export default function WorkerJobDetailScreen() {
   if (loading || categoriesLoading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FF8228" />
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
@@ -383,10 +488,10 @@ export default function WorkerJobDetailScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top, justifyContent: 'space-between' }]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12), justifyContent: 'space-between' }]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
+            <MaterialIcons name="arrow-back" size={24} color="#1B1C1C" />
           </Pressable>
           <Text style={styles.headerTitle}>Chi tiết công việc</Text>
         </View>
@@ -398,7 +503,7 @@ export default function WorkerJobDetailScreen() {
               params: { bookingId: job.id },
             } as any)
           }>
-          <MaterialIcons name="help-outline" size={24} color="#FF8228" />
+          <MaterialIcons name="help-outline" size={22} color="#0F382C" />
         </Pressable>
       </View>
 
@@ -430,11 +535,18 @@ export default function WorkerJobDetailScreen() {
           <Text style={styles.infoCardTitle}>Khách hàng & Địa điểm</Text>
           <View style={styles.customerRow}>
             <View style={styles.customerIconWrapper}>
-              <MaterialIcons name="person" size={24} color="#FF8228" />
+              {job.customerAvatarUrl ? (
+                <Image
+                  source={{ uri: job.customerAvatarUrl }}
+                  style={{ width: 44, height: 44, borderRadius: 22 }}
+                />
+              ) : (
+                <MaterialIcons name="person" size={24} color="#0F382C" />
+              )}
             </View>
             <View style={styles.customerDetails}>
-              <Text style={styles.customerName}>{job.workerName || 'Khách hàng Fixy'}</Text>
-              <Text style={styles.customerPhone}>SĐT: {job.workerPhone || '0987654321'}</Text>
+              <Text style={styles.customerName}>{job.customerName || 'Khách hàng Fixy'}</Text>
+              <Text style={styles.customerPhone}>SĐT: {job.customerPhone || 'Chưa cập nhật'}</Text>
             </View>
           </View>
 
@@ -443,7 +555,7 @@ export default function WorkerJobDetailScreen() {
               <Pressable
                 style={[styles.actionBtn, styles.actionBtnCall]}
                 onPress={() => {
-                  const phone = job.workerPhone || '';
+                  const phone = job.customerPhone || '';
                   if (phone) {
                     Linking.openURL(`tel:${phone}`).catch(() => {
                       Alert.alert('Lỗi', 'Không thể khởi chạy ứng dụng gọi điện.');
@@ -452,7 +564,7 @@ export default function WorkerJobDetailScreen() {
                     Alert.alert('Lỗi', 'Chưa có thông tin số điện thoại.');
                   }
                 }}>
-                <MaterialIcons name="phone" size={18} color="#FF8228" />
+                <MaterialIcons name="phone" size={18} color="#0F382C" />
                 <Text style={styles.actionBtnTextCall}>Gọi khách</Text>
               </Pressable>
               <Pressable
@@ -467,9 +579,9 @@ export default function WorkerJobDetailScreen() {
           <View style={styles.divider} />
 
           <View style={styles.locationRow}>
-            <MaterialIcons name="place" size={20} color="#FF8228" style={{ marginTop: 2 }} />
+            <MaterialIcons name="place" size={20} color="#0F382C" style={{ marginTop: 2 }} />
             <View style={styles.locationDetails}>
-              <Text style={styles.locationTitle}>Địa chỉ sửa chữa</Text>
+              <Text style={styles.locationTitle}>Địa chỉ thực hiện dịch vụ</Text>
               <Text style={styles.locationText}>{job.address}</Text>
               {job.lat && job.lng ? (
                 <Pressable style={styles.mapBtn} onPress={openMapDirections}>
@@ -490,6 +602,23 @@ export default function WorkerJobDetailScreen() {
           </View>
 
           <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Thời lượng dịch vụ:</Text>
+            <Text style={styles.detailValue}>
+              {(() => {
+                const mins =
+                  (job as any)?.totalDurationMinutes ??
+                  (job as any)?.durationMinutes ??
+                  (job as any)?.duration ??
+                  (job as any)?.options?.[0]?.durationMinutes ??
+                  (job as any)?.option?.durationMinutes ??
+                  (job as any)?.serviceOption?.durationMinutes ??
+                  60;
+                return `${mins} phút`;
+              })()}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Thời gian hẹn:</Text>
             <Text style={styles.detailValue}>
               {job.scheduledType === 0
@@ -501,9 +630,33 @@ export default function WorkerJobDetailScreen() {
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Mô tả vấn đề:</Text>
-            <Text style={styles.detailValueText}>{job.description}</Text>
+            <Text style={styles.detailLabel}>Thanh toán bằng:</Text>
+            <Text style={styles.detailValue}>
+              {(() => {
+                const method =
+                  job?.paymentMethod ??
+                  (job as any)?.PaymentMethod ??
+                  (job as any)?.paymentType ??
+                  job?.paymentMethodName;
+                if (typeof method === 'number' && PAYMENT_METHOD_LABELS[method as PaymentMethod]) {
+                  return PAYMENT_METHOD_LABELS[method as PaymentMethod];
+                }
+                if (typeof method === 'string') {
+                  const lower = method.toLowerCase();
+                  if (lower.includes('cash') || lower.includes('tien mat')) return 'Tiền mặt';
+                  if (lower.includes('wallet') || lower.includes('vi')) return 'Ví Fixy';
+                  if (lower.includes('vnpay')) return 'VNPay';
+                  if (lower.includes('momo')) return 'MoMo';
+                  if (lower.includes('payos')) return 'PayOS';
+                  if (lower.includes('card') || lower.includes('the')) return 'Thẻ ngân hàng';
+                  return method;
+                }
+                return 'Tiền mặt';
+              })()}
+            </Text>
           </View>
+
+
 
           {(job.requestImages && job.requestImages.length > 0) ||
           (job.mediaIds && job.mediaIds.length > 0) ? (
@@ -521,7 +674,7 @@ export default function WorkerJobDetailScreen() {
                         <Image source={{ uri: img.fileUrl }} style={styles.photoAttachment} />
                       </Pressable>
                     ))
-                  : job.mediaIds.map((mediaId) => {
+                  : (job.mediaIds || []).map((mediaId: string) => {
                       const uri = getMediaUrl(mediaId);
                       return (
                         <Pressable key={mediaId} onPress={() => setActivePreviewImage(uri)}>
@@ -534,19 +687,56 @@ export default function WorkerJobDetailScreen() {
           ) : null}
         </View>
 
-        {/* Financial Breakdown if completed */}
-        {job.status === BookingStatus.Completed && (
+        {/* Financial Breakdown / Hóa đơn dịch vụ */}
+        {Number(job.status) >= BookingStatus.Confirmed && (
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Hóa đơn nghiệm thu</Text>
-            <View style={styles.invoiceRow}>
-              <Text style={styles.invoiceLabel}>Tổng giá trị công việc</Text>
-              <Text style={styles.invoiceVal}>
-                {formatCurrency(job.finalAmount || job.finalPrice || 0)}
-              </Text>
-            </View>
+            <Text style={styles.infoCardTitle}>Hóa đơn dịch vụ</Text>
+            {(() => {
+              const origPrice =
+                (job as any).estimatedPrice ??
+                (job as any).estimatedAmount ??
+                job.finalAmount ??
+                job.finalPrice ??
+                0;
+              const finPrice = job.finalPrice ?? job.finalAmount ?? origPrice;
+              const voucherDiscount = origPrice > finPrice ? origPrice - finPrice : 0;
+              return (
+                <>
+                  <View style={styles.invoiceRow}>
+                    <Text style={styles.invoiceLabel}>Giá dịch vụ & sản phẩm</Text>
+                    <Text style={styles.invoiceVal}>{formatCurrency(origPrice)}</Text>
+                  </View>
+                  {voucherDiscount > 0 && (
+                    <View style={styles.invoiceRow}>
+                      <Text style={styles.invoiceLabel}>Voucher giảm giá</Text>
+                      <Text style={[styles.invoiceVal, { color: '#059669' }]}>
+                        -{formatCurrency(voucherDiscount)}
+                      </Text>
+                    </View>
+                  )}
+                  <View style={{ height: 1, backgroundColor: '#E2E8F0', marginVertical: 8 }} />
+                  <View style={styles.invoiceRow}>
+                    <Text
+                      style={[
+                        styles.invoiceLabel,
+                        { fontFamily: 'Montserrat_700Bold', color: '#1B1C1C' },
+                      ]}>
+                      Tổng số tiền thanh toán
+                    </Text>
+                    <Text
+                      style={[
+                        styles.invoiceVal,
+                        { fontFamily: 'Montserrat_700Bold', color: '#0F382C', fontSize: 15 },
+                      ]}>
+                      {formatCurrency(finPrice)}
+                    </Text>
+                  </View>
+                </>
+              );
+            })()}
             {job.completeImages && job.completeImages.length > 0 && (
               <View style={{ marginTop: 16 }}>
-                <Text style={styles.detailLabel}>Ảnh nghiệm thu:</Text>
+                <Text style={styles.detailLabel}>Hình ảnh sau dịch vụ:</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -574,7 +764,7 @@ export default function WorkerJobDetailScreen() {
                       key={star}
                       name="star"
                       size={18}
-                      color={star <= bookingReview.rating ? '#FF8228' : '#dcd9d9'}
+                      color={star <= bookingReview.rating ? '#D4AF37' : '#dcd9d9'}
                     />
                   ))}
                 </View>
@@ -583,7 +773,7 @@ export default function WorkerJobDetailScreen() {
 
             {reviewLoading ? (
               <View style={styles.reviewLoadingRow}>
-                <ActivityIndicator size="small" color="#FF8228" />
+                <ActivityIndicator size="small" color="#0F382C" />
                 <Text style={styles.reviewMutedText}>Đang tải đánh giá...</Text>
               </View>
             ) : bookingReview ? (
@@ -596,7 +786,7 @@ export default function WorkerJobDetailScreen() {
                         style={styles.reviewerAvatarImage}
                       />
                     ) : (
-                      <MaterialIcons name="person" size={20} color="#FF8228" />
+                      <MaterialIcons name="person" size={20} color="#0F382C" />
                     )}
                   </View>
                   <View style={styles.reviewerInfo}>
@@ -640,7 +830,7 @@ export default function WorkerJobDetailScreen() {
                       <MaterialIcons
                         name="reply"
                         size={16}
-                        color="#FF8228"
+                        color="#0F382C"
                         style={{ transform: [{ scaleX: -1 }] }}
                       />
                       <Text style={styles.workerReplyTitle}>Phản hồi của bạn</Text>
@@ -735,7 +925,7 @@ export default function WorkerJobDetailScreen() {
 
         {job.status === BookingStatus.InProgress && (
           <Pressable style={styles.primaryActionBtn} onPress={() => setCompleteModalOpen(true)}>
-            <Text style={styles.primaryActionText}>Báo cáo hoàn thành & nghiệm thu</Text>
+            <Text style={styles.primaryActionText}>Báo cáo hoàn thành dịch vụ</Text>
           </Pressable>
         )}
 
@@ -840,14 +1030,14 @@ export default function WorkerJobDetailScreen() {
           <Pressable style={StyleSheet.absoluteFill} onPress={Keyboard.dismiss} />
           <View style={[styles.modalContent, { maxHeight: '85%' }]}>
             <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Xác nhận hoàn thành công việc</Text>
+              <Text style={styles.modalTitle}>Xác nhận hoàn thành dịch vụ</Text>
               <Pressable onPress={() => setCompleteModalOpen(false)}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
             <ScrollView showsVerticalScrollIndicator={false}>
-              <Text style={styles.modalLabel}>Ảnh nghiệm thu hoàn tất (Tối đa 5):</Text>
+              <Text style={styles.modalLabel}>Hình ảnh dịch vụ hoàn tất (Tối đa 5):</Text>
               <View style={styles.imagesContainer}>
                 {completionImages.map((uri, index) => (
                   <View key={uri} style={styles.imageWrapper}>
@@ -864,7 +1054,7 @@ export default function WorkerJobDetailScreen() {
 
                 {completionImages.length < 5 && (
                   <Pressable style={styles.addImageBtn} onPress={handlePickImage}>
-                    <MaterialIcons name="add-a-photo" size={22} color="#FF8228" />
+                    <MaterialIcons name="add-a-photo" size={22} color="#0F382C" />
                     <Text style={styles.addImageText}>Thêm ảnh</Text>
                   </Pressable>
                 )}
@@ -961,7 +1151,7 @@ const styles = StyleSheet.create({
     backgroundColor: '#fbf9f8',
   },
   header: {
-    height: 96,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
@@ -1055,7 +1245,7 @@ const styles = StyleSheet.create({
     width: 44,
     height: 44,
     borderRadius: 22,
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F2F7F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1070,7 +1260,7 @@ const styles = StyleSheet.create({
   customerPhone: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
     marginTop: 2,
   },
   divider: {
@@ -1163,7 +1353,7 @@ const styles = StyleSheet.create({
   invoiceVal: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   reviewCardHeader: {
     flexDirection: 'row',
@@ -1242,7 +1432,7 @@ const styles = StyleSheet.create({
   workerReplyTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   workerReplyText: {
     fontFamily: 'Montserrat_400Regular',
@@ -1254,7 +1444,7 @@ const styles = StyleSheet.create({
     marginTop: 14,
     height: 44,
     borderRadius: 8,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
@@ -1305,12 +1495,12 @@ const styles = StyleSheet.create({
     height: 48,
     borderRadius: 10,
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
   proposeBtnText: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
   },
@@ -1318,7 +1508,7 @@ const styles = StyleSheet.create({
     flex: 1.5,
     height: 48,
     borderRadius: 10,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1330,10 +1520,10 @@ const styles = StyleSheet.create({
   primaryActionBtn: {
     height: 52,
     borderRadius: 10,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8228',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.15,
     shadowRadius: 6,
     shadowOffset: { width: 0, height: 3 },
@@ -1414,7 +1604,7 @@ const styles = StyleSheet.create({
   modalSubmitBtn: {
     height: 52,
     borderRadius: 10,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1451,7 +1641,7 @@ const styles = StyleSheet.create({
   materialTextPrice: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
     flex: 1,
     textAlign: 'right',
     marginRight: 10,
@@ -1483,7 +1673,7 @@ const styles = StyleSheet.create({
     width: 38,
     height: 38,
     borderRadius: 6,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1524,15 +1714,15 @@ const styles = StyleSheet.create({
     borderRadius: 8,
     borderWidth: 1,
     borderStyle: 'dashed',
-    borderColor: '#FF8228',
-    backgroundColor: '#FFE6D5',
+    borderColor: '#0F382C',
+    backgroundColor: '#F2F7F2',
     alignItems: 'center',
     justifyContent: 'center',
   },
   addImageText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 9,
-    color: '#FF8228',
+    color: '#0F382C',
     marginTop: 2,
   },
   previewOverlay: {
@@ -1575,14 +1765,14 @@ const styles = StyleSheet.create({
   },
   actionBtnCall: {
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     backgroundColor: '#ffffff',
   },
   actionBtnChat: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   actionBtnTextCall: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
   },

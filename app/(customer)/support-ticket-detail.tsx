@@ -109,7 +109,7 @@ export default function SupportTicketDetailScreen() {
   if (isTicketLoading) {
     return (
       <View style={styles.centerContent}>
-        <ActivityIndicator size="large" color="#FF8228" />
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
@@ -208,9 +208,9 @@ export default function SupportTicketDetailScreen() {
       behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       keyboardVerticalOffset={0}>
       {/* Top Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
         <Pressable style={styles.headerButton} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back-ios" size={20} color="#1b1c1c" />
+          <MaterialIcons name="arrow-back-ios" size={18} color="#1b1c1c" />
         </Pressable>
         <Text style={styles.headerTitle} numberOfLines={1}>
           Yêu cầu #{ticket.id.substring(0, 8)}
@@ -232,7 +232,7 @@ export default function SupportTicketDetailScreen() {
           <RefreshControl
             refreshing={isRefetchingMessages}
             onRefresh={refetchMessages}
-            colors={['#FF8228']}
+            colors={['#0F382C']}
           />
         }
         contentContainerStyle={[
@@ -305,7 +305,7 @@ const styles = StyleSheet.create({
     marginBottom: 20,
   },
   backBtn: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     paddingVertical: 10,
     paddingHorizontal: 20,
     borderRadius: 8,
@@ -316,7 +316,7 @@ const styles = StyleSheet.create({
     color: '#ffffff',
   },
   header: {
-    height: 96,
+    paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
@@ -463,7 +463,7 @@ const styles = StyleSheet.create({
     width: 28,
     height: 28,
     borderRadius: 14,
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
     marginLeft: 8,
@@ -489,7 +489,7 @@ const styles = StyleSheet.create({
     paddingVertical: 10,
   },
   userBubble: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     borderBottomRightRadius: 2,
   },
   adminBubble: {
@@ -548,7 +548,7 @@ const styles = StyleSheet.create({
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },

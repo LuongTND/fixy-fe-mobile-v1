@@ -14,6 +14,8 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import {
+  deleteAllNotifications,
+  deleteNotification,
   getNotifications,
   markAllAsRead,
   markAsRead,
@@ -53,6 +55,47 @@ export default function NotificationsScreen() {
     },
   });
 
+  const deleteMutation = useMutation({
+    mutationFn: (id: string) => deleteNotification(id),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationCount'] });
+    },
+    onError: () => {
+      Alert.alert('Lỗi', 'Không thể xóa thông báo.');
+    },
+  });
+
+  const deleteAllMutation = useMutation({
+    mutationFn: () => deleteAllNotifications(),
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ['notifications'] });
+      queryClient.invalidateQueries({ queryKey: ['unreadNotificationCount'] });
+      Alert.alert('Thành công', 'Đã xóa tất cả thông báo.');
+    },
+    onError: () => {
+      Alert.alert('Lỗi', 'Không thể xóa tất cả thông báo.');
+    },
+  });
+
+  const handleDeleteSingle = (item: Notification) => {
+    Alert.alert('Xác nhận xóa', 'Bạn có chắc chắn muốn xóa thông báo này không?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Xóa', style: 'destructive', onPress: () => deleteMutation.mutate(item.id) },
+    ]);
+  };
+
+  const handleDeleteAll = () => {
+    if (notifications.length === 0) {
+      Alert.alert('Thông báo', 'Bạn không có thông báo nào để xóa.');
+      return;
+    }
+    Alert.alert('Xác nhận xóa tất cả', 'Bạn có chắc chắn muốn xóa toàn bộ thông báo không?', [
+      { text: 'Hủy', style: 'cancel' },
+      { text: 'Xóa tất cả', style: 'destructive', onPress: () => deleteAllMutation.mutate() },
+    ]);
+  };
+
   const handleNotificationPress = async (item: Notification) => {
     if (!item.isRead) {
       markReadMutation.mutate(item.id);
@@ -80,16 +123,16 @@ export default function NotificationsScreen() {
   const getNotificationIcon = (type?: number) => {
     switch (type) {
       case 0: // Booking
-        return { name: 'event-note', color: '#ff8228', bg: '#ffe6d5' };
+        return { name: 'event-note', color: '#0F382C', bg: '#F4F1EA' };
       case 1: // Payment
-        return { name: 'payment', color: '#4caf50', bg: '#e8f5e9' };
+        return { name: 'payment', color: '#059669', bg: '#F2F7F2' };
       case 2: // Review
-        return { name: 'star-rate', color: '#ffb020', bg: '#fff8e1' };
+        return { name: 'star-rate', color: '#D4AF37', bg: '#FFFBF0' };
       case 3: // Promo
-        return { name: 'local-offer', color: '#01677d', bg: '#e7f8fc' };
+        return { name: 'local-offer', color: '#0F382C', bg: '#F4F1EA' };
       case 4: // System
       default:
-        return { name: 'notifications', color: '#818a91', bg: '#fbf9f8' };
+        return { name: 'notifications', color: '#818a91', bg: '#F4F1EA' };
     }
   };
 
@@ -97,8 +140,8 @@ export default function NotificationsScreen() {
     const icon = getNotificationIcon(item.type);
     return (
       <Pressable
-        className={`flex-row rounded-xl p-3 mb-3 border shadow-sm ${
-          item.isRead ? 'bg-white border-gray-200' : 'bg-[#fffdfb] border-[#ffd3b5]'
+        className={`flex-row items-center rounded-xl p-3 mb-3 border shadow-sm ${
+          item.isRead ? 'bg-white border-[#EFECE6]' : 'bg-[#FBF9F5] border-[#0F382C]'
         }`}
         onPress={() => handleNotificationPress(item)}>
         <View 
@@ -116,10 +159,10 @@ export default function NotificationsScreen() {
               }`}>
               {item.title}
             </Text>
-            {!item.isRead && <View className="w-2 h-2 rounded-full bg-[#FF8228]" />}
+            {!item.isRead && <View className="w-2 h-2 rounded-full bg-[#0F382C]" />}
           </View>
           <Text 
-            className="text-xs text-[#574237] leading-5 mb-1.5 font-montserrat" 
+            className="text-xs text-[#4B5563] leading-5 mb-1.5 font-montserrat" 
             numberOfLines={2}>
             {item.body}
           </Text>
@@ -127,20 +170,28 @@ export default function NotificationsScreen() {
             {formatDateFriendly(item.createdDate)}
           </Text>
         </View>
+        <Pressable
+          className="p-2 ml-1 items-center justify-center"
+          onPress={(e) => {
+            e.stopPropagation();
+            handleDeleteSingle(item);
+          }}>
+          <MaterialIcons name="delete-outline" size={20} color="#818A91" />
+        </Pressable>
       </Pressable>
     );
   };
 
   return (
-    <View className="flex-1 bg-[#FBF9F8]">
+    <View className="flex-1 bg-[#FBF9F5]">
       {/* Top Header */}
       <View 
-        className="h-24 flex-row items-center justify-between px-4 bg-white border-b border-gray-200 z-10"
+        className="h-24 flex-row items-center justify-between px-4 bg-white border-b border-[#EFECE6] z-10"
         style={{ paddingTop: insets.top }}>
         <Pressable className="p-2 items-center justify-center" onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back-ios" size={20} color="#1b1c1c" />
+          <MaterialIcons name="arrow-back-ios" size={20} color="#0F382C" />
         </Pressable>
-        <Text className="flex-1 text-center text-lg text-[#1b1c1c] ml-3 font-montserrat-bold">
+        <Text className="flex-1 text-center text-lg text-[#0F382C] ml-3 font-montserrat-bold">
           Thông báo
         </Text>
         <View className="flex-row items-center gap-1">
@@ -156,12 +207,17 @@ export default function NotificationsScreen() {
                 Alert.alert('Thông báo', 'Bạn không có thông báo chưa đọc.');
               }
             }}>
-            <MaterialIcons name="done-all" size={22} color="#1b1c1c" />
+            <MaterialIcons name="done-all" size={22} color="#0F382C" />
+          </Pressable>
+          <Pressable
+            className="p-2 items-center justify-center"
+            onPress={handleDeleteAll}>
+            <MaterialIcons name="delete-sweep" size={22} color="#0F382C" />
           </Pressable>
           <Pressable
             className="p-2 items-center justify-center"
             onPress={() => router.push('/(customer)/notifications-settings' as any)}>
-            <MaterialIcons name="settings" size={22} color="#1b1c1c" />
+            <MaterialIcons name="settings" size={22} color="#0F382C" />
           </Pressable>
         </View>
       </View>
@@ -169,7 +225,7 @@ export default function NotificationsScreen() {
       {/* Main List */}
       {isLoading ? (
         <View className="flex-1 items-center justify-center">
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <FlatList
@@ -177,7 +233,7 @@ export default function NotificationsScreen() {
           keyExtractor={(item) => item.id}
           renderItem={renderItem}
           refreshControl={
-            <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#FF8228']} />
+            <RefreshControl refreshing={isRefetching} onRefresh={refetch} colors={['#0F382C']} />
           }
           contentContainerStyle={{
             paddingTop: 12,
@@ -187,7 +243,7 @@ export default function NotificationsScreen() {
           }}
           ListEmptyComponent={
             <View className="items-center justify-center py-20 px-8">
-              <View className="w-20 h-20 rounded-full bg-[#FFE6D5] items-center justify-center mb-4">
+              <View className="w-20 h-20 rounded-full bg-[#F4F1EA] items-center justify-center mb-4">
                 <MaterialIcons name="notifications-none" size={48} color="#818A91" />
               </View>
               <Text className="text-base text-gray-800 mb-1.5 font-montserrat-bold">

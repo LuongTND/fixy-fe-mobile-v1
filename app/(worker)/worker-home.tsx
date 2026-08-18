@@ -9,7 +9,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
 import { Booking, getWorkerBookings, getWallet } from '@/services/api/bookings';
 import { fetchCategories } from '@/services/api/categories';
-import { getWorkerProfileMe } from '@/services/api/workers';
+import { getWorkerProfileMe, updateWorkingStatus } from '@/services/api/workers';
 import { getUserProfile } from '@/services/api/user';
 import { getWorkerCategoryIcon } from '@/utils/category-ui';
 import { formatCurrency } from '@/utils/format';
@@ -25,6 +25,28 @@ export default function WorkerHomeScreen() {
     queryFn: getWorkerProfileMe,
     retry: false,
   });
+
+  // Auto-redirect: nếu worker chưa có profile → bắt buộc vào setup
+  React.useEffect(() => {
+    if (!isLoadingProfile && profile === null) {
+      router.replace('/(worker)/worker-setup' as any);
+    }
+  }, [isLoadingProfile, profile]);
+
+  React.useEffect(() => {
+    if (profile) {
+      setIsReady(profile.isAcceptingJobs ?? profile.isOnline ?? true);
+    }
+  }, [profile]);
+
+  const handleToggleStatus = async (value: boolean) => {
+    setIsReady(value);
+    try {
+      await updateWorkingStatus(value);
+    } catch (err) {
+      console.warn('[worker-home] Failed to update working status:', err);
+    }
+  };
 
   const { data: userProfileResponse = null } = useQuery({
     queryKey: ['userProfile'],
@@ -60,8 +82,8 @@ export default function WorkerHomeScreen() {
 
   if (isLoadingProfile) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fbf9f8' }}>
-        <ActivityIndicator size="large" color="#FF8228" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF9F5' }}>
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
@@ -74,15 +96,18 @@ export default function WorkerHomeScreen() {
       {/* Top Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerLeft}>
-          <Image
-            source={{
-              uri:
-                profile?.avatarUrl ||
-                userProfile?.avatarUrl ||
-                'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-            }}
-            style={styles.avatar}
-          />
+          {(profile?.avatarUrl || userProfile?.avatarUrl) ? (
+            <Image
+              source={{ uri: (profile?.avatarUrl || userProfile?.avatarUrl) ?? undefined }}
+              style={styles.avatar}
+            />
+          ) : (
+            <View style={[styles.avatar, { backgroundColor: '#D6CFC4', alignItems: 'center', justifyContent: 'center' }]}>
+              <Text style={{ fontSize: 16, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                {(profile?.fullName || userProfile?.fullName || '').charAt(0).toUpperCase() || '?'}
+              </Text>
+            </View>
+          )}
           <View>
             <Text style={styles.greetingText}>
               Chào, {profile?.fullName || userProfile?.fullName || 'Đối tác'}!
@@ -91,16 +116,23 @@ export default function WorkerHomeScreen() {
           </View>
         </View>
 
-        <Pressable
-          style={styles.notificationButton}
-          onPress={() => router.push('/(customer)/notifications' as any)}>
-          <MaterialIcons name="notifications-none" size={26} color="#383838" />
-          {unreadCount > 0 && (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
-            </View>
-          )}
-        </Pressable>
+        <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+          <Pressable
+            style={styles.notificationButton}
+            onPress={() => router.push('/(booking)/chat-list' as any)}>
+            <MaterialIcons name="chat-bubble-outline" size={24} color="#383838" />
+          </Pressable>
+          <Pressable
+            style={styles.notificationButton}
+            onPress={() => router.push('/(worker)/notifications' as any)}>
+            <MaterialIcons name="notifications-none" size={26} color="#383838" />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
@@ -108,12 +140,12 @@ export default function WorkerHomeScreen() {
           <View>
             {profile === null && (
               <View style={styles.bannerCard}>
-                <View style={[styles.bannerIconCircle, { backgroundColor: '#FFF7F2' }]}>
-                  <MaterialIcons name="person-add" size={36} color="#FF8228" />
+                <View style={[styles.bannerIconCircle, { backgroundColor: '#F2F7F2' }]}>
+                  <MaterialIcons name="person-add" size={36} color="#0F382C" />
                 </View>
                 <Text style={styles.bannerTitle}>Hoàn thành thiết lập hồ sơ</Text>
                 <Text style={styles.bannerDesc}>
-                  Chào mừng bạn đến với Fixy! Để bắt đầu nhận các yêu cầu sửa chữa và nâng cao thu nhập, vui lòng cập nhật thông tin cá nhân, định danh CCCD và dịch vụ cung cấp.
+                  Chào mừng bạn đến với Fixy! Để bắt đầu nhận các yêu cầu dịch vụ spa và nâng cao thu nhập, vui lòng cập nhật thông tin cá nhân, định danh CCCD và dịch vụ cung cấp.
                 </Text>
                 <Pressable
                   style={styles.bannerBtn}
@@ -125,8 +157,8 @@ export default function WorkerHomeScreen() {
 
             {profile?.status === 0 && (
               <View style={styles.bannerCard}>
-                <View style={[styles.bannerIconCircle, { backgroundColor: '#FFF7F2' }]}>
-                  <MaterialIcons name="hourglass-empty" size={36} color="#FF8228" />
+                <View style={[styles.bannerIconCircle, { backgroundColor: '#F2F7F2' }]}>
+                  <MaterialIcons name="hourglass-empty" size={36} color="#0F382C" />
                 </View>
                 <Text style={styles.bannerTitle}>Hồ sơ đang chờ duyệt</Text>
                 <Text style={styles.bannerDesc}>
@@ -170,7 +202,7 @@ export default function WorkerHomeScreen() {
                 </View>
                 <Text style={styles.bannerTitle}>Tài khoản tạm khóa</Text>
                 <Text style={styles.bannerDesc}>
-                  Tài khoản đối tác thợ của bạn hiện đang tạm thời bị khóa. Vui lòng liên hệ với bộ phận CSKH hoặc đường dây nóng hotline để được trợ giúp giải đáp thắc mắc.
+                  Tài khoản đối tác kỹ thuật viên của bạn hiện đang tạm thời bị khóa. Vui lòng liên hệ với bộ phận CSKH hoặc đường dây nóng hotline để được trợ giúp giải đáp thắc mắc.
                 </Text>
               </View>
             )}
@@ -180,7 +212,7 @@ export default function WorkerHomeScreen() {
             {/* Earnings Summary */}
             <View style={styles.earningsCardWrapper}>
               <LinearGradient
-                colors={['#FF8228', '#F45100']}
+                colors={['#0F382C', '#164839']}
                 start={{ x: 0, y: 0 }}
                 end={{ x: 1, y: 1 }}
                 style={styles.earningsCard}>
@@ -195,16 +227,27 @@ export default function WorkerHomeScreen() {
             {/* Working Status Switch */}
             <View style={styles.statusCard}>
               <View style={styles.statusInfo}>
-                <Text style={styles.statusTitle}>Trạng thái làm việc</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.statusTitle}>Trạng thái làm việc</Text>
+                  {profile?.isBusy && (
+                    <View style={{ backgroundColor: '#FFF1E8', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
+                      <Text style={{ fontSize: 10, color: '#D97706', fontFamily: 'Montserrat_700Bold' }}>Đang có ca làm</Text>
+                    </View>
+                  )}
+                </View>
                 <Text style={styles.statusSubtitle}>
-                  {isReady ? 'Sẵn sàng nhận việc tự động' : 'Tạm nghỉ nhận việc'}
+                  {profile?.isBusy
+                    ? 'Đang bận thực hiện ca làm việc'
+                    : isReady
+                    ? 'Sẵn sàng nhận việc tự động'
+                    : 'Tạm nghỉ nhận việc'}
                 </Text>
               </View>
               <Switch
                 value={isReady}
-                onValueChange={setIsReady}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={isReady ? '#FF8228' : '#8b7265'}
+                onValueChange={handleToggleStatus}
+                trackColor={{ false: '#dcd9d9', true: '#C6DFC6' }}
+                thumbColor={isReady ? '#0F382C' : '#818A91'}
               />
             </View>
 
@@ -234,17 +277,17 @@ export default function WorkerHomeScreen() {
                               <MaterialIcons
                                 name={getWorkerCategoryIcon(job.categoryId) as any}
                                 size={24}
-                                color="#FF8228"
+                                color="#0F382C"
                               />
                             </View>
                           )}
                           <View style={styles.jobDetails}>
                             <View style={styles.jobTitleRow}>
                               <Text style={styles.jobTitle} numberOfLines={1}>
-                                {job.description || 'Yêu cầu sửa chữa'}
+                                {job.description || category?.name || 'Yêu cầu dịch vụ Spa'}
                               </Text>
                               <Text style={styles.jobPrice}>
-                                {formatCurrency(job.estimatedAmount || job.estimatedPrice || 150000)}
+                                {formatCurrency(job.finalPrice || job.finalAmount || job.estimatedAmount || job.estimatedPrice || 0)}
                               </Text>
                             </View>
                             <View style={styles.jobMetaRow}>
@@ -452,7 +495,7 @@ const styles = StyleSheet.create({
   jobPrice: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   jobMetaRow: {
     flexDirection: 'row',
@@ -483,7 +526,7 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
     paddingHorizontal: 16,
     borderRadius: 8,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   detailsButtonText: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -551,7 +594,7 @@ const styles = StyleSheet.create({
   },
   bannerBtn: {
     height: 48,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     borderRadius: 12,
     alignItems: 'center',
     justifyContent: 'center',

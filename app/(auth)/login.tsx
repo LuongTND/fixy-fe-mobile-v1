@@ -7,10 +7,12 @@ import { AuthButton } from '@/features/auth/components/auth-button';
 import { AuthScreen } from '@/features/auth/components/auth-screen';
 import { AuthTextField } from '@/features/auth/components/auth-text-field';
 import { GoogleIcon } from '@/features/auth/components/google-icon';
-import { login as loginRequest } from '@/features/auth/services/auth-api';
+import { promptGoogleSignIn } from '@/features/auth/services/google-auth';
+import { login as loginRequest, loginGoogle } from '@/features/auth/services/auth-api';
 import { extractAuthTokens } from '@/features/auth/tokens';
 import { FieldErrors, validateLoginForm } from '@/features/auth/validation';
 import { apiClient, getApiErrorMessage } from '@/services/api/client';
+import { getWorkerProfileMe } from '@/services/api/workers';
 import { useAuthStore } from '@/store/store';
 
 export default function LoginScreen() {
@@ -30,8 +32,49 @@ export default function LoginScreen() {
     return () => backHandler.remove();
   }, []);
 
-  function googleSignIn() {
-    Alert.alert('Đăng nhập Google', 'Tính năng đăng nhập Google đang được phát triển.');
+  async function performGoogleLogin(credential: string) {
+    setLoading(true);
+    setApiError('');
+    try {
+      const response = await loginGoogle(credential);
+      const tokens = extractAuthTokens(response);
+      if (tokens) {
+        const userEmail = response?.data?.email ?? response?.email ?? '';
+        await saveAuth(tokens, userEmail);
+
+        // Navigate based on user's role
+        const roles = response?.data?.roles ?? response?.roles;
+        if (Array.isArray(roles) && roles.includes('WORKER')) {
+          // Check worker profile trước khi redirect
+          try {
+            const workerProfile = await getWorkerProfileMe();
+            if (workerProfile && workerProfile.status === 1) {
+              router.replace('/worker-home' as any);
+            } else {
+              router.replace('/worker-setup' as any);
+            }
+          } catch {
+            // 404 = chưa có profile → cần setup
+            router.replace('/worker-setup' as any);
+          }
+        } else {
+          router.replace('/home' as any);
+        }
+      } else {
+        setApiError('Không thể lấy mã xác thực từ máy chủ.');
+      }
+    } catch (err) {
+      setApiError(getApiErrorMessage(err) || 'Đăng nhập bằng Google thất bại.');
+    } finally {
+      setLoading(false);
+    }
+  }
+
+  async function googleSignIn() {
+    const credential = await promptGoogleSignIn();
+    if (credential) {
+      performGoogleLogin(credential);
+    }
   }
   const [target, setTarget] = React.useState('');
   const [password, setPassword] = React.useState('');
@@ -84,7 +127,18 @@ export default function LoginScreen() {
         }
 
         if (isWorker) {
-          router.replace('/worker-home' as any);
+          // Check worker profile trước khi redirect
+          try {
+            const workerProfile = await getWorkerProfileMe();
+            if (workerProfile && workerProfile.status === 1) {
+              router.replace('/worker-home' as any);
+            } else {
+              router.replace('/worker-setup' as any);
+            }
+          } catch {
+            // 404 = chưa có profile → cần setup
+            router.replace('/worker-setup' as any);
+          }
         } else {
           router.replace('/home' as any);
         }
@@ -106,7 +160,7 @@ export default function LoginScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.replace('/')}>
-            <MaterialIcons name="arrow-back" size={26} color="#574237" />
+            <MaterialIcons name="arrow-back" size={26} color="#0F382C" />
           </Pressable>
           <Text style={styles.title}>Đăng nhập</Text>
         </View>
@@ -155,7 +209,7 @@ export default function LoginScreen() {
             style={styles.googleButton}
             onPress={googleSignIn}>
             <GoogleIcon size={24} />
-            <Text style={styles.googleText}>Tiếp tục với Google</Text>
+            <Text style={styles.googleText}>Đăng nhập với Google</Text>
           </Pressable>
 
           <View style={styles.footerRow}>
@@ -189,7 +243,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    color: '#1B1C1C',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 22,
   },
@@ -198,7 +252,7 @@ const styles = StyleSheet.create({
     marginTop: 24,
   },
   headline: {
-    color: '#383838',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 32,
     lineHeight: 40,
@@ -206,7 +260,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 14,
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 16,
     lineHeight: 24,
@@ -221,7 +275,7 @@ const styles = StyleSheet.create({
     paddingVertical: 2,
   },
   forgotPasswordText: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
   },
@@ -241,13 +295,13 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   footerText: {
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 15,
   },
   linkText: {
-    color: '#FF8228',
-    fontFamily: 'Montserrat_600SemiBold',
+    color: '#0F382C',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
   },
   dividerRow: {
@@ -259,7 +313,7 @@ const styles = StyleSheet.create({
   divider: {
     flex: 1,
     height: 1,
-    backgroundColor: '#DDDDDD',
+    backgroundColor: '#EFECE6',
   },
   dividerText: {
     color: '#818A91',
@@ -275,12 +329,12 @@ const styles = StyleSheet.create({
     gap: 14,
     borderRadius: 26,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     backgroundColor: '#FFFFFF',
   },
   googleText: {
-    color: '#574237',
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 18,
+    color: '#1C2526',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 16,
   },
 });

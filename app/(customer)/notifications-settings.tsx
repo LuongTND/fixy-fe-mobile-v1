@@ -50,7 +50,7 @@ export default function NotificationSettingsScreen() {
       {/* Top Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <Pressable style={styles.headerButton} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back-ios" size={20} color="#1b1c1c" />
+          <MaterialIcons name="arrow-back-ios" size={20} color="#0F382C" />
         </Pressable>
         <Text style={styles.headerTitle}>Cài đặt thông báo</Text>
         <View style={{ width: 40 }} />
@@ -58,7 +58,7 @@ export default function NotificationSettingsScreen() {
 
       {isLoading ? (
         <View style={styles.centerContent}>
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <ScrollView
@@ -76,7 +76,7 @@ export default function NotificationSettingsScreen() {
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <View style={styles.settingLabelRow}>
-                  <MaterialIcons name="event-note" size={22} color="#FF8228" />
+                  <MaterialIcons name="event-note" size={22} color="#0F382C" />
                   <Text style={styles.settingLabel}>Đơn đặt lịch mới</Text>
                 </View>
                 <Text style={styles.settingDescription}>
@@ -86,8 +86,8 @@ export default function NotificationSettingsScreen() {
               <Switch
                 value={settings?.newBooking ?? false}
                 onValueChange={(val) => handleToggle('newBooking', val)}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={(settings?.newBooking ?? false) ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#E0E0E0', true: '#C6DFC6' }}
+                thumbColor={(settings?.newBooking ?? false) ? '#0F382C' : '#F5F5F5'}
                 disabled={updateMutation.isPending}
               />
             </View>
@@ -98,7 +98,7 @@ export default function NotificationSettingsScreen() {
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <View style={styles.settingLabelRow}>
-                  <MaterialIcons name="payment" size={22} color="#FF8228" />
+                  <MaterialIcons name="payment" size={22} color="#0F382C" />
                   <Text style={styles.settingLabel}>Giao dịch & Thanh toán</Text>
                 </View>
                 <Text style={styles.settingDescription}>
@@ -108,8 +108,8 @@ export default function NotificationSettingsScreen() {
               <Switch
                 value={settings?.payment ?? false}
                 onValueChange={(val) => handleToggle('payment', val)}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={(settings?.payment ?? false) ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#E0E0E0', true: '#C6DFC6' }}
+                thumbColor={(settings?.payment ?? false) ? '#0F382C' : '#F5F5F5'}
                 disabled={updateMutation.isPending}
               />
             </View>
@@ -120,7 +120,7 @@ export default function NotificationSettingsScreen() {
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <View style={styles.settingLabelRow}>
-                  <MaterialIcons name="build" size={22} color="#FF8228" />
+                  <MaterialIcons name="build" size={22} color="#0F382C" />
                   <Text style={styles.settingLabel}>Cập nhật tiến độ đơn</Text>
                 </View>
                 <Text style={styles.settingDescription}>
@@ -130,8 +130,8 @@ export default function NotificationSettingsScreen() {
               <Switch
                 value={settings?.statusUpdate ?? false}
                 onValueChange={(val) => handleToggle('statusUpdate', val)}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={(settings?.statusUpdate ?? false) ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#E0E0E0', true: '#C6DFC6' }}
+                thumbColor={(settings?.statusUpdate ?? false) ? '#0F382C' : '#F5F5F5'}
                 disabled={updateMutation.isPending}
               />
             </View>
@@ -142,7 +142,7 @@ export default function NotificationSettingsScreen() {
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <View style={styles.settingLabelRow}>
-                  <MaterialIcons name="local-offer" size={22} color="#FF8228" />
+                  <MaterialIcons name="local-offer" size={22} color="#0F382C" />
                   <Text style={styles.settingLabel}>Khuyến mãi & Tin tức</Text>
                 </View>
                 <Text style={styles.settingDescription}>
@@ -152,8 +152,8 @@ export default function NotificationSettingsScreen() {
               <Switch
                 value={settings?.promotions ?? false}
                 onValueChange={(val) => handleToggle('promotions', val)}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={(settings?.promotions ?? false) ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#E0E0E0', true: '#C6DFC6' }}
+                thumbColor={(settings?.promotions ?? false) ? '#0F382C' : '#F5F5F5'}
                 disabled={updateMutation.isPending}
               />
             </View>
@@ -171,7 +171,7 @@ export default function NotificationSettingsScreen() {
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <View style={styles.settingLabelRow}>
-                  <MaterialIcons name="notifications-active" size={22} color="#FF8228" />
+                  <MaterialIcons name="notifications-active" size={22} color="#0F382C" />
                   <Text style={styles.settingLabel}>Thông báo đẩy (App Push)</Text>
                 </View>
                 <Text style={styles.settingDescription}>
@@ -181,8 +181,8 @@ export default function NotificationSettingsScreen() {
               <Switch
                 value={settings?.viaPush ?? false}
                 onValueChange={(val) => handleToggle('viaPush', val)}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={(settings?.viaPush ?? false) ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#E0E0E0', true: '#C6DFC6' }}
+                thumbColor={(settings?.viaPush ?? false) ? '#0F382C' : '#F5F5F5'}
                 disabled={updateMutation.isPending}
               />
             </View>
@@ -193,7 +193,7 @@ export default function NotificationSettingsScreen() {
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <View style={styles.settingLabelRow}>
-                  <MaterialIcons name="phone-android" size={22} color="#FF8228" />
+                  <MaterialIcons name="phone-android" size={22} color="#0F382C" />
                   <Text style={styles.settingLabel}>Trong ứng dụng (In-app)</Text>
                 </View>
                 <Text style={styles.settingDescription}>
@@ -203,8 +203,8 @@ export default function NotificationSettingsScreen() {
               <Switch
                 value={settings?.viaInApp ?? false}
                 onValueChange={(val) => handleToggle('viaInApp', val)}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={(settings?.viaInApp ?? false) ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#E0E0E0', true: '#C6DFC6' }}
+                thumbColor={(settings?.viaInApp ?? false) ? '#0F382C' : '#F5F5F5'}
                 disabled={updateMutation.isPending}
               />
             </View>
@@ -215,7 +215,7 @@ export default function NotificationSettingsScreen() {
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <View style={styles.settingLabelRow}>
-                  <MaterialIcons name="mail-outline" size={22} color="#FF8228" />
+                  <MaterialIcons name="mail-outline" size={22} color="#0F382C" />
                   <Text style={styles.settingLabel}>Thư điện tử (Email)</Text>
                 </View>
                 <Text style={styles.settingDescription}>
@@ -225,8 +225,8 @@ export default function NotificationSettingsScreen() {
               <Switch
                 value={settings?.viaEmail ?? false}
                 onValueChange={(val) => handleToggle('viaEmail', val)}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={(settings?.viaEmail ?? false) ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#E0E0E0', true: '#C6DFC6' }}
+                thumbColor={(settings?.viaEmail ?? false) ? '#0F382C' : '#F5F5F5'}
                 disabled={updateMutation.isPending}
               />
             </View>
@@ -237,18 +237,18 @@ export default function NotificationSettingsScreen() {
             <View style={styles.settingRow}>
               <View style={styles.settingInfo}>
                 <View style={styles.settingLabelRow}>
-                  <MaterialIcons name="sms" size={22} color="#FF8228" />
+                  <MaterialIcons name="sms" size={22} color="#0F382C" />
                   <Text style={styles.settingLabel}>Tin nhắn SMS</Text>
                 </View>
                 <Text style={styles.settingDescription}>
-                  Gửi mã xác thực OTP và tin bảo mật khẩn cấp.
+                  Gửi mã xác thực OTP & tin nhắn khẩn cấp qua SMS.
                 </Text>
               </View>
               <Switch
                 value={settings?.viaSms ?? false}
                 onValueChange={(val) => handleToggle('viaSms', val)}
-                trackColor={{ false: '#dcd9d9', true: '#ffdbc9' }}
-                thumbColor={(settings?.viaSms ?? false) ? '#FF8228' : '#8b7265'}
+                trackColor={{ false: '#E0E0E0', true: '#C6DFC6' }}
+                thumbColor={(settings?.viaSms ?? false) ? '#0F382C' : '#F5F5F5'}
                 disabled={updateMutation.isPending}
               />
             </View>
@@ -267,7 +267,7 @@ export default function NotificationSettingsScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   centerContent: {
     flex: 1,
@@ -282,7 +282,7 @@ const styles = StyleSheet.create({
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     zIndex: 10,
   },
   headerButton: {
@@ -294,7 +294,7 @@ const styles = StyleSheet.create({
     flex: 1,
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-    color: '#1b1c1c',
+    color: '#0F382C',
     textAlign: 'center',
   },
   scrollContent: {
@@ -306,7 +306,7 @@ const styles = StyleSheet.create({
   sectionTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#1b1c1c',
+    color: '#0F382C',
     marginBottom: 6,
   },
   sectionSubtitle: {
@@ -320,12 +320,13 @@ const styles = StyleSheet.create({
     borderRadius: 16,
     padding: 8,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
-    shadowColor: '#000000',
-    shadowOpacity: 0.02,
+    borderColor: '#EFECE6',
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
     shadowRadius: 8,
     shadowOffset: { width: 0, height: 4 },
     elevation: 2,
+    marginBottom: 20,
   },
   settingRow: {
     flexDirection: 'row',
@@ -346,7 +347,7 @@ const styles = StyleSheet.create({
   settingLabel: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 15,
-    color: '#1b1c1c',
+    color: '#1C2526',
   },
   settingDescription: {
     fontFamily: 'Montserrat_400Regular',
@@ -356,7 +357,7 @@ const styles = StyleSheet.create({
   },
   divider: {
     height: 1,
-    backgroundColor: '#efedec',
+    backgroundColor: '#EFECE6',
     marginHorizontal: 12,
   },
   footerInfo: {

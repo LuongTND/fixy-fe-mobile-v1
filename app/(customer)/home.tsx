@@ -1,18 +1,17 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { useQuery } from '@tanstack/react-query';
+import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { router } from 'expo-router';
 import * as React from 'react';
 import {
-  Alert,
+  Animated,
   Dimensions,
   Image,
-  ImageSourcePropType,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
-  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -20,107 +19,180 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { BottomTabBar } from '@/components/layout/bottom-tab-bar';
 import { fetchCategories } from '@/services/api/categories';
 import { getUnreadCount } from '@/services/api/notifications';
+import { searchWorkers, WorkerProfile } from '@/services/api/workers';
+import { CitySelectorModal } from '@/components/city-selector-modal';
+import { useLocationStore } from '@/store/store';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
-const BANNER_WIDTH = SCREEN_WIDTH - 32;
-const BANNER_HEIGHT = Math.min(1744, Math.round(BANNER_WIDTH * 0.6));
 
-const BANNER_SLIDES = [
-  { id: 'fixy-banner-1', source: require('../../assets/fixy-banner-1.png') },
-  { id: 'fixy-banner-2', source: require('../../assets/fixy-banner-2.png') },
-  { id: 'fixy-banner-3', source: require('../../assets/fixy-banner-3.png') },
-];
-
-const CATEGORY_IMAGES = {
-  water: require('../../assets/water.png'),
-  hygiene: require('../../assets/hygiene.png'),
-  housePaintRenovate: require('../../assets/house-paint-renovate.png'),
-  furniture: require('../../assets/furniture.png'),
-  bikeCar: require('../../assets/bike-car.png'),
-  washingMachine: require('../../assets/washing-machine.png'),
-  ac: require('../../assets/AC.png'),
-  electric: require('../../assets/electric.png'),
-  toiletPump: require('../../assets/toilet-pump.png'),
-};
-
-type HomeService = {
-  id: string;
-  name: string;
-  image?: ImageSourcePropType;
-  imageUrl?: string | null;
-};
-
-const SERVICES: HomeService[] = [
-  { id: 'dien', name: 'Điện', image: CATEGORY_IMAGES.electric },
-  { id: 'nuoc', name: 'Nước', image: CATEGORY_IMAGES.water },
-  { id: 'dieuhoa', name: 'Điều hòa', image: CATEGORY_IMAGES.ac },
-  { id: 'maygiat', name: 'Máy giặt', image: CATEGORY_IMAGES.washingMachine },
-  { id: 'xemay', name: 'Xe máy - Ô tô', image: CATEGORY_IMAGES.bikeCar },
-  { id: 'moc', name: 'Mộc - Nội thất', image: CATEGORY_IMAGES.furniture },
-  { id: 'son', name: 'Sơn sửa nhà', image: CATEGORY_IMAGES.housePaintRenovate },
-  { id: 'vesinh', name: 'Vệ sinh', image: CATEGORY_IMAGES.hygiene },
-  { id: 'thongtac', name: 'Thông tắc bồn cầu', image: CATEGORY_IMAGES.toiletPump },
-];
-
-const FEATURED_CRAFTSMEN = [
+const SPA_BANNER_CARDS = [
   {
-    id: 'thang',
-    name: 'Nguyễn Văn Thắng',
-    isPro: true,
-    rating: 4.9,
-    reviews: 128,
-    completed: 256,
-    distance: '2.1 km',
-    price: 'Từ 150.000đ',
+    id: 'health',
+    title: 'Sức khoẻ tại nhà',
+    subtitle: 'Lấy ráy tai, massage & trị liệu',
+    category: 'suc-khoe',
+    image: require('@/assets/SUC KHOE TAI NHA.webp'),
   },
   {
-    id: 'duc',
-    name: 'Lê Minh Đức',
-    isPro: false,
-    rating: 4.8,
-    reviews: 96,
-    completed: 189,
-    distance: '2.8 km',
-    price: 'Từ 140.000đ',
+    id: 'beauty',
+    title: 'Làm đẹp tại nhà',
+    subtitle: 'Nails,wax, tẩy tế bào chết',
+    category: 'lam-dep',
+    image: require('@/assets/LAM DEP TAI NHA.webp'),
+  },
+  {
+    id: 'store',
+    title: 'Địa điểm spa',
+    subtitle: 'Ưu đãi giờ thấp điểm',
+    tag: '📍 Tại cửa hàng',
+    subtag: 'Trải nghiệm dịch vụ\ntrực tiếp tại cửa hàng',
+    category: 'dia-diem-spa',
+    image: require('@/assets/DIA DIEM SPA.webp'),
   },
 ];
 
-const CATEGORIES_UI_MAP: Record<string, { slug: string; image: ImageSourcePropType }> = {
-  Điện: { slug: 'dien', image: CATEGORY_IMAGES.electric },
-  'Sửa điện': { slug: 'dien', image: CATEGORY_IMAGES.electric },
-  Nước: { slug: 'nuoc', image: CATEGORY_IMAGES.water },
-  'Điều hòa': { slug: 'dieuhoa', image: CATEGORY_IMAGES.ac },
-  'Điện lạnh': { slug: 'dieuhoa', image: CATEGORY_IMAGES.ac },
-  'Máy giặt': { slug: 'maygiat', image: CATEGORY_IMAGES.washingMachine },
-  'Xe máy': { slug: 'xemay', image: CATEGORY_IMAGES.bikeCar },
-  'Ô tô': { slug: 'xemay', image: CATEGORY_IMAGES.bikeCar },
-  Mộc: { slug: 'moc', image: CATEGORY_IMAGES.furniture },
-  'Nội thất': { slug: 'moc', image: CATEGORY_IMAGES.furniture },
-  Sơn: { slug: 'son', image: CATEGORY_IMAGES.housePaintRenovate },
-  'Vệ sinh': { slug: 'vesinh', image: CATEGORY_IMAGES.hygiene },
-  'Thông tắc': { slug: 'thongtac', image: CATEGORY_IMAGES.toiletPump },
-  'Bồn cầu': { slug: 'thongtac', image: CATEGORY_IMAGES.toiletPump },
-};
-
-function normalizeSearchText(value: string) {
-  return value
-    .normalize('NFD')
-    .replace(/[\u0300-\u036f]/g, '')
-    .trim()
-    .toLowerCase();
+function getInitials(name: string): string {
+  if (!name) return '?';
+  const words = name.trim().split(/\s+/);
+  if (words.length >= 2) {
+    return (words[0][0] + words[words.length - 1][0]).toUpperCase();
+  }
+  return name.charAt(0).toUpperCase();
 }
+
+function InitialsAvatar({ name, size = 80, style }: { name?: string; size?: number; style?: any }) {
+  const initials = getInitials(name || '');
+  const fontSize = size * 0.36;
+  return (
+    <View
+      style={[
+        {
+          width: size,
+          height: size,
+          borderRadius: size * 0.175,
+          backgroundColor: '#D6CFC4',
+          alignItems: 'center',
+          justifyContent: 'center',
+        },
+        style,
+      ]}>
+      <Text style={{ fontSize, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+        {initials}
+      </Text>
+    </View>
+  );
+}
+
+function SkeletonShimmer({ width: w, height: h, borderRadius: br = 4, style }: { width: number | string; height: number; borderRadius?: number; style?: any }) {
+  const shimmerAnim = React.useRef(new Animated.Value(0)).current;
+
+  React.useEffect(() => {
+    const loop = Animated.loop(
+      Animated.sequence([
+        Animated.timing(shimmerAnim, { toValue: 1, duration: 800, useNativeDriver: true }),
+        Animated.timing(shimmerAnim, { toValue: 0, duration: 800, useNativeDriver: true }),
+      ])
+    );
+    loop.start();
+    return () => loop.stop();
+  }, [shimmerAnim]);
+
+  const opacity = shimmerAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [0.35, 0.7],
+  });
+
+  return (
+    <Animated.View
+      style={[
+        { width: w as any, height: h, borderRadius: br, backgroundColor: '#E0DDD7', opacity },
+        style,
+      ]}
+    />
+  );
+}
+
+function SkeletonKtvCard() {
+  return (
+    <View style={skeletonStyles.card}>
+      <SkeletonShimmer width={80} height={80} borderRadius={14} />
+      <View style={{ flex: 1, gap: 10, paddingVertical: 4 }}>
+        <SkeletonShimmer width="65%" height={16} borderRadius={6} />
+        <SkeletonShimmer width="50%" height={12} borderRadius={4} />
+        <SkeletonShimmer width="35%" height={12} borderRadius={4} />
+      </View>
+      <View style={{ alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch', paddingVertical: 4 }}>
+        <SkeletonShimmer width={70} height={10} borderRadius={4} />
+        <SkeletonShimmer width={56} height={34} borderRadius={20} />
+      </View>
+    </View>
+  );
+}
+
+const skeletonStyles = StyleSheet.create({
+  card: {
+    backgroundColor: '#ffffff',
+    borderRadius: 18,
+    padding: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+  },
+});
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const [searchQuery, setSearchQuery] = React.useState('');
-  const [activeSlide, setActiveSlide] = React.useState(0);
+  const { selectedCity } = useLocationStore();
+  const [cityModalVisible, setCityModalVisible] = React.useState(false);
   const [currentCity, setCurrentCity] = React.useState('');
   const [currentLocationLoading, setCurrentLocationLoading] = React.useState(false);
+
+  const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
+
+  React.useEffect(() => {
+    (async () => {
+      try {
+        const { status } = await Location.requestForegroundPermissionsAsync();
+        if (status === 'granted') {
+          const pos = await Location.getCurrentPositionAsync({
+            accuracy: Location.Accuracy.Balanced,
+          });
+          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
+        }
+      } catch (err) {
+        console.warn('[home] GPS location error:', err);
+      }
+    })();
+  }, []);
 
   const { data: apiCategories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => fetchCategories(),
   });
+
+  const { data: apiWorkers = [], isLoading: isLoadingWorkers } = useQuery<WorkerProfile[]>({
+    queryKey: ['homeWorkers', selectedCity, userLocation?.lat, userLocation?.lng],
+    queryFn: () =>
+      searchWorkers({
+        City: selectedCity,
+        CustomerLat: userLocation?.lat,
+        CustomerLng: userLocation?.lng,
+        MinRating: 4.0,
+        PageSize: 20,
+      }),
+  });
+
+  // Sort featured workers: High Rating (4.5+) -> High Reviews Count -> Closest Distance
+  const featuredWorkers = React.useMemo(() => {
+    if (!apiWorkers || apiWorkers.length === 0) return [];
+    return [...apiWorkers].sort((a, b) => {
+      const ratingDiff = (b.rating || 0) - (a.rating || 0);
+      if (Math.abs(ratingDiff) > 0.1) return ratingDiff;
+      return (b.reviewsCount || 0) - (a.reviewsCount || 0);
+    });
+  }, [apiWorkers]);
 
   const { data: unreadCount = 0 } = useQuery<number>({
     queryKey: ['unreadNotificationCount'],
@@ -156,47 +228,20 @@ export default function HomeScreen() {
     updateCurrentCity();
   }, [updateCurrentCity]);
 
-  const locationLabel = currentLocationLoading
-    ? 'Đang lấy vị trí...'
-    : currentCity || 'Chưa xác định vị trí';
+  const locationLabel = currentCity ? currentCity : 'Đà Nẵng';
 
-  const categories = React.useMemo(() => {
-    if (apiCategories.length === 0) {
-      return SERVICES;
+  const handleCategoryPress = (categoryId: string, categoryName: string) => {
+    // Route "Địa điểm spa" to the spa-services screen
+    if (categoryId === 'dia-diem-spa') {
+      router.push('/(customer)/spa-services' as any);
+      return;
     }
 
-    return apiCategories.map((c): HomeService => {
-      let uiInfo = { slug: c.id, image: CATEGORY_IMAGES.electric };
-      for (const [key, value] of Object.entries(CATEGORIES_UI_MAP)) {
-        if (c.name.toLowerCase().includes(key.toLowerCase())) {
-          uiInfo = value;
-          break;
-        }
-      }
-      return {
-        id: c.id,
-        name: c.name,
-        image: uiInfo.image,
-        imageUrl: c.imageUrl,
-      };
-    });
-  }, [apiCategories]);
-
-  const displayedCategories = React.useMemo(() => {
-    const normalizedQuery = normalizeSearchText(searchQuery);
-    if (!normalizedQuery) return categories;
-
-    return categories.filter((service) =>
-      normalizeSearchText(service.name).includes(normalizedQuery)
-    );
-  }, [categories, searchQuery]);
-
-  const handleServicePress = (serviceId: string, serviceName: string) => {
     router.push({
-      pathname: '/service-workers',
+      pathname: '/(customer)/service-workers',
       params: {
-        serviceId,
-        serviceName,
+        serviceId: categoryId,
+        serviceName: categoryName,
       },
     } as any);
   };
@@ -207,167 +252,193 @@ export default function HomeScreen() {
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
-      <View style={[styles.header, { paddingTop: insets.top }]}>
+      {/* Header Bar */}
+      <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
         <Pressable
           style={styles.locationContainer}
-          onPress={updateCurrentCity}
-          disabled={currentLocationLoading}>
-          <MaterialIcons name="location-on" size={24} color="#FF8228" />
+          onPress={() => setCityModalVisible(true)}>
+          <MaterialIcons name="location-on" size={16} color="#0F382C" />
           <Text style={styles.locationText} numberOfLines={1}>
-            {locationLabel}
+            {selectedCity}
           </Text>
-          <MaterialIcons name="keyboard-arrow-down" size={20} color="#1B1C1C" />
+          <MaterialIcons name="keyboard-arrow-down" size={16} color="#0F382C" />
         </Pressable>
 
-        <Pressable style={styles.notificationBtn} onPress={handleNotificationPress}>
-          <MaterialIcons name="notifications-none" size={26} color="#1B1C1C" />
-          {unreadCount > 0 && (
-            <View style={styles.notificationBadge}>
-              <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
-            </View>
-          )}
-        </Pressable>
+        <View style={styles.headerRightActions}>
+          <Pressable
+            style={styles.headerIconBtn}
+            onPress={() => router.push('/(booking)/chat-list' as any)}>
+            <MaterialIcons name="chat-bubble-outline" size={18} color="#0F382C" />
+          </Pressable>
+          <Pressable style={styles.headerIconBtn} onPress={handleNotificationPress}>
+            <MaterialIcons name="notifications-none" size={20} color="#0F382C" />
+            {unreadCount > 0 && (
+              <View style={styles.notificationBadge}>
+                <Text style={styles.notificationBadgeText}>{unreadCount}</Text>
+              </View>
+            )}
+          </Pressable>
+        </View>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Search & Filter */}
-        <View style={styles.searchRow}>
-          <View style={styles.searchBar}>
-            <MaterialIcons name="search" size={22} color="#818A91" style={styles.searchIcon} />
-            <TextInput
-              style={styles.searchInput}
-              placeholder="Tìm danh mục dịch vụ..."
-              placeholderTextColor="#9A9A9A"
-              value={searchQuery}
-              onChangeText={setSearchQuery}
-            />
-          </View>
-        </View>
-
-        {/* Hero Promotional Banner */}
-        <View style={styles.bannerContainer}>
-          <ScrollView
-            horizontal
-            pagingEnabled
-            showsHorizontalScrollIndicator={false}
-            decelerationRate="fast"
-            snapToInterval={BANNER_WIDTH}
-            snapToAlignment="start"
-            onMomentumScrollEnd={(event) => {
-              const slideIndex = Math.round(event.nativeEvent.contentOffset.x / BANNER_WIDTH);
-              setActiveSlide(Math.max(0, Math.min(slideIndex, BANNER_SLIDES.length - 1)));
-            }}>
-            {BANNER_SLIDES.map((slide) => (
-              <Pressable
-                key={slide.id}
-                style={styles.bannerSlide}
-                onPress={() => Alert.alert('Đặt ngay', 'Hãy chọn một danh mục dịch vụ bên dưới.')}>
-                <Image source={slide.source} style={styles.bannerImage} resizeMode="cover" />
-              </Pressable>
-            ))}
-          </ScrollView>
-          <View style={styles.carouselDots}>
-            {BANNER_SLIDES.map((slide, index) => (
-              <View
-                key={slide.id}
-                style={[styles.carouselDot, activeSlide === index && styles.carouselDotActive]}
-              />
-            ))}
-          </View>
-        </View>
-
-        {/* Service Categories */}
-        <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Danh mục dịch vụ</Text>
-          <Pressable onPress={() => Alert.alert('Danh mục', 'Danh mục dịch vụ đầy đủ.')}>
-            <Text style={styles.sectionLink}>Xem tất cả</Text>
-          </Pressable>
-        </View>
-
-        <View style={styles.serviceGrid}>
-          {displayedCategories.map((service) => (
+        {/* Main Service Banner Cards */}
+        <View style={styles.bannerCardsContainer}>
+          {SPA_BANNER_CARDS.map((card) => (
             <Pressable
-              key={service.id}
-              style={styles.serviceItem}
-              onPress={() => handleServicePress(service.id, service.name)}>
-              <View style={styles.serviceIconFrame}>
-                {service.imageUrl ? (
-                  <Image
-                    source={{ uri: service.imageUrl }}
-                    style={styles.serviceIconImage}
-                    resizeMode="contain"
-                  />
-                ) : (
-                  <Image
-                    source={service.image}
-                    style={styles.serviceIconImage}
-                    resizeMode="contain"
-                  />
-                )}
+              key={card.id}
+              style={styles.spaBannerCard}
+              onPress={() => handleCategoryPress(card.category, card.title)}>
+              {/* Full Background Image */}
+              <Image
+                source={typeof card.image === 'string' ? { uri: card.image } : card.image}
+                style={styles.bannerCardBgImage}
+              />
+
+              {/* Warm Earth Brown Spa Gradient Overlay */}
+              <LinearGradient
+                colors={[
+                  'rgba(148, 88, 36, 0.97)',
+                  'rgba(148, 88, 36, 0.90)',
+                  'rgba(148, 88, 36, 0.65)',
+                  'rgba(148, 88, 36, 0.15)',
+                  'rgba(148, 88, 36, 0.0)',
+                ]}
+                locations={[0, 0.35, 0.6, 0.85, 1]}
+                start={{ x: 0, y: 0.5 }}
+                end={{ x: 1, y: 0.5 }}
+                style={StyleSheet.absoluteFillObject}
+              />
+
+              {/* Card Content Layer */}
+              <View style={styles.bannerCardInner}>
+                <View style={styles.bannerCardTextContent}>
+                  <Text style={styles.bannerCardTitle}>{card.title}</Text>
+                  <Text style={styles.bannerCardSubtitle}>{card.subtitle}</Text>
+                </View>
+
+                <View style={styles.bannerCardBottomRow}>
+                  <View style={styles.arrowCircleBtnGlass}>
+                    <MaterialIcons name="arrow-forward" size={22} color="#ffffff" />
+                  </View>
+
+                  {card.tag && (
+                    <View style={styles.bannerStoreTagContainer}>
+                      <View style={styles.bannerStoreTagPill}>
+                        <Text style={styles.bannerStoreTagTitle}>{card.tag}</Text>
+                      </View>
+                      {card.subtag && (
+                        <Text style={styles.bannerStoreTagSubtext}>{card.subtag}</Text>
+                      )}
+                    </View>
+                  )}
+                </View>
               </View>
-              <Text style={styles.serviceLabel} numberOfLines={2}>
-                {service.name}
-              </Text>
             </Pressable>
           ))}
         </View>
 
-        {/* Featured Craftsmen */}
+        {/* Featured Technicians */}
         <View style={styles.sectionHeader}>
-          <Text style={styles.sectionTitle}>Thợ nổi bật</Text>
-          <Pressable onPress={() => Alert.alert('Thợ nổi bật', 'Danh sách thợ nổi bật.')}>
+          <Text style={styles.sectionTitle}>Kỹ thuật viên nổi bật</Text>
+          <Pressable onPress={() => router.push('/(customer)/service-workers' as any)}>
             <Text style={styles.sectionLink}>Xem tất cả</Text>
           </Pressable>
         </View>
 
-        <View style={styles.craftsmenList}>
-          {FEATURED_CRAFTSMEN.map((craftsman) => (
-            <View key={craftsman.id} style={styles.craftsmanCard}>
-              <View style={styles.craftsmanAvatarContainer}>
-                <View style={styles.craftsmanAvatarPlaceholder}>
-                  <MaterialIcons name="person" size={32} color="#818A91" />
-                </View>
-                <View style={styles.onlineDot} />
-              </View>
+        <View style={styles.technicianList}>
+          {isLoadingWorkers ? (
+            <>
+              <SkeletonKtvCard />
+              <SkeletonKtvCard />
+              <SkeletonKtvCard />
+            </>
+          ) : featuredWorkers.length > 0 ? (
+            featuredWorkers.map((item: any) => {
+              const BADGE_CONFIG: Record<number, { text: string; color: string }> = {
+                0: { text: 'Mới đến', color: '#4A90E2' },
+                1: { text: 'Mới cập nhật', color: '#E05297' },
+                2: { text: 'Chất lượng', color: '#E68A2E' },
+                3: { text: 'Vàng', color: '#D4AF37' },
+              };
 
-              <View style={styles.craftsmanDetails}>
-                <View style={styles.craftsmanNameRow}>
-                  <Text style={styles.craftsmanName}>{craftsman.name}</Text>
-                  {craftsman.isPro && (
-                    <View style={styles.proBadge}>
-                      <Text style={styles.proBadgeText}>PRO</Text>
+              const badgeNum = typeof item.badge === 'number' ? item.badge : 0;
+              const badge = BADGE_CONFIG[badgeNum] || BADGE_CONFIG[0];
+              const arrivalLabel =
+                item.estimatedArrivalMinutes != null
+                  ? `Dự kiến ${item.estimatedArrivalMinutes} phút`
+                  : (item.isOnline ? 'Đặt ngay' : (item.availableTime || ''));
+
+              const workerTargetId = item.workerProfileId || item.id;
+              const avatarUri = item.avatarUrl || item.avatar;
+
+              return (
+                <Pressable
+                  key={item.id || workerTargetId}
+                  style={styles.ktvCard}
+                  onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
+                  <View style={styles.ktvAvatarWrapper}>
+                    {avatarUri ? (
+                      <Image source={{ uri: avatarUri }} style={styles.ktvAvatar} />
+                    ) : (
+                      <InitialsAvatar name={item.fullName || item.name} size={80} style={styles.ktvAvatar} />
+                    )}
+                    <View style={[styles.badgePill, { backgroundColor: badge.color }]}>
+                      <Text style={styles.badgePillText}>{badge.text}</Text>
                     </View>
-                  )}
-                </View>
+                  </View>
 
-                <View style={styles.craftsmanRatingRow}>
-                  <MaterialIcons name="star" size={16} color="#FFB020" />
-                  <Text style={styles.craftsmanRatingText}>{craftsman.rating}</Text>
-                  <Text style={styles.craftsmanMutedText}>({craftsman.reviews} đánh giá)</Text>
-                  <Text style={styles.dividerDot}>•</Text>
-                  <Text style={styles.craftsmanMutedText}>{craftsman.completed} đơn</Text>
-                </View>
+                  <View style={styles.ktvMainDetails}>
+                    <Text style={styles.ktvName} numberOfLines={1}>
+                      {item.fullName || item.name}
+                    </Text>
 
-                <View style={styles.craftsmanDistanceRow}>
-                  <MaterialIcons name="location-on" size={14} color="#818A91" />
-                  <Text style={styles.craftsmanDistanceText}>{craftsman.distance}</Text>
-                  <Text style={styles.craftsmanPriceText}>{craftsman.price}</Text>
-                </View>
-              </View>
+                    <View style={styles.ratingDistanceRow}>
+                      <MaterialIcons name="star" size={16} color="#F59E0B" />
+                      <Text style={styles.ratingText}>
+                        {item.rating > 0 ? (typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating) : '--'}
+                      </Text>
+                      <Text style={styles.reviewsText}>({item.reviewsCount ?? 0} đánh giá)</Text>
+                    </View>
 
-              <Pressable
-                style={styles.bookCraftsmanBtn}
-                onPress={() => Alert.alert('Đặt thợ', `Đang kết nối với thợ ${craftsman.name}...`)}>
-                <MaterialIcons name="chevron-right" size={24} color="#FF8228" />
-              </Pressable>
+                    <View style={styles.locationRow}>
+                      <MaterialIcons name="near-me" size={14} color="#818A91" />
+                      <Text style={styles.distanceText} numberOfLines={1}>
+                        {item.distance || item.city || item.address?.city || selectedCity || 'Không xác định'}
+                      </Text>
+                    </View>
+                  </View>
+
+                  <View style={styles.rightColumn}>
+                    {arrivalLabel ? (
+                      <Text style={styles.ktvAvailability}>{arrivalLabel}</Text>
+                    ) : <View />}
+                    <Pressable
+                      style={styles.bookActionBtn}
+                      onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
+                      <Text style={styles.bookActionText}>Đặt</Text>
+                    </Pressable>
+                  </View>
+                </Pressable>
+              );
+            })
+          ) : (
+            <View style={styles.emptyState}>
+              <MaterialIcons name="search-off" size={40} color="#C4B9A8" />
+              <Text style={styles.emptyStateText}>Chưa có kỹ thuật viên nào trong khu vực</Text>
             </View>
-          ))}
+          )}
         </View>
       </ScrollView>
 
       {/* Bottom Navigation Tab Bar */}
       <BottomTabBar activeTab="home" />
+
+      {/* City Selector Modal */}
+      <CitySelectorModal
+        visible={cityModalVisible}
+        onClose={() => setCityModalVisible(false)}
+      />
     </View>
   );
 }
@@ -375,17 +446,17 @@ export default function HomeScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#FBF9F5',
   },
   header: {
-    height: 96,
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 16,
+    paddingBottom: 10,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
   },
   locationContainer: {
     flexDirection: 'row',
@@ -393,26 +464,34 @@ const styles = StyleSheet.create({
     gap: 4,
     paddingVertical: 6,
     paddingHorizontal: 10,
-    borderRadius: 20,
-    backgroundColor: '#fbf9f8',
+    borderRadius: 18,
+    backgroundColor: '#F4F1EA',
   },
   locationText: {
-    color: '#1B1C1C',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 15,
+    fontSize: 13,
+    maxWidth: 140,
   },
-  notificationBtn: {
-    height: 44,
-    width: 44,
+  headerRightActions: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  headerIconBtn: {
+    height: 36,
+    width: 36,
+    borderRadius: 18,
+    backgroundColor: '#F4F1EA',
     alignItems: 'center',
     justifyContent: 'center',
     position: 'relative',
   },
   notificationBadge: {
     position: 'absolute',
-    top: 4,
-    right: 4,
-    backgroundColor: '#EA4335',
+    top: 2,
+    right: 2,
+    backgroundColor: '#DC2626',
     minWidth: 16,
     height: 16,
     borderRadius: 8,
@@ -428,151 +507,91 @@ const styles = StyleSheet.create({
   scrollContent: {
     paddingHorizontal: 16,
     paddingTop: 16,
-    paddingBottom: 110,
+    paddingBottom: 100,
   },
-  searchRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 12,
-    marginBottom: 18,
+
+  bannerCardsContainer: {
+    gap: 18,
+    marginBottom: 26,
   },
-  searchBar: {
-    flex: 1,
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    borderRadius: 10,
-    height: 48,
-    paddingHorizontal: 12,
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
-    shadowRadius: 4,
-    shadowOffset: { width: 0, height: 2 },
-    elevation: 2,
-  },
-  searchIcon: {
-    marginRight: 8,
-  },
-  searchInput: {
-    flex: 1,
-    height: '100%',
-    color: '#383838',
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 14,
-  },
-  bannerContainer: {
-    marginBottom: 28,
-  },
-  bannerSlide: {
-    width: BANNER_WIDTH,
-    height: BANNER_HEIGHT,
-    borderRadius: 16,
+  spaBannerCard: {
+    height: 220,
+    borderRadius: 26,
     overflow: 'hidden',
-    backgroundColor: '#ffffff',
+    position: 'relative',
+    shadowColor: '#73411B',
+    shadowOpacity: 0.2,
+    shadowRadius: 16,
+    shadowOffset: { width: 0, height: 6 },
+    elevation: 6,
   },
-  bannerImage: {
+  bannerCardBgImage: {
+    ...StyleSheet.absoluteFillObject,
     width: '100%',
     height: '100%',
+    resizeMode: 'cover',
   },
-  bannerGradient: {
-    borderRadius: 16,
-    height: 130,
-    padding: 16,
-    flexDirection: 'row',
+  bannerCardInner: {
+    flex: 1,
+    padding: 22,
     justifyContent: 'space-between',
-    overflow: 'hidden',
-    position: 'relative',
+    zIndex: 2,
   },
-  bannerCircleAccent: {
-    position: 'absolute',
-    right: -20,
-    top: -20,
-    width: 140,
-    height: 140,
-    borderRadius: 70,
-    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+  bannerCardTextContent: {
+    maxWidth: '65%',
   },
-  bannerCircleAccent2: {
-    position: 'absolute',
-    right: 20,
-    bottom: -60,
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: 'rgba(255, 255, 255, 0.05)',
-  },
-  bannerLeft: {
-    flex: 1.2,
-    justifyContent: 'center',
-    alignItems: 'flex-start',
-  },
-  bannerTitle: {
+  bannerCardTitle: {
     color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 18,
-    marginBottom: 4,
+    fontSize: 24,
+    lineHeight: 30,
+    marginBottom: 6,
   },
-  bannerSubtitle: {
-    color: '#FFE6D5',
+  bannerCardSubtitle: {
+    color: 'rgba(255, 255, 255, 0.92)',
     fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
-    marginBottom: 12,
+    fontSize: 14,
+    lineHeight: 20,
   },
-  bannerCta: {
-    backgroundColor: '#ffffff',
-    borderRadius: 20,
-    paddingVertical: 6,
-    paddingHorizontal: 16,
-  },
-  bannerCtaText: {
-    color: '#F45100',
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 12,
-  },
-  bannerRight: {
-    flex: 0.8,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  craftsmanIllust: {
-    width: 80,
-    height: 80,
-    borderRadius: 40,
-    backgroundColor: 'rgba(255, 255, 255, 0.2)',
-    alignItems: 'center',
-    justifyContent: 'center',
-    position: 'relative',
-  },
-  badgeSparkle: {
-    position: 'absolute',
-    top: -2,
-    right: -2,
-    width: 24,
-    height: 24,
-    borderRadius: 12,
-    backgroundColor: '#F45100',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 1.5,
-    borderColor: '#ffffff',
-  },
-  carouselDots: {
+  bannerCardBottomRow: {
     flexDirection: 'row',
+    alignItems: 'flex-end',
+    gap: 16,
+  },
+  arrowCircleBtnGlass: {
+    width: 46,
+    height: 46,
+    borderRadius: 23,
+    backgroundColor: 'rgba(255, 255, 255, 0.28)',
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.45)',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    marginTop: 12,
   },
-  carouselDot: {
-    width: 6,
-    height: 6,
-    borderRadius: 3,
-    backgroundColor: '#D4D4D4',
+  bannerStoreTagContainer: {
+    marginLeft: 4,
+    marginBottom: 2,
   },
-  carouselDotActive: {
-    width: 16,
-    backgroundColor: '#FF8228',
+  bannerStoreTagPill: {
+    backgroundColor: 'rgba(0, 0, 0, 0.32)',
+    borderRadius: 12,
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    alignSelf: 'flex-start',
+    borderWidth: 0.5,
+    borderColor: 'rgba(255, 255, 255, 0.3)',
+  },
+  bannerStoreTagTitle: {
+    color: '#ffffff',
+    fontSize: 11,
+    fontFamily: 'Montserrat_600SemiBold',
+  },
+  bannerStoreTagSubtext: {
+    color: 'rgba(255, 255, 255, 0.85)',
+    fontSize: 10,
+    fontFamily: 'Montserrat_400Regular',
+    marginTop: 3,
+    lineHeight: 13,
   },
   sectionHeader: {
     flexDirection: 'row',
@@ -581,199 +600,125 @@ const styles = StyleSheet.create({
     marginBottom: 14,
   },
   sectionTitle: {
-    color: '#383838',
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
+    fontSize: 18,
+    color: '#0F382C',
   },
   sectionLink: {
-    color: '#FF8228',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
+    color: '#D4AF37',
   },
-  serviceGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    justifyContent: 'space-between',
-    marginBottom: 24,
+  technicianList: {
     gap: 12,
   },
-  serviceItem: {
-    width: (SCREEN_WIDTH - 32 - 36) / 4, // 4 items per row accounting for grid gaps
-    alignItems: 'center',
-    marginBottom: 4,
-  },
-  serviceIconFrame: {
-    width: 68,
-    height: 68,
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginBottom: 6,
-  },
-  serviceIconImage: {
-    width: 68,
-    height: 68,
-  },
-  serviceLabel: {
-    color: '#4A4A4A',
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    textAlign: 'center',
-    lineHeight: 15,
-  },
-  craftsmenList: {
-    gap: 12,
-  },
-  craftsmanCard: {
-    flexDirection: 'row',
-    alignItems: 'center',
+  ktvCard: {
     backgroundColor: '#ffffff',
-    borderRadius: 12,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderRadius: 18,
     padding: 12,
-    shadowColor: '#000000',
-    shadowOpacity: 0.03,
-    shadowRadius: 6,
-    shadowOffset: { width: 0, height: 2 },
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.04,
+    shadowRadius: 8,
     elevation: 2,
   },
-  craftsmanAvatarContainer: {
+  ktvAvatarWrapper: {
     position: 'relative',
-    marginRight: 12,
   },
-  craftsmanAvatarPlaceholder: {
-    width: 52,
-    height: 52,
-    borderRadius: 26,
-    backgroundColor: '#FFE6D5',
-    alignItems: 'center',
+  ktvAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 14,
+  },
+  ktvAvatarPlaceholder: {
+    backgroundColor: '#EDF2F7',
     justifyContent: 'center',
-  },
-  onlineDot: {
-    position: 'absolute',
-    bottom: 2,
-    right: 2,
-    width: 12,
-    height: 12,
-    borderRadius: 6,
-    backgroundColor: '#39B54A',
-    borderWidth: 2,
-    borderColor: '#ffffff',
-  },
-  craftsmanDetails: {
-    flex: 1,
-  },
-  craftsmanNameRow: {
-    flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginBottom: 2,
   },
-  craftsmanName: {
-    color: '#383838',
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 15,
-  },
-  proBadge: {
-    backgroundColor: '#E7F8FC',
-    borderRadius: 4,
+  badgePill: {
+    position: 'absolute',
+    top: 0,
+    left: 0,
     paddingHorizontal: 6,
     paddingVertical: 2,
+    borderTopLeftRadius: 14,
+    borderBottomRightRadius: 10,
   },
-  proBadgeText: {
-    color: '#01677d',
+  badgePillText: {
+    color: '#ffffff',
+    fontSize: 10,
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 9,
   },
-  craftsmanRatingRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-    marginBottom: 4,
-  },
-  craftsmanRatingText: {
-    color: '#1B1C1C',
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 12,
-  },
-  craftsmanMutedText: {
-    color: '#818A91',
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-  },
-  dividerDot: {
-    color: '#D4D4D4',
-    fontSize: 12,
-  },
-  craftsmanDistanceRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 4,
-  },
-  craftsmanDistanceText: {
-    color: '#818A91',
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
+  ktvMainDetails: {
     flex: 1,
   },
-  craftsmanPriceText: {
-    color: '#FF8228',
+  ktvName: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
+    color: '#1C2526',
+  },
+  ktvAvailability: {
+    fontSize: 11,
+    fontFamily: 'Montserrat_600SemiBold',
+    color: '#818A91',
+  },
+  ratingDistanceRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginVertical: 4,
+  },
+  ratingText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#F59E0B',
+  },
+  reviewsText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#818A91',
+  },
+  locationRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  distanceText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  rightColumn: {
+    alignItems: 'flex-end',
+    justifyContent: 'space-between',
+    alignSelf: 'stretch',
+    paddingVertical: 2,
+  },
+  bookActionBtn: {
+    backgroundColor: '#0F382C',
+    paddingHorizontal: 18,
+    paddingVertical: 9,
+    borderRadius: 20,
+  },
+  bookActionText: {
+    color: '#ffffff',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
   },
-  bookCraftsmanBtn: {
-    padding: 8,
-  },
-  bottomBar: {
-    position: 'absolute',
-    bottom: 0,
-    left: 0,
-    right: 0,
-    flexDirection: 'row',
-    justifyContent: 'space-around',
-    alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderTopWidth: 1,
-    borderColor: '#EAE5E3',
-    borderTopLeftRadius: 16,
-    borderTopRightRadius: 16,
-    shadowColor: '#000000',
-    shadowOpacity: 0.08,
-    shadowRadius: 16,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
-    paddingHorizontal: 12,
-  },
-  tab: {
+  emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    flex: 1,
-    paddingVertical: 4,
+    paddingVertical: 32,
+    gap: 10,
   },
-  activeIconIndicator: {
-    width: 64,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: '#FFE6D5',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  inactiveIconIndicator: {
-    width: 64,
-    height: 32,
-    borderRadius: 16,
-    backgroundColor: 'transparent',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  tabText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 11,
-    color: '#818A91',
-    marginTop: 4,
-  },
-  activeTabText: {
-    color: '#622a00',
-    fontFamily: 'Montserrat_700Bold',
+  emptyStateText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 14,
+    color: '#9CA3AF',
+    textAlign: 'center',
   },
 });

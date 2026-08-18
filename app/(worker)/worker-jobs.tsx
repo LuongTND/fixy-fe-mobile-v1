@@ -27,7 +27,7 @@ const STATUS_STYLES: Record<number, { label: string; color: string; bg: string }
   [BookingStatus.Confirmed]: { label: 'Đã nhận', color: '#059669', bg: '#D1FAE5' },
   [BookingStatus.Traveling]: { label: 'Đang di chuyển', color: '#2563EB', bg: '#DBEAFE' },
   [BookingStatus.Arrived]: { label: 'Đã đến nơi', color: '#4F46E5', bg: '#EEF2FF' },
-  [BookingStatus.InProgress]: { label: 'Đang sửa chữa', color: '#7C3AED', bg: '#F5F3FF' },
+  [BookingStatus.InProgress]: { label: 'Đang làm dịch vụ', color: '#7C3AED', bg: '#F5F3FF' },
   [BookingStatus.Completed]: { label: 'Hoàn thành', color: '#059669', bg: '#D1FAE5' },
   [BookingStatus.Cancelled]: { label: 'Đã hủy', color: '#475569', bg: '#F1F5F9' },
   [BookingStatus.Disputed]: { label: 'Tranh chấp', color: '#DC2626', bg: '#FEE2E2' },
@@ -82,8 +82,8 @@ export default function WorkerJobsScreen() {
 
   if (isLoadingProfile) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#fbf9f8' }}>
-        <ActivityIndicator size="large" color="#FF8228" />
+      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF9F5' }}>
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
@@ -117,7 +117,7 @@ export default function WorkerJobsScreen() {
 
       {isLoading ? (
         <View style={styles.loadingWrap}>
-          <ActivityIndicator size="large" color="#FF8228" />
+          <ActivityIndicator size="large" color="#0F382C" />
         </View>
       ) : (
         <ScrollView
@@ -144,21 +144,21 @@ export default function WorkerJobsScreen() {
                           />
                         </View>
                       ) : (
-                        <View style={[styles.jobIconBox, { backgroundColor: '#FFE6D5' }]}>
+                        <View style={[styles.jobIconBox, { backgroundColor: '#F2F7F2' }]}>
                           <MaterialIcons
                             name={getWorkerCategoryIcon(job.categoryId) as any}
                             size={24}
-                            color="#FF8228"
+                            color="#0F382C"
                           />
                         </View>
                       )}
                       <View style={styles.jobDetails}>
                         <View style={styles.jobTitleRow}>
                           <Text style={styles.jobTitle} numberOfLines={1}>
-                            {job.description || 'Yêu cầu sửa chữa'}
+                            {job.description || 'Dịch vụ Spa'}
                           </Text>
                           <Text style={styles.jobPrice}>
-                            {formatCurrency(job.finalAmount || job.estimatedAmount || 150000)}
+                            {formatCurrency(job.finalPrice || job.finalAmount || job.estimatedAmount || job.estimatedPrice || 0)}
                           </Text>
                         </View>
 
@@ -245,9 +245,9 @@ const styles = StyleSheet.create({
     borderBottomWidth: 2,
     borderBottomColor: 'transparent',
   },
-  subtabBtnActive: { borderBottomColor: '#FF8228' },
+  subtabBtnActive: { borderBottomColor: '#0F382C' },
   subtabText: { fontFamily: 'Montserrat_600SemiBold', fontSize: 13, color: '#818A91' },
-  subtabTextActive: { color: '#FF8228', fontFamily: 'Montserrat_700Bold' },
+  subtabTextActive: { color: '#0F382C', fontFamily: 'Montserrat_700Bold' },
   loadingWrap: { flex: 1, alignItems: 'center', justifyContent: 'center' },
   scrollContent: { padding: 16, paddingBottom: 110 },
   jobsList: { gap: 16 },
@@ -279,7 +279,7 @@ const styles = StyleSheet.create({
     gap: 8,
   },
   jobTitle: { fontFamily: 'Montserrat_700Bold', fontSize: 14, color: '#1b1c1c', flex: 1 },
-  jobPrice: { fontFamily: 'Montserrat_700Bold', fontSize: 14, color: '#FF8228' },
+  jobPrice: { fontFamily: 'Montserrat_700Bold', fontSize: 14, color: '#0F382C' },
   jobAddressText: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 12,

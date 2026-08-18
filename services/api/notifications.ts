@@ -58,6 +58,16 @@ export async function markAllAsRead(): Promise<void> {
   await apiClient.patch('/Notification/read-all');
 }
 
+/** DELETE /Notification/{id} — Delete single notification */
+export async function deleteNotification(id: string): Promise<void> {
+  await apiClient.delete(`/Notification/${id}`);
+}
+
+/** DELETE /Notification/clear-all — Delete all notifications */
+export async function deleteAllNotifications(): Promise<void> {
+  await apiClient.delete('/Notification/clear-all');
+}
+
 /** GET /Notification/settings — Get notification settings */
 export async function getNotificationSettings(): Promise<NotificationSettings> {
   const response = await apiClient.get('/Notification/settings');

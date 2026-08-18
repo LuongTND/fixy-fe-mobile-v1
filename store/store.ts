@@ -92,3 +92,13 @@ export const useAuthStore = create<AuthState>((set) => ({
     });
   },
 }));
+
+export type LocationState = {
+  selectedCity: string;
+  setSelectedCity: (city: string) => void;
+};
+
+export const useLocationStore = create<LocationState>((set) => ({
+  selectedCity: 'Đà Nẵng',
+  setSelectedCity: (city: string) => set({ selectedCity: city }),
+}));

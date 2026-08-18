@@ -39,14 +39,13 @@ export const PAYMENT_METHOD_LABELS: Record<PaymentMethod, string> = {
 
 export type BookingDraftInput = {
   categoryId: string;
-  description: string;
-  mediaIds: string[];
   addressId?: string | null;
   address: string;
   lat: number;
   lng: number;
   scheduledType: BookingScheduledType | number;
   scheduledAt?: string;
+  totalDurationMinutes?: number;
   workerProfileId?: string | null;
   autoMatch: boolean;
 };
@@ -70,8 +69,6 @@ export type BookingWorkerInfo = {
 export type Booking = {
   id: string;
   categoryId: string;
-  description: string;
-  mediaIds: string[];
   addressId?: string | null;
   address: string;
   lat: number;
@@ -83,15 +80,20 @@ export type Booking = {
   workerName?: string | null;
   workerPhone?: string | null;
   workerAvatarUrl?: string | null;
+  customerName?: string | null;
+  customerPhone?: string | null;
+  customerAvatarUrl?: string | null;
   autoMatch: boolean;
   status: BookingStatus | number;
+  totalDurationMinutes?: number | null;
+  paymentMethod?: PaymentMethod | number | null;
+  paymentMethodName?: string | null;
   estimatedPrice?: number;
   estimatedAmount?: number;
   finalAmount?: number;
   finalPrice?: number;
-  workerProposedPrice?: number;
-  workerProposedTime?: string;
-  workerProposedNote?: string;
+  description?: string | null;
+  mediaIds?: string[] | null;
   requestImages?: { id: string; fileUrl: string }[];
   completeImages?: { id: string; fileUrl: string }[];
   worker?: BookingWorkerInfo;
@@ -267,6 +269,9 @@ function normalizeBooking(raw: any): Booking {
             rating: worker?.rating ?? worker?.ratingAvg ?? 5,
           }
         : undefined,
+    customerName: source.customerName ?? source.CustomerName ?? source.customer?.fullName ?? source.customer?.name ?? null,
+    customerPhone: source.customerPhone ?? source.CustomerPhone ?? source.customer?.phone ?? null,
+    customerAvatarUrl: source.customerAvatarUrl ?? source.CustomerAvatarUrl ?? source.customer?.avatarUrl ?? null,
     createdDate: source.createdDate ?? source.createdAt ?? new Date().toISOString(),
   };
 }
@@ -274,14 +279,13 @@ function normalizeBooking(raw: any): Booking {
 function buildDraftPayload(draft: BookingDraftInput) {
   return {
     categoryId: getCategoryGuid(draft.categoryId),
-    description: draft.description,
-    mediaIds: draft.mediaIds ?? [],
     addressId: draft.addressId ?? null,
     address: draft.address,
     lat: draft.lat,
     lng: draft.lng,
     scheduledType: draft.scheduledType,
     scheduledAt: draft.scheduledAt,
+    totalDurationMinutes: draft.totalDurationMinutes ?? null,
     workerProfileId: draft.workerProfileId ?? null,
     autoMatch: draft.autoMatch,
   };
@@ -437,9 +441,55 @@ export async function completeBooking(
   return normalizeBooking(unwrapData(response.data));
 }
 
+export async function cancelBooking(bookingId: string, reason?: string): Promise<Booking> {
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/cancel`, {
+    reason: reason || 'Khách hàng hủy đơn',
+  });
+  return normalizeBooking(unwrapData(response.data));
+}
+
+export async function reorderBooking(bookingId: string): Promise<BookingDraft> {
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/reorder`);
+  return normalizeDraft(unwrapData(response.data));
+}
+
+export async function reportBookingIssue(
+  bookingId: string,
+  payload: { category: number; subject: string; description: string; priority: number }
+): Promise<any> {
+  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/report-issue`, payload);
+  return unwrapData(response.data);
+}
+
+export async function getMatchingQueue(bookingId: string): Promise<any> {
+  const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/matching-queue`);
+  return unwrapData(response.data);
+}
+
 export async function getBookingTracking(bookingId: string): Promise<BookingTracking | null> {
-  const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/tracking`);
-  return unwrapData<BookingTracking>(response.data);
+  try {
+    const response = await apiClient.get(`${BOOKING_PATH}/${bookingId}/tracking`);
+    const data = unwrapData(response.data);
+    if (!data) return null;
+
+    const rawLat =
+      data.workerLat ?? data.WorkerLat ?? data.lat ?? data.Lat ?? data.latitude ?? data.Latitude;
+    const rawLng =
+      data.workerLng ?? data.WorkerLng ?? data.lng ?? data.Lng ?? data.longitude ?? data.Longitude;
+
+    return {
+      ...data,
+      bookingId: data.bookingId ?? data.BookingId ?? bookingId,
+      status: data.status ?? data.Status,
+      workerLat: rawLat !== undefined && rawLat !== null && !isNaN(Number(rawLat)) ? Number(rawLat) : undefined,
+      workerLng: rawLng !== undefined && rawLng !== null && !isNaN(Number(rawLng)) ? Number(rawLng) : undefined,
+      locationUpdatedAt: data.locationUpdatedAt ?? data.LocationUpdatedAt,
+      workerInfo: data.workerInfo ?? data.WorkerInfo,
+    };
+  } catch (error) {
+    console.warn('[bookings API] Error getting booking tracking', error);
+    return null;
+  }
 }
 
 export async function updateWorkerLocation(lat: number, lng: number): Promise<void> {
@@ -559,8 +609,38 @@ export async function markBookingChatRead(bookingId: string): Promise<void> {
   await apiClient.post(`${BOOKING_PATH}/${bookingId}/chat/mark-read`);
 }
 
-/** POST /bookings/{id}/cancel — Cancel a booking with a reason */
-export async function cancelBooking(bookingId: string, reason: string): Promise<Booking> {
-  const response = await apiClient.post(`${BOOKING_PATH}/${bookingId}/cancel`, { reason });
-  return normalizeBooking(unwrapData(response.data));
+export type ApiPaymentMethodOption = {
+  name: string;
+  value: number;
+  description?: string;
+};
+
+/** GET /enums/PaymentMethod — Fetch available payment methods from BE */
+export async function fetchPaymentMethodsApi(): Promise<ApiPaymentMethodOption[]> {
+  try {
+    const response = await apiClient.get('/enums/PaymentMethod');
+    const data = unwrapData(response.data);
+    const items = Array.isArray(data) ? data : (data?.items ?? []);
+    if (Array.isArray(items) && items.length > 0) {
+      return items.map((item: any) => {
+        const val = typeof item.value === 'number' ? item.value : (item.Value ?? 5);
+        const label = item.displayName ?? item.DisplayName ?? item.description ?? item.Description ?? PAYMENT_METHOD_LABELS[val as PaymentMethod] ?? item.name;
+        return {
+          name: item.name ?? item.Name ?? String(val),
+          value: val,
+          description: label,
+        };
+      });
+    }
+  } catch (err) {
+    // Silent catch if offline or fallback
+  }
+  return [
+    { name: 'Cash', value: PaymentMethod.Cash, description: 'Tiền mặt' },
+    { name: 'Wallet', value: PaymentMethod.Wallet, description: 'Ví Fixy' },
+    { name: 'Vnpay', value: PaymentMethod.Vnpay, description: 'VNPay' },
+    { name: 'Momo', value: PaymentMethod.Momo, description: 'MoMo' },
+    { name: 'PayOS', value: PaymentMethod.PayOS, description: 'PayOS' },
+    { name: 'Card', value: PaymentMethod.Card, description: 'Thẻ ngân hàng' },
+  ];
 }

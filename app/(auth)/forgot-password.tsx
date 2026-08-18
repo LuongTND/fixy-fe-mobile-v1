@@ -47,7 +47,7 @@ export default function ForgotPasswordScreen() {
       <View style={styles.container}>
         <View style={styles.header}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
-            <MaterialIcons name="arrow-back" size={26} color="#574237" />
+            <MaterialIcons name="arrow-back" size={26} color="#0F382C" />
           </Pressable>
           <Text style={styles.title}>Quên mật khẩu</Text>
         </View>
@@ -102,7 +102,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   title: {
-    color: '#1B1C1C',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 22,
   },
@@ -111,7 +111,7 @@ const styles = StyleSheet.create({
     marginTop: 28,
   },
   headline: {
-    color: '#383838',
+    color: '#0F382C',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 30,
     lineHeight: 38,
@@ -119,7 +119,7 @@ const styles = StyleSheet.create({
   },
   subtitle: {
     marginTop: 14,
-    color: '#574237',
+    color: '#6B7280',
     fontFamily: 'Montserrat_400Regular',
     fontSize: 16,
     lineHeight: 24,
@@ -144,8 +144,8 @@ const styles = StyleSheet.create({
     paddingVertical: 8,
   },
   loginLinkText: {
-    color: '#FF8228',
-    fontFamily: 'Montserrat_600SemiBold',
+    color: '#0F382C',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
   },
 });

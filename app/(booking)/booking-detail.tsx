@@ -16,6 +16,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { SvgCssUri } from 'react-native-svg/css';
+import { HubConnectionBuilder, LogLevel, HubConnection } from '@microsoft/signalr';
 
 import VNPayWebView from '@/components/VNPayWebView';
 import {
@@ -27,6 +28,7 @@ import {
   getBookingTracking,
   isTerminalBookingStatus,
   PaymentMethod,
+  PAYMENT_METHOD_LABELS,
   payBookingWithWallet,
   startBookingPayment,
   WalletOverview,
@@ -45,6 +47,9 @@ import {
   formatVoucherIneligibleReason,
   getVoucherDiscount,
 } from '@/services/api/voucher-utils';
+import { getDistanceAndDuration } from '@/services/api/goong';
+import { useAuthStore } from '@/store/store';
+import { getApiBaseUrl } from '@/config/env';
 
 // Map status enum values to string keys and styles
 const STATUS_MAP: Record<
@@ -52,27 +57,27 @@ const STATUS_MAP: Record<
   { label: string; style: any; icon: React.ComponentProps<typeof MaterialIcons>['name'] }
 > = {
   [BookingStatus.Pending]: {
-    label: 'Chờ thợ phản hồi',
+    label: 'Chờ KTV xác nhận',
     style: { color: '#D97706', bg: '#FEF3C7', border: '#FDE68A' },
     icon: 'hourglass-empty',
   },
   [BookingStatus.Matching]: {
-    label: 'Đang kết nối thợ',
+    label: 'Đang kết nối KTV',
     style: { color: '#EA580C', bg: '#FFEDD5', border: '#FED7AA' },
     icon: 'sync',
   },
   [BookingStatus.Confirmed]: {
-    label: 'Đã nhận lịch',
+    label: 'KTV đã nhận lịch',
     style: { color: '#059669', bg: '#D1FAE5', border: '#A7F3D0' },
     icon: 'assignment-turned-in',
   },
   [BookingStatus.Traveling]: {
-    label: 'Thợ đang di chuyển',
+    label: 'KTV đang di chuyển',
     style: { color: '#2563EB', bg: '#DBEAFE', border: '#BFDBFE' },
     icon: 'directions-car',
   },
   [BookingStatus.Arrived]: {
-    label: 'Thợ đã đến nơi',
+    label: 'KTV đã đến nơi',
     style: { color: '#4F46E5', bg: '#EEF2FF', border: '#E0E7FF' },
     icon: 'hail',
   },
@@ -105,24 +110,14 @@ const STATUS_MAP: Record<
 
 function getCategoryLabel(categoryId: string): string {
   switch (categoryId) {
-    case 'dien':
-      return 'Điện – Điện tử';
-    case 'nuoc':
-      return 'Nước – Ống nước';
-    case 'dieuhoa':
-      return 'Bảo dưỡng điều hòa';
-    case 'maygiat':
-      return 'Sửa Máy giặt';
-    case 'xemay':
-      return 'Sửa Xe máy – Ô tô';
-    case 'moc':
-      return 'Mộc – Nội thất';
-    case 'son':
-      return 'Sơn – Trần nhà';
-    case 'vesinh':
-      return 'Dọn dẹp Vệ sinh';
+    case 'facial':
+      return 'Chăm sóc da mặt';
+    case 'massage':
+      return 'Massage toàn thân';
+    case 'spa':
+      return 'Spa trị liệu';
     default:
-      return 'Dịch vụ sửa chữa';
+      return 'Dịch vụ Spa';
   }
 }
 
@@ -168,6 +163,113 @@ export default function BookingDetailScreen() {
       if (!data) return false;
       return 5000;
     },
+  });
+
+  // ========== SignalR BookingHub — realtime location updates ==========
+  const accessToken = useAuthStore((state) => state.accessToken);
+
+  React.useEffect(() => {
+    if (
+      !bookingId ||
+      !accessToken ||
+      !booking ||
+      Number(booking.status) < BookingStatus.Traveling ||
+      Number(booking.status) > BookingStatus.InProgress
+    ) {
+      return;
+    }
+
+    let bookingHubUrl = '';
+    try {
+      const apiUrl = getApiBaseUrl();
+      bookingHubUrl = apiUrl.replace(/\/api\/?$/, '') + '/hubs/booking';
+    } catch {
+      return;
+    }
+    if (!bookingHubUrl) return;
+
+    let connection: HubConnection | null = null;
+    let isActive = true;
+
+    async function connectHub() {
+      try {
+        connection = new HubConnectionBuilder()
+          .withUrl(bookingHubUrl, {
+            accessTokenFactory: () => accessToken || '',
+          })
+          .withAutomaticReconnect()
+          .configureLogging(LogLevel.Warning)
+          .build();
+
+        connection.on('ReceiveLocationUpdate', (dto: any) => {
+          if (!isActive) return;
+          // Invalidate tracking and ETA queries to trigger re-fetch with new data
+          queryClient.invalidateQueries({ queryKey: ['bookingTracking', bookingId] });
+          queryClient.invalidateQueries({ queryKey: ['bookingGoongEta'] });
+        });
+
+        connection.on('ReceiveStatusUpdate', (dto: any) => {
+          if (!isActive) return;
+          queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+          queryClient.invalidateQueries({ queryKey: ['bookingTracking', bookingId] });
+        });
+
+        await connection.start();
+        await connection.invoke('JoinBookingGroup', bookingId);
+        console.log('[BookingDetail] Connected to BookingHub, joined group:', bookingId);
+      } catch (err) {
+        console.warn('[BookingDetail] SignalR connection failed:', err);
+      }
+    }
+
+    connectHub();
+
+    return () => {
+      isActive = false;
+      if (connection) {
+        connection
+          .invoke('LeaveBookingGroup', bookingId)
+          .catch(() => {})
+          .finally(() => {
+            connection?.stop().catch(() => {});
+          });
+      }
+    };
+  }, [bookingId, accessToken, booking?.status]);
+
+  const originLat =
+    tracking?.workerLat ??
+    (tracking as any)?.WorkerLat ??
+    (tracking as any)?.lat ??
+    (tracking as any)?.latitude;
+  const originLng =
+    tracking?.workerLng ??
+    (tracking as any)?.WorkerLng ??
+    (tracking as any)?.lng ??
+    (tracking as any)?.longitude;
+
+  const destLat = booking?.lat ? Number(booking.lat) : 16.074988;
+  const destLng = booking?.lng ? Number(booking.lng) : 108.228981;
+
+  const { data: etaData = null } = useQuery({
+    queryKey: ['bookingGoongEta', originLat, originLng, destLat, destLng],
+    queryFn: () =>
+      getDistanceAndDuration(
+        { lat: Number(originLat), lng: Number(originLng) },
+        { lat: destLat, lng: destLng },
+        'motorcycle'
+      ),
+    enabled:
+      originLat !== undefined &&
+      originLat !== null &&
+      originLng !== undefined &&
+      originLng !== null &&
+      !isNaN(Number(originLat)) &&
+      !isNaN(Number(originLng)) &&
+      booking !== null &&
+      Number(booking.status) >= BookingStatus.Traveling &&
+      Number(booking.status) <= BookingStatus.InProgress,
+    staleTime: 1000 * 30,
   });
 
   const { data: wallet = null } = useQuery<WalletOverview | null>({
@@ -403,7 +505,7 @@ export default function BookingDetailScreen() {
   if (loading) {
     return (
       <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FF8228" />
+        <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
   }
@@ -421,9 +523,12 @@ export default function BookingDetailScreen() {
     style: { color: '#818A91', bg: '#f5f3f2', border: '#DDDDDD' },
     icon: 'help-outline',
   };
-  const totalAmount = booking.finalPrice || booking.finalAmount || booking.estimatedPrice || 0;
-  const discountAmount = getVoucherDiscount(selectedVoucher);
-  const finalTotalAmount = Math.max(0, totalAmount - discountAmount);
+  const originalServicePrice = booking.estimatedPrice || booking.estimatedAmount || booking.finalPrice || booking.finalAmount || 0;
+  const finalTotalAmount = booking.finalPrice || booking.finalAmount || originalServicePrice;
+  const discountAmount =
+    booking.estimatedPrice && booking.finalPrice && booking.estimatedPrice > booking.finalPrice
+      ? booking.estimatedPrice - booking.finalPrice
+      : getVoucherDiscount(selectedVoucher);
   const walletInsufficient =
     selectedPaymentMethod === PaymentMethod.Wallet &&
     wallet !== null &&
@@ -455,7 +560,7 @@ export default function BookingDetailScreen() {
               params: { bookingId: booking.id },
             } as any)
           }>
-          <MaterialIcons name="help-outline" size={24} color="#FF8228" />
+          <MaterialIcons name="help-outline" size={24} color="#0F382C" />
         </Pressable>
       </View>
 
@@ -484,72 +589,13 @@ export default function BookingDetailScreen() {
           </View>
         </View>
 
-        {/* Proposal Card */}
-        {Number(booking.status) === BookingStatus.Pending &&
-          ((booking.workerProposedPrice !== null && booking.workerProposedPrice !== undefined) ||
-            (booking.workerProposedTime !== null && booking.workerProposedTime !== undefined) ||
-            (booking.workerProposedNote !== null &&
-              booking.workerProposedNote !== undefined &&
-              booking.workerProposedNote !== '')) && (
-            <View style={[styles.infoCard, styles.proposalCard]}>
-              <Text style={styles.proposalCardTitle}>Đề xuất mới từ kỹ thuật viên</Text>
-
-              {booking.workerProposedPrice !== undefined &&
-                booking.workerProposedPrice !== null && (
-                  <View style={styles.proposalDetailRow}>
-                    <Text style={styles.proposalDetailLabel}>Giá nhân công đề xuất:</Text>
-                    <Text style={styles.proposalPriceVal}>
-                      {formatCurrency(booking.workerProposedPrice)}
-                    </Text>
-                  </View>
-                )}
-
-              {booking.workerProposedTime !== undefined && booking.workerProposedTime !== null && (
-                <View style={styles.proposalDetailRow}>
-                  <Text style={styles.proposalDetailLabel}>Thời gian thi công đề xuất:</Text>
-                  <Text style={styles.proposalTimeVal}>
-                    {formatDateTime(booking.workerProposedTime)}
-                  </Text>
-                </View>
-              )}
-
-              {booking.workerProposedNote ? (
-                <View style={styles.proposalNoteContainer}>
-                  <Text style={styles.proposalNoteLabel}>Ghi chú từ thợ:</Text>
-                  <Text style={styles.proposalNoteText}>{`"${booking.workerProposedNote}"`}</Text>
-                </View>
-              ) : null}
-
-              <View style={styles.proposalActionsRow}>
-                <Pressable
-                  style={[
-                    styles.proposalDeclineBtn,
-                    respondProposalMutation.isPending && styles.proposalDisabledBtn,
-                  ]}
-                  onPress={() => respondProposalMutation.mutate({ accept: false })}
-                  disabled={respondProposalMutation.isPending}>
-                  <Text style={styles.proposalDeclineBtnText}>Từ chối đề xuất</Text>
-                </Pressable>
-                <Pressable
-                  style={[
-                    styles.proposalAcceptBtn,
-                    respondProposalMutation.isPending && styles.proposalDisabledBtn,
-                  ]}
-                  onPress={() => respondProposalMutation.mutate({ accept: true })}
-                  disabled={respondProposalMutation.isPending}>
-                  <Text style={styles.proposalAcceptBtnText}>Đồng ý & Xác nhận</Text>
-                </Pressable>
-              </View>
-            </View>
-          )}
-
         {/* Pulse Matching Loader for status == 1 */}
         {Number(booking.status) === BookingStatus.Matching && (
           <View style={styles.matchingContainer}>
-            <ActivityIndicator size="large" color="#FF8228" />
-            <Text style={styles.matchingText}>Hệ thống đang tìm kiếm thợ xung quanh...</Text>
+            <ActivityIndicator size="large" color="#0F382C" />
+            <Text style={styles.matchingText}>Hệ thống đang tìm kiếm Kỹ thuật viên Spa...</Text>
             <Text style={styles.matchingSub}>
-              Vui lòng giữ kết nối, quá trình thường mất dưới 2 phút.
+              Vui lòng giữ kết nối, quá trình tìm KTV thường mất dưới 2 phút.
             </Text>
           </View>
         )}
@@ -558,10 +604,10 @@ export default function BookingDetailScreen() {
           Number(booking.status) >= BookingStatus.Traveling &&
           Number(booking.status) <= BookingStatus.InProgress && (
             <View style={styles.infoCard}>
-              <Text style={styles.infoCardTitle}>Theo dõi vị trí thợ</Text>
+              <Text style={styles.infoCardTitle}>Theo dõi vị trí KTV</Text>
               <View style={styles.trackingRow}>
                 <View style={styles.trackingIconBox}>
-                  <MaterialIcons name="near-me" size={22} color="#FF8228" />
+                  <MaterialIcons name="near-me" size={22} color="#0F382C" />
                 </View>
                 <View style={styles.trackingTextCol}>
                   <Text style={styles.trackingTitle}>
@@ -569,7 +615,9 @@ export default function BookingDetailScreen() {
                       booking.worker?.fullName ||
                       booking.workerName ||
                       'Kỹ thuật viên'}
-                    đang cập nhật vị trí
+                    {Number(booking.status) === BookingStatus.Traveling
+                      ? ' đang di chuyển tới vị trí của bạn'
+                      : ' đang cập nhật vị trí'}
                   </Text>
                   <Text style={styles.trackingMeta}>
                     {tracking.workerLat && tracking.workerLng
@@ -583,6 +631,28 @@ export default function BookingDetailScreen() {
                   )}
                 </View>
               </View>
+
+              {/* Goong Distance Matrix ETA & Distance Card */}
+              {etaData && (
+                <View style={styles.etaCardContainer}>
+                  <View style={styles.etaItem}>
+                    <MaterialIcons name="two-wheeler" size={20} color="#0F382C" />
+                    <View style={{ marginLeft: 8 }}>
+                      <Text style={styles.etaLabel}>Khoảng cách</Text>
+                      <Text style={styles.etaValue}>{etaData.distanceText}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.etaDivider} />
+                  <View style={styles.etaItem}>
+                    <MaterialIcons name="schedule" size={20} color="#0F382C" />
+                    <View style={{ marginLeft: 8 }}>
+                      <Text style={styles.etaLabel}>Thời gian dự kiến</Text>
+                      <Text style={styles.etaValue}>{etaData.durationText}</Text>
+                    </View>
+                  </View>
+                </View>
+              )}
+
               <Pressable
                 style={styles.trackingMapButton}
                 onPress={() =>
@@ -593,12 +663,16 @@ export default function BookingDetailScreen() {
                       status: String(booking.status),
                       workerName: booking.worker?.fullName || booking.workerName || '',
                       workerPhone: booking.worker?.phone || booking.workerPhone || '',
-                      workerRating: String(booking.worker?.rating || '4.8'),
+                      workerRating: String(booking.worker?.rating || '--'),
                       categoryName: categoryName,
+                      workerLat: tracking.workerLat ? String(tracking.workerLat) : '',
+                      workerLng: tracking.workerLng ? String(tracking.workerLng) : '',
+                      customerLat: booking.lat ? String(booking.lat) : '',
+                      customerLng: booking.lng ? String(booking.lng) : '',
                     },
                   } as any)
                 }>
-                <MaterialIcons name="map" size={18} color="#FF8228" />
+                <MaterialIcons name="map" size={18} color="#0F382C" />
                 <Text style={styles.trackingMapButtonText}>Xem bản đồ theo dõi</Text>
               </Pressable>
             </View>
@@ -610,23 +684,28 @@ export default function BookingDetailScreen() {
             <View style={styles.infoCard}>
               <Text style={styles.infoCardTitle}>Kỹ thuật viên phụ trách</Text>
               <View style={styles.workerRow}>
-                <Image
-                  source={{
-                    uri:
-                      booking.worker?.avatarUrl ||
-                      booking.workerAvatarUrl ||
-                      'https://images.unsplash.com/photo-1540569014015-19a7be504e3a?w=150',
-                  }}
-                  style={styles.workerAvatar}
-                />
+                {(booking.worker?.avatarUrl || booking.workerAvatarUrl) ? (
+                  <Image
+                    source={{
+                      uri: (booking.worker?.avatarUrl || booking.workerAvatarUrl) ?? undefined,
+                    }}
+                    style={styles.workerAvatar}
+                  />
+                ) : (
+                  <View style={[styles.workerAvatar, { alignItems: 'center', justifyContent: 'center' }]}>
+                    <Text style={{ fontSize: 18, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                      {(booking.worker?.fullName || booking.workerName || '').charAt(0).toUpperCase() || '?'}
+                    </Text>
+                  </View>
+                )}
                 <View style={styles.workerDetails}>
                   <Text style={styles.workerName}>
                     {booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên'}
                   </Text>
                   <View style={styles.ratingRow}>
-                    <MaterialIcons name="star" size={14} color="#FFB020" />
+                    <MaterialIcons name="star" size={14} color="#D4AF37" />
                     <Text style={styles.ratingVal}>
-                      {booking.worker?.rating?.toFixed(1) || '4.8'}
+                      {booking.worker?.rating?.toFixed(1) || '--'}
                     </Text>
                     <Text style={styles.workerPhone}>
                       • SĐT: {booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}
@@ -641,12 +720,12 @@ export default function BookingDetailScreen() {
                     style={[styles.actionBtn, styles.actionBtnCall]}
                     onPress={() =>
                       Alert.alert(
-                        'Gọi thợ',
+                        'Gọi KTV',
                         `Đang kết nối cuộc gọi tới SĐT: ${booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}`
                       )
                     }>
-                    <MaterialIcons name="phone" size={18} color="#FF8228" />
-                    <Text style={styles.actionBtnTextCall}>Gọi thợ</Text>
+                    <MaterialIcons name="phone" size={18} color="#0F382C" />
+                    <Text style={styles.actionBtnTextCall}>Gọi KTV</Text>
                   </Pressable>
                   <Pressable
                     style={[styles.actionBtn, styles.actionBtnChat]}
@@ -661,7 +740,7 @@ export default function BookingDetailScreen() {
 
         {/* Job details card */}
         <View style={styles.infoCard}>
-          <Text style={styles.infoCardTitle}>Chi tiết công việc</Text>
+          <Text style={styles.infoCardTitle}>Chi tiết dịch vụ</Text>
 
           <View style={styles.detailRow}>
             <Text style={styles.detailLabel}>Loại dịch vụ</Text>
@@ -669,44 +748,73 @@ export default function BookingDetailScreen() {
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Thời gian</Text>
+            <Text style={styles.detailLabel}>Thời lượng dịch vụ</Text>
+            <Text style={styles.detailValue}>
+              {(() => {
+                const mins =
+                  (booking as any)?.totalDurationMinutes ??
+                  (booking as any)?.durationMinutes ??
+                  (booking as any)?.duration ??
+                  (booking as any)?.options?.[0]?.durationMinutes ??
+                  (booking as any)?.option?.durationMinutes ??
+                  (booking as any)?.serviceOption?.durationMinutes ??
+                  60;
+                return `${mins} phút`;
+              })()}
+            </Text>
+          </View>
+
+          <View style={styles.detailRow}>
+            <Text style={styles.detailLabel}>Thời gian đặt</Text>
             <Text style={styles.detailValue}>{formatDateTime(booking.createdDate)}</Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Địa chỉ thi công</Text>
-            <Text style={styles.detailValue}>{booking.address}</Text>
+            <Text style={styles.detailLabel}>Phương thức thanh toán</Text>
+            <Text style={styles.detailValue}>
+              {(() => {
+                const method =
+                  booking?.paymentMethod ??
+                  (booking as any)?.PaymentMethod ??
+                  (booking as any)?.paymentType ??
+                  booking?.paymentMethodName;
+                if (typeof method === 'number' && PAYMENT_METHOD_LABELS[method as PaymentMethod]) {
+                  return PAYMENT_METHOD_LABELS[method as PaymentMethod];
+                }
+                if (typeof method === 'string') {
+                  const lower = method.toLowerCase();
+                  if (lower.includes('cash') || lower.includes('tien mat')) return 'Tiền mặt';
+                  if (lower.includes('wallet') || lower.includes('vi')) return 'Ví Fixy';
+                  if (lower.includes('vnpay')) return 'VNPay';
+                  if (lower.includes('momo')) return 'MoMo';
+                  if (lower.includes('payos')) return 'PayOS';
+                  if (lower.includes('card') || lower.includes('the')) return 'Thẻ ngân hàng';
+                  return method;
+                }
+                return 'Tiền mặt';
+              })()}
+            </Text>
           </View>
 
           <View style={styles.detailRow}>
-            <Text style={styles.detailLabel}>Nội dung sự cố</Text>
-            <Text style={styles.detailValue}>{booking.description}</Text>
+            <Text style={styles.detailLabel}>Địa chỉ dịch vụ</Text>
+            <Text style={styles.detailValue}>{booking.address}</Text>
           </View>
 
-          {(booking.requestImages && booking.requestImages.length > 0) ||
-          (booking.mediaIds && booking.mediaIds.length > 0) ? (
+          {booking.requestImages && booking.requestImages.length > 0 ? (
             <View style={{ marginTop: 12 }}>
               <Text style={styles.detailLabel}>Ảnh mô tả sự cố:</Text>
               <ScrollView
                 horizontal
                 showsHorizontalScrollIndicator={false}
                 style={styles.photoList}>
-                {booking.requestImages && booking.requestImages.length > 0
-                  ? booking.requestImages.map((img, idx) => (
-                      <Pressable
-                        key={img.id ?? idx}
-                        onPress={() => setActivePreviewImage(img.fileUrl)}>
-                        <Image source={{ uri: img.fileUrl }} style={styles.photoAttachment} />
-                      </Pressable>
-                    ))
-                  : booking.mediaIds.map((mediaId) => {
-                      const uri = getMediaUrl(mediaId);
-                      return (
-                        <Pressable key={mediaId} onPress={() => setActivePreviewImage(uri)}>
-                          <Image source={{ uri }} style={styles.photoAttachment} />
-                        </Pressable>
-                      );
-                    })}
+                {booking.requestImages.map((img, idx) => (
+                  <Pressable
+                    key={img.id ?? idx}
+                    onPress={() => setActivePreviewImage(img.fileUrl)}>
+                    <Image source={{ uri: img.fileUrl }} style={styles.photoAttachment} />
+                  </Pressable>
+                ))}
               </ScrollView>
             </View>
           ) : null}
@@ -716,11 +824,11 @@ export default function BookingDetailScreen() {
         {(Number(booking.status) === BookingStatus.PendingPayment ||
           Number(booking.status) === BookingStatus.Completed) && (
           <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Chi phí nghiệm thu thực tế</Text>
+            <Text style={styles.infoCardTitle}>Chi phí thanh toán thực tế</Text>
 
             <View style={styles.costRow}>
-              <Text style={styles.costLabel}>Chi phí nhân công & vật tư</Text>
-              <Text style={styles.costValue}>{formatCurrency(totalAmount)}</Text>
+              <Text style={styles.costLabel}>Giá dịch vụ & sản phẩm</Text>
+              <Text style={styles.costValue}>{formatCurrency(originalServicePrice)}</Text>
             </View>
             <View style={styles.costRow}>
               <Text style={styles.costLabel}>
@@ -738,7 +846,7 @@ export default function BookingDetailScreen() {
 
             {booking.completeImages && booking.completeImages.length > 0 && (
               <View style={{ marginTop: 16 }}>
-                <Text style={styles.detailLabel}>Ảnh nghiệm thu công việc:</Text>
+                <Text style={styles.detailLabel}>Hình ảnh sau dịch vụ:</Text>
                 <ScrollView
                   horizontal
                   showsHorizontalScrollIndicator={false}
@@ -767,7 +875,7 @@ export default function BookingDetailScreen() {
                     key={star}
                     name="star"
                     size={18}
-                    color={star <= bookingReview.rating ? '#FF8228' : '#dcd9d9'}
+                    color={star <= bookingReview.rating ? '#D4AF37' : '#dcd9d9'}
                   />
                 ))}
               </View>
@@ -802,7 +910,7 @@ export default function BookingDetailScreen() {
                   <MaterialIcons
                     name="reply"
                     size={16}
-                    color="#FF8228"
+                    color="#0F382C"
                     style={{ transform: [{ scaleX: -1 }] }}
                   />
                   <Text style={styles.workerReplyTitle}>Phản hồi từ kỹ thuật viên</Text>
@@ -813,142 +921,26 @@ export default function BookingDetailScreen() {
           </View>
         )}
 
-        {Number(booking.status) === BookingStatus.PendingPayment && (
-          <View style={styles.infoCard}>
-            <Text style={styles.infoCardTitle}>Thanh toán đặt lịch</Text>
-
-            <Text style={styles.paymentSectionLabel}>Mã voucher / Khuyến mãi</Text>
-            {selectedVoucher ? (
-              <View style={styles.selectedVoucherBox}>
-                <MaterialIcons name="check-circle" size={20} color="#059669" />
-                <View style={styles.selectedVoucherTextCol}>
-                  <Text style={styles.selectedVoucherCode}>{selectedVoucher.code}</Text>
-                  {discountAmount > 0 && (
-                    <Text style={styles.selectedVoucherDiscount}>
-                      Giảm {formatCurrency(discountAmount)} khi thanh toán
-                    </Text>
-                  )}
-                </View>
-                <Pressable style={styles.removeVoucherButton} onPress={handleRemoveVoucher}>
-                  <MaterialIcons name="close" size={18} color="#059669" />
-                </Pressable>
-              </View>
-            ) : (
-              <>
-                <View style={styles.voucherInputRow}>
-                  <TextInput
-                    value={voucherCode}
-                    onChangeText={(value) => {
-                      setVoucherCode(value.toUpperCase());
-                      if (voucherError) setVoucherError('');
-                    }}
-                    placeholder="Nhập mã voucher..."
-                    placeholderTextColor="#9A9A9A"
-                    autoCapitalize="characters"
-                    editable={!voucherApplying}
-                    style={styles.voucherInput}
-                  />
-                  <Pressable
-                    style={[
-                      styles.applyVoucherButton,
-                      (!voucherCode.trim() || voucherApplying) && styles.smallButtonDisabled,
-                    ]}
-                    onPress={() => handleApplyVoucher()}
-                    disabled={!voucherCode.trim() || voucherApplying}>
-                    {voucherApplying ? (
-                      <ActivityIndicator size="small" color="#ffffff" />
-                    ) : (
-                      <Text style={styles.applyVoucherButtonText}>Áp dụng</Text>
-                    )}
-                  </Pressable>
-                </View>
-                {voucherError ? <Text style={styles.voucherErrorText}>{voucherError}</Text> : null}
-                <Pressable
-                  style={styles.chooseVoucherButton}
-                  onPress={() => setVoucherModalOpen(true)}>
-                  <MaterialIcons name="local-activity" size={18} color="#FF8228" />
-                  <Text style={styles.chooseVoucherText}>
-                    {loadingEligible
-                      ? 'Đang tải voucher...'
-                      : `Chọn voucher (${eligibleVouchers.filter((item) => item.isEligible).length} khả dụng)`}
-                  </Text>
-                </Pressable>
-              </>
-            )}
-
-            <Text style={[styles.paymentSectionLabel, { marginTop: 16 }]}>
-              Phương thức thanh toán
-            </Text>
-            <View style={styles.paymentMethodRow}>
-              <Pressable
-                style={[
-                  styles.paymentMethodButton,
-                  selectedPaymentMethod === PaymentMethod.Wallet &&
-                    styles.paymentMethodButtonActive,
-                ]}
-                onPress={() => setSelectedPaymentMethod(PaymentMethod.Wallet)}>
-                <MaterialIcons
-                  name="account-balance-wallet"
-                  size={20}
-                  color={selectedPaymentMethod === PaymentMethod.Wallet ? '#FF8228' : '#818A91'}
-                />
-                <View style={styles.paymentMethodTextCol}>
-                  <Text style={styles.paymentMethodTitle}>Ví Fixy</Text>
-                  <Text style={styles.paymentMethodSubtitle}>
-                    Số dư: {formatCurrency(wallet?.balance ?? 0)}
-                  </Text>
-                </View>
-              </Pressable>
-              <Pressable
-                style={[
-                  styles.paymentMethodButton,
-                  selectedPaymentMethod === PaymentMethod.Vnpay && styles.paymentMethodButtonActive,
-                ]}
-                onPress={() => setSelectedPaymentMethod(PaymentMethod.Vnpay)}>
-                <View style={styles.vnpayLogoWrap}>
-                  <SvgCssUri width={54} height={18} uri={VNPAY_LOGO_URI} />
-                </View>
-                <View style={styles.paymentMethodTextCol}>
-                  <Text style={styles.paymentMethodTitle}>VNPay</Text>
-                  <Text style={styles.paymentMethodSubtitle}>ATM / QR Code</Text>
-                </View>
-              </Pressable>
-            </View>
-
-            {walletInsufficient && (
-              <View style={styles.paymentWarningBox}>
-                <MaterialIcons name="info" size={18} color="#BA1A1A" />
-                <Text style={styles.paymentWarningText}>
-                  Ví không đủ số dư để thanh toán {formatCurrency(finalTotalAmount)}. Vui lòng nạp
-                  thêm hoặc chọn VNPay.
-                </Text>
-              </View>
-            )}
-          </View>
-        )}
-      </ScrollView>
+        </ScrollView>
 
       {/* Footer Actions */}
       <View style={[styles.footerBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
         {Number(booking.status) === BookingStatus.PendingPayment ? (
-          // Pay now button for PendingPayment
-          <Pressable
-            style={[
-              styles.primaryActionBtn,
-              (actionLoading || walletInsufficient) && styles.disabledBtn,
-            ]}
-            onPress={handlePayBill}
-            disabled={actionLoading || walletInsufficient}>
-            {actionLoading ? (
-              <ActivityIndicator size="small" color="#ffffff" />
-            ) : (
-              <Text style={styles.primaryActionText}>
-                {selectedPaymentMethod === PaymentMethod.Wallet
-                  ? 'Xác nhận thanh toán bằng ví'
-                  : 'Thanh toán qua VNPay'}
-              </Text>
-            )}
-          </Pressable>
+          <View style={{ gap: 10 }}>
+            <Pressable
+              style={[styles.primaryActionBtn, actionLoading && styles.disabledBtn]}
+              onPress={handlePayBill}
+              disabled={actionLoading}>
+              {actionLoading ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.primaryActionText}>Tiếp tục thanh toán qua cổng online</Text>
+              )}
+            </Pressable>
+            <Pressable style={styles.cancelBtn} onPress={handleCancelBooking}>
+              <Text style={styles.cancelBtnText}>Hủy đặt lịch</Text>
+            </Pressable>
+          </View>
         ) : Number(booking.status) === BookingStatus.Pending ||
           Number(booking.status) === BookingStatus.Matching ? (
           // Cancel button for draft/matching statuses
@@ -1005,7 +997,7 @@ export default function BookingDetailScreen() {
           <View style={styles.voucherModalContent}>
             <View style={styles.modalHeader}>
               <View style={styles.modalTitleRow}>
-                <MaterialIcons name="local-activity" size={22} color="#FF8228" />
+                <MaterialIcons name="local-activity" size={22} color="#0F382C" />
                 <Text style={styles.modalTitle}>Kho voucher khuyến mãi</Text>
               </View>
               <Pressable onPress={() => setVoucherModalOpen(false)}>
@@ -1019,7 +1011,7 @@ export default function BookingDetailScreen() {
 
             {loadingEligible ? (
               <View style={styles.modalCenter}>
-                <ActivityIndicator size="small" color="#FF8228" />
+                <ActivityIndicator size="small" color="#0F382C" />
                 <Text style={styles.modalMutedText}>Đang tải danh sách voucher...</Text>
               </View>
             ) : eligibleVouchers.length === 0 ? (
@@ -1316,14 +1308,14 @@ const styles = StyleSheet.create({
   },
   actionBtnCall: {
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     backgroundColor: '#ffffff',
   },
   actionBtnChat: {
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
   },
   actionBtnTextCall: {
-    color: '#FF8228',
+    color: '#0F382C',
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
   },
@@ -1375,7 +1367,7 @@ const styles = StyleSheet.create({
   costTotalValue: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   paymentSectionLabel: {
     fontFamily: 'Montserrat_700Bold',
@@ -1438,7 +1430,7 @@ const styles = StyleSheet.create({
     borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     paddingHorizontal: 12,
   },
   smallButtonDisabled: {
@@ -1465,7 +1457,7 @@ const styles = StyleSheet.create({
   chooseVoucherText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   paymentMethodRow: {
     flexDirection: 'row',
@@ -1478,14 +1470,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     gap: 8,
     borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderColor: '#EFECE6',
     borderRadius: 12,
     backgroundColor: '#ffffff',
     padding: 12,
   },
   paymentMethodButtonActive: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF3EA',
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
   },
   paymentMethodTextCol: {
     flex: 1,
@@ -1501,7 +1493,7 @@ const styles = StyleSheet.create({
   paymentMethodTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#383838',
+    color: '#1C2526',
   },
   paymentMethodSubtitle: {
     fontFamily: 'Montserrat_400Regular',
@@ -1535,20 +1527,20 @@ const styles = StyleSheet.create({
     paddingTop: 12,
     paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderColor: '#DDDDDD',
-    shadowColor: '#000000',
+    borderColor: '#EFECE6',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.05,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: -4 },
     elevation: 8,
   },
   primaryActionBtn: {
-    backgroundColor: '#FF8228',
-    borderRadius: 12,
-    height: 56,
+    backgroundColor: '#0F382C',
+    borderRadius: 20,
+    height: 52,
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8228',
+    shadowColor: '#0F382C',
     shadowOpacity: 0.2,
     shadowRadius: 10,
     shadowOffset: { width: 0, height: 4 },
@@ -1556,7 +1548,7 @@ const styles = StyleSheet.create({
   },
   primaryActionText: {
     color: '#ffffff',
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
   },
   disabledBtn: {
@@ -1649,8 +1641,8 @@ const styles = StyleSheet.create({
     padding: 14,
   },
   voucherItemSelected: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF3EA',
+    borderColor: '#0F382C',
+    backgroundColor: '#F2F7F2',
   },
   voucherItemDisabled: {
     opacity: 0.62,
@@ -1665,13 +1657,13 @@ const styles = StyleSheet.create({
   voucherItemCode: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   voucherUseText: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 11,
     color: '#ffffff',
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     borderRadius: 8,
     paddingHorizontal: 10,
     paddingVertical: 5,
@@ -1745,16 +1737,16 @@ const styles = StyleSheet.create({
     opacity: 0.62,
   },
   proposalCard: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFFBF7',
+    borderColor: '#0F382C',
+    backgroundColor: '#FBF9F5',
   },
   proposalCardTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 16,
-    color: '#FF8228',
+    color: '#0F382C',
     marginBottom: 14,
     borderBottomWidth: 1,
-    borderColor: '#FFEEDD',
+    borderColor: '#EFECE6',
     paddingBottom: 8,
   },
   proposalDetailRow: {
@@ -1771,7 +1763,7 @@ const styles = StyleSheet.create({
   proposalPriceVal: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 15,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   proposalTimeVal: {
     fontFamily: 'Montserrat_600SemiBold',
@@ -1779,7 +1771,7 @@ const styles = StyleSheet.create({
     color: '#383838',
   },
   proposalNoteContainer: {
-    backgroundColor: '#FFE6D5',
+    backgroundColor: '#F2F7F2',
     borderRadius: 8,
     padding: 10,
     marginTop: 6,
@@ -1788,13 +1780,13 @@ const styles = StyleSheet.create({
   proposalNoteLabel: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#622a00',
+    color: '#0F382C',
     marginBottom: 4,
   },
   proposalNoteText: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 12,
-    color: '#574237',
+    color: '#818A91',
     fontStyle: 'italic',
   },
   proposalActionsRow: {
@@ -1821,7 +1813,7 @@ const styles = StyleSheet.create({
     flex: 1.2,
     height: 44,
     borderRadius: 8,
-    backgroundColor: '#FF8228',
+    backgroundColor: '#0F382C',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1863,7 +1855,7 @@ const styles = StyleSheet.create({
   workerReplyTitle: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#FF8228',
+    color: '#0F382C',
   },
   workerReplyText: {
     fontFamily: 'Montserrat_400Regular',
@@ -1876,9 +1868,9 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 8,
-    backgroundColor: '#FFF3EA',
+    backgroundColor: '#F2F7F2',
     borderWidth: 1,
-    borderColor: '#FF8228',
+    borderColor: '#0F382C',
     borderRadius: 8,
     height: 40,
     marginTop: 12,
@@ -1887,6 +1879,37 @@ const styles = StyleSheet.create({
   trackingMapButtonText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
-    color: '#FF8228',
+    color: '#0F382C',
+  },
+  etaCardContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-around',
+    backgroundColor: '#F9FAFB',
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    padding: 12,
+    marginTop: 12,
+    marginBottom: 4,
+  },
+  etaItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+  },
+  etaDivider: {
+    width: 1,
+    height: 28,
+    backgroundColor: '#E5E7EB',
+  },
+  etaLabel: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 11,
+    color: '#6B7280',
+  },
+  etaValue: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#111827',
   },
 });

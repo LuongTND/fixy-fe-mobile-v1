@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import {
   ActivityIndicator,
   Alert,
+  Linking,
   Modal,
   StyleSheet,
   Text,
@@ -161,6 +162,24 @@ const VNPayWebView: React.FC<VNPayWebViewProps> = ({
           onLoadStart={() => setLoading(true)}
           onLoadEnd={() => setLoading(false)}
           onNavigationStateChange={handleNavigationStateChange}
+          onShouldStartLoadWithRequest={(request) => {
+            // Intercept callback URLs before WebView tries to load them
+            if (checkAndHandleCallback(request.url)) {
+              return false;
+            }
+            // Open custom app scheme deep links (e.g. vnpay://, vietcombank://) in external app
+            if (
+              !request.url.startsWith('http://') &&
+              !request.url.startsWith('https://') &&
+              !request.url.startsWith('about:blank')
+            ) {
+              Linking.openURL(request.url).catch((err) =>
+                console.warn('Cannot open deep link:', request.url, err)
+              );
+              return false;
+            }
+            return true;
+          }}
           onError={(syntheticEvent) => {
             const { nativeEvent } = syntheticEvent;
             console.warn('[VNPayWebView] error:', nativeEvent);

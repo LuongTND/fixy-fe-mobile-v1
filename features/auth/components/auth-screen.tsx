@@ -21,7 +21,7 @@ export function AuthScreen({ children }: { children: React.ReactNode }) {
 const styles = StyleSheet.create({
   safeArea: {
     flex: 1,
-    backgroundColor: '#FBF9F8',
+    backgroundColor: '#FBF9F5',
   },
   scrollContent: {
     flexGrow: 1,

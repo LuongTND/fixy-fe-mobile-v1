@@ -1,257 +1,788 @@
+import { getApiErrorMessage } from '@/services/api/client';
+import { Address, getMyAddresses } from '@/services/api/addresses';
+import {
+  ApiPaymentMethodOption,
+  BookingDraft,
+  confirmDraft,
+  createDraft,
+  fetchPaymentMethodsApi,
+  getDraftDetails,
+  payBookingWithWallet,
+  PaymentMethod,
+  PAYMENT_METHOD_LABELS,
+  startBookingPayment,
+} from '@/services/api/bookings';
+import { fetchCategories } from '@/services/api/categories';
+import { getWorkerDetails, WorkerProfile } from '@/services/api/workers';
+import { getWalletOverview, WalletOverview } from '@/services/api/wallet';
+import { applyVoucher, getEligibleVouchers } from '@/services/api/vouchers';
+import { EligibleVoucher, formatVoucherIneligibleReason, getVoucherDiscount } from '@/services/api/voucher-utils';
+import { formatCurrency, formatFullAddress } from '@/utils/format';
 import { MaterialIcons } from '@expo/vector-icons';
-import { router, useLocalSearchParams } from 'expo-router';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
+import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-
-import { useQuery, useMutation } from '@tanstack/react-query';
-
-import { BookingDraft, confirmDraft, getDraftDetails } from '@/services/api/bookings';
-import { getWorkerDetails, WorkerProfile } from '@/services/api/workers';
-import { fetchCategories } from '@/services/api/categories';
-import { formatCurrency } from '@/utils/format';
+import PayOSWebView from '@/components/PayOSWebView';
+import VNPayWebView from '@/components/VNPayWebView';
+import { verifyVnpayCallback } from '@/services/api/payment';
 
 export default function BookingCheckoutScreen() {
   const insets = useSafeAreaInsets();
-  const { draftId, workerUserId } = useLocalSearchParams<{
-    draftId: string;
+  const queryClient = useQueryClient();
+
+  const {
+    draftId: paramDraftId,
+    workerUserId,
+    workerProfileId: paramWorkerProfileId,
+    categoryId: paramCategoryId,
+    totalDurationMinutes: paramTotalDurationMinutes,
+  } = useLocalSearchParams<{
+    draftId?: string;
     workerUserId?: string;
+    workerProfileId?: string;
+    categoryId?: string;
+    totalDurationMinutes?: string;
   }>();
 
-  // Fetch draft details via useQuery
-  const { data: draft = null, isLoading: loading } = useQuery<BookingDraft | null>({
-    queryKey: ['draft', draftId],
-    queryFn: () => getDraftDetails(draftId),
-    enabled: !!draftId,
+  const [voucherCode, setVoucherCode] = React.useState('');
+  const [selectedVoucher, setSelectedVoucher] = React.useState<EligibleVoucher | null>(null);
+  const [discountAmount, setDiscountAmount] = React.useState(0);
+  const [voucherApplying, setVoucherApplying] = React.useState(false);
+  const [voucherError, setVoucherError] = React.useState('');
+  const [showVoucherModal, setShowVoucherModal] = React.useState(false);
+  const [selectedAddress, setSelectedAddress] = React.useState<Address | null>(null);
+  const [showAddressModal, setShowAddressModal] = React.useState(false);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<number>(PaymentMethod.Cash);
+  const [showPaymentModal, setShowPaymentModal] = React.useState(false);
+  const [showPayOSWebView, setShowPayOSWebView] = React.useState(false);
+  const [payosUrl, setPayosUrl] = React.useState('');
+  const [showVnpayWebView, setShowVnpayWebView] = React.useState(false);
+  const [vnpayUrl, setVnpayUrl] = React.useState('');
+  const [confirmedBookingId, setConfirmedBookingId] = React.useState<string | null>(null);
+
+  const [createdDraftId, setCreatedDraftId] = React.useState<string | null>(null);
+  const activeDraftId = paramDraftId || createdDraftId;
+
+  // Invalidate addresses query on focus so new address is fetched instantly
+  useFocusEffect(
+    React.useCallback(() => {
+      queryClient.invalidateQueries({ queryKey: ['addresses'] });
+    }, [queryClient])
+  );
+
+  // Fetch Wallet Overview
+  const { data: wallet = null } = useQuery<WalletOverview>({
+    queryKey: ['wallet'],
+    queryFn: getWalletOverview,
   });
 
-  const { data: categories = [], isLoading: categoriesLoading } = useQuery({
+  const walletBalance = wallet?.balance ?? 0;
+
+  // Fetch Eligible Vouchers
+  const { data: eligibleVouchers = [], isLoading: loadingVouchers } = useQuery<EligibleVoucher[]>({
+    queryKey: ['eligibleVouchersCheckout', activeDraftId],
+    queryFn: () => getEligibleVouchers(activeDraftId || ''),
+    enabled: !!activeDraftId,
+  });
+
+  // Fetch addresses via useQuery
+  const { data: addresses = [] } = useQuery<Address[]>({
+    queryKey: ['addresses'],
+    queryFn: getMyAddresses,
+  });
+
+  // Set default address when addresses are loaded or updated
+  React.useEffect(() => {
+    if (addresses && addresses.length > 0) {
+      const def = addresses.find((a) => a.isDefault) || addresses[0];
+      if (!selectedAddress || (def && def.id !== selectedAddress.id && def.isDefault)) {
+        setSelectedAddress(def);
+      }
+    }
+  }, [addresses]);
+
+  // Fetch payment methods from BE API
+  const { data: paymentMethods = [] } = useQuery<ApiPaymentMethodOption[]>({
+    queryKey: ['paymentMethods'],
+    queryFn: fetchPaymentMethodsApi,
+  });
+
+  // Fetch draft details via useQuery if activeDraftId parameter is present
+  const { data: draft = null } = useQuery<BookingDraft | null>({
+    queryKey: ['draft', activeDraftId],
+    queryFn: () => getDraftDetails(activeDraftId!),
+    enabled: !!activeDraftId,
+  });
+
+  const { data: categories = [] } = useQuery({
     queryKey: ['categories'],
     queryFn: () => fetchCategories(),
   });
 
+  const activeCategoryId = paramCategoryId || draft?.categoryId;
   const category = categories.find(
-    (c) => c.id === draft?.categoryId || c.code === draft?.categoryId
+    (c) => c.id === activeCategoryId || c.code === activeCategoryId
   );
-  const categoryName =
-    category?.name ||
-    (draft?.categoryId === 'dien'
-      ? 'Điện – Điện tử'
-      : draft?.categoryId === 'nuoc'
-        ? 'Nước – Ống nước'
-        : draft?.categoryId === 'dieuhoa'
-          ? 'Bảo dưỡng Điều hòa'
-          : draft?.categoryId === 'maygiat'
-            ? 'Sửa Máy giặt'
-            : draft?.categoryId === 'xemay'
-              ? 'Sửa Xe máy – Ô tô'
-              : draft?.categoryId === 'moc'
-                ? 'Mộc – Nội thất'
-                : draft?.categoryId === 'son'
-                  ? 'Sơn – Trần nhà'
-                  : draft?.categoryId === 'vesinh'
-                    ? 'Dọn dẹp Vệ sinh'
-                    : 'Dịch vụ sửa chữa');
+  const categoryName = category?.name || 'Chăm sóc Spa';
 
   // Fetch worker details via dependent useQuery
-  const { data: worker = null } = useQuery<WorkerProfile | null>({
-    queryKey: ['worker', workerUserId || draft?.workerProfileId],
-    queryFn: () => getWorkerDetails(workerUserId || draft!.workerProfileId!),
-    enabled: !!(workerUserId || draft?.workerProfileId),
+  const activeWorkerProfileId = paramWorkerProfileId || draft?.workerProfileId;
+  const { data: worker = null, isLoading: workerLoading } = useQuery<WorkerProfile | null>({
+    queryKey: ['worker', workerUserId || activeWorkerProfileId],
+    queryFn: () => getWorkerDetails(workerUserId || activeWorkerProfileId!),
+    enabled: !!(workerUserId || activeWorkerProfileId),
   });
 
-  // Confirm mutation via useMutation
+  const durationNum = paramTotalDurationMinutes
+    ? Number(paramTotalDurationMinutes)
+    : (draft?.totalDurationMinutes || 60);
+
+  // Auto-create draft if activeDraftId is missing and address is selected so eligible vouchers can be fetched
+  React.useEffect(() => {
+    if (!activeDraftId && selectedAddress && activeCategoryId) {
+      const categoryGuid = category?.id || activeCategoryId;
+      const addressText = formatFullAddress(selectedAddress);
+      createDraft({
+        categoryId: categoryGuid,
+        addressId: selectedAddress.id,
+        address: addressText,
+        lat: selectedAddress.lat ?? 0,
+        lng: selectedAddress.lng ?? 0,
+        scheduledType: 0,
+        totalDurationMinutes: durationNum,
+        workerProfileId: activeWorkerProfileId || null,
+        autoMatch: !activeWorkerProfileId,
+      })
+        .then((d) => {
+          const id = d.id || d.draftId;
+          if (id) setCreatedDraftId(id);
+        })
+        .catch((e) => {
+          console.warn('Auto create draft for vouchers error:', e);
+        });
+    }
+  }, [activeDraftId, selectedAddress, activeCategoryId, category, durationNum, activeWorkerProfileId]);
+
+  const activeWorkerService = worker?.services?.find((s) => s.categoryId === activeCategoryId);
+  const activeOption = activeWorkerService?.options?.find((opt) => opt.durationMinutes === durationNum)
+    || activeWorkerService?.options?.[0];
+
+  const servicePrice = activeOption?.price ?? activeWorkerService?.basePrice ?? worker?.basePrice ?? 0;
+  const finalPrice = Math.max(0, servicePrice - discountAmount);
+  const walletInsufficient = walletBalance < finalPrice;
+
+  // Confirm booking & pay mutation (creates draft if needed, confirms, applies voucher, then pays)
   const confirmMutation = useMutation({
-    mutationFn: () => confirmDraft(draftId),
-    onSuccess: (result) => {
-      if (result.bookingId) {
-        Alert.alert('Đặt lịch thành công', 'Yêu cầu của bạn đã được gửi đi.', [
-          {
-            text: 'Theo dõi đơn',
-            onPress: () => router.replace(`/booking-detail?bookingId=${result.bookingId}` as any),
-          },
-        ]);
+    mutationFn: async () => {
+      let targetDraftId = activeDraftId;
+
+      if (!targetDraftId) {
+        if (!selectedAddress) {
+          throw new Error('Vui lòng chọn địa chỉ nhận dịch vụ.');
+        }
+
+        const categoryGuid = category?.id || activeCategoryId || categories[0]?.id || '';
+        const addressText = formatFullAddress(selectedAddress);
+
+        const createdDraft = await createDraft({
+          categoryId: categoryGuid,
+          addressId: selectedAddress.id,
+          address: addressText,
+          lat: selectedAddress.lat ?? 0,
+          lng: selectedAddress.lng ?? 0,
+          scheduledType: 0,
+          totalDurationMinutes: durationNum,
+          workerProfileId: activeWorkerProfileId || null,
+          autoMatch: !activeWorkerProfileId,
+        });
+
+        targetDraftId = createdDraft.id || createdDraft.draftId || null;
+      }
+
+      if (!targetDraftId) {
+        throw new Error('Không thể tạo đơn nháp.');
+      }
+
+      const draftResult = await confirmDraft(targetDraftId);
+      const bookingId = draftResult.bookingId || (draftResult as any).id;
+
+      if (!bookingId) {
+        throw new Error('Không tạo được đơn hàng.');
+      }
+
+      // Apply selected voucher to the confirmed booking on Backend
+      if (selectedVoucher && selectedVoucher.code) {
+        try {
+          await applyVoucher(selectedVoucher.code, bookingId);
+        } catch (vErr) {
+          console.warn('[checkout] Failed to apply voucher to booking on BE:', vErr);
+        }
+      }
+
+      // Route payment by selected method
+      if (selectedPaymentMethod === PaymentMethod.Wallet) {
+        if (walletBalance < finalPrice) {
+          throw new Error(`Ví không đủ số dư để thanh toán ${formatCurrency(finalPrice)}. Vui lòng nạp thêm hoặc chọn phương thức khác.`);
+        }
+        await payBookingWithWallet(bookingId);
+        return { bookingId, type: 'wallet' };
+      } else if (selectedPaymentMethod === PaymentMethod.Cash) {
+        await startBookingPayment(bookingId, PaymentMethod.Cash);
+        return { bookingId, type: 'cash' };
       } else {
-        throw new Error('No bookingId returned');
+        const payRes = await startBookingPayment(bookingId, selectedPaymentMethod);
+        return { bookingId, type: 'online', paymentUrl: payRes.paymentUrl };
       }
     },
-    onError: (error) => {
-      console.error('Error confirming booking draft:', error);
-      Alert.alert('Lỗi', 'Không thể xác nhận đặt lịch. Vui lòng thử lại.');
+    onSuccess: async (data) => {
+      const targetUrl = `/booking-detail?bookingId=${data.bookingId}` as any;
+      setConfirmedBookingId(data.bookingId);
+      if (data.type === 'wallet') {
+        Alert.alert(
+          'Đặt lịch & Thanh toán thành công',
+          'Đơn dịch vụ Spa của bạn đã được thanh toán bằng ví và đang chờ Kỹ thuật viên xác nhận.'
+        );
+        router.replace(targetUrl);
+      } else if (data.type === 'cash') {
+        Alert.alert(
+          'Đặt lịch thành công',
+          'Yêu cầu dịch vụ Spa của bạn đã được gửi tới Kỹ thuật viên. Quý khách vui lòng thanh toán bằng tiền mặt sau khi hoàn thành dịch vụ.'
+        );
+        router.replace(targetUrl);
+      } else if (data.type === 'online') {
+        if (data.paymentUrl) {
+          if (selectedPaymentMethod === PaymentMethod.Vnpay) {
+            // VNPay: Open in-app WebView
+            setVnpayUrl(data.paymentUrl);
+            setShowVnpayWebView(true);
+          } else if (selectedPaymentMethod === PaymentMethod.PayOS || selectedPaymentMethod === PaymentMethod.Card) {
+            // PayOS: Open in-app WebView
+            setPayosUrl(data.paymentUrl);
+            setShowPayOSWebView(true);
+          } else {
+            // MoMo / other external gateway
+            try {
+              await Linking.openURL(data.paymentUrl);
+            } catch (e) {
+              console.warn('Could not open payment URL', e);
+            }
+            router.replace(targetUrl);
+          }
+        } else {
+          router.replace(targetUrl);
+        }
+      }
+    },
+    onError: (error: any) => {
+      const msg = getApiErrorMessage(error);
+      Alert.alert('Lỗi đặt lịch', msg);
     },
   });
 
   const confirmLoading = confirmMutation.isPending;
 
   const handleConfirm = () => {
-    if (!draftId) return;
+    if (!selectedAddress && !draft) {
+      Alert.alert('Chưa có địa chỉ', 'Vui lòng chọn hoặc thêm địa chỉ của bạn trước khi đặt dịch vụ.', [
+        { text: 'Thêm địa chỉ', onPress: () => router.push('/saved-addresses' as any) },
+        { text: 'Đóng', style: 'cancel' },
+      ]);
+      return;
+    }
     confirmMutation.mutate();
   };
 
-  if (loading || categoriesLoading) {
-    return (
-      <View style={styles.centerContainer}>
-        <ActivityIndicator size="large" color="#FF8228" />
-      </View>
-    );
-  }
+  const displayAddressText = selectedAddress
+    ? formatFullAddress(selectedAddress)
+    : (draft?.address || '');
 
-  if (!draft) {
-    return (
-      <View style={styles.centerContainer}>
-        <Text style={styles.errorText}>Bản nháp đặt lịch không tồn tại hoặc đã hết hạn.</Text>
-      </View>
-    );
-  }
+  const selectedPaymentInfo = paymentMethods.find((m) => m.value === selectedPaymentMethod) || {
+    name: 'Cash',
+    value: PaymentMethod.Cash,
+    description: PAYMENT_METHOD_LABELS[PaymentMethod.Cash] || 'Tiền mặt',
+  };
 
-  const basePrice = worker?.basePrice ?? 120000;
-  const travelPrice = 30000;
-  const totalPrice = basePrice + travelPrice;
-
-  // Format scheduledAt string
-  const formatScheduleTime = (timeStr?: string, type?: number) => {
-    if (type === 0 || !timeStr) return 'Ngay bây giờ';
-    try {
-      const date = new Date(timeStr);
-      return `${date.getHours().toString().padStart(2, '0')}:${date.getMinutes().toString().padStart(2, '0')} - ${date.getDate().toString().padStart(2, '0')}/${(date.getMonth() + 1).toString().padStart(2, '0')}/${date.getFullYear()}`;
-    } catch {
-      return timeStr;
+  const getPaymentIcon = (methodValue: number) => {
+    switch (methodValue) {
+      case PaymentMethod.Wallet:
+        return 'account-balance-wallet';
+      case PaymentMethod.Vnpay:
+      case PaymentMethod.Momo:
+      case PaymentMethod.PayOS:
+        return 'qr-code-scanner';
+      case PaymentMethod.Card:
+        return 'credit-card';
+      case PaymentMethod.Cash:
+      default:
+        return 'attach-money';
     }
   };
 
   return (
     <View style={styles.screen}>
-      {/* Header */}
+      {/* PayOS WebView Modal */}
+      <PayOSWebView
+        visible={showPayOSWebView}
+        paymentUrl={payosUrl}
+        onClose={() => setShowPayOSWebView(false)}
+        onSuccess={(transactionId, params) => {
+          setShowPayOSWebView(false);
+          Alert.alert(
+            'Thanh toán thành công! 🎉',
+            'Đơn dịch vụ của bạn đã được thanh toán thành công qua PayOS.'
+          );
+          if (confirmedBookingId) {
+            router.replace(`/booking-detail?bookingId=${confirmedBookingId}` as any);
+          }
+        }}
+        onError={(error) => {
+          setShowPayOSWebView(false);
+          Alert.alert('Thanh toán thất bại', error);
+          if (confirmedBookingId) {
+            router.replace(`/booking-detail?bookingId=${confirmedBookingId}` as any);
+          }
+        }}
+      />
+
+      {/* VNPay WebView Modal */}
+      <VNPayWebView
+        visible={showVnpayWebView}
+        paymentUrl={vnpayUrl}
+        onClose={() => setShowVnpayWebView(false)}
+        onSuccess={async (_transactionId, params) => {
+          setShowVnpayWebView(false);
+          try {
+            await verifyVnpayCallback(params);
+            Alert.alert(
+              'Thanh toán thành công! 🎉',
+              'Đơn dịch vụ của bạn đã được thanh toán thành công qua VNPay.'
+            );
+          } catch (err) {
+            console.warn('Xác thực VNPay callback thất bại:', err);
+          } finally {
+            if (confirmedBookingId) {
+              router.replace(`/booking-detail?bookingId=${confirmedBookingId}` as any);
+            }
+          }
+        }}
+        onError={(error) => {
+          setShowVnpayWebView(false);
+          Alert.alert('Thanh toán thất bại', error);
+          if (confirmedBookingId) {
+            router.replace(`/booking-detail?bookingId=${confirmedBookingId}` as any);
+          }
+        }}
+      />
+      {/* Header Bar */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <Pressable style={styles.backButton} onPress={() => router.back()}>
-          <MaterialIcons name="arrow-back" size={26} color="#1B1C1C" />
+          <MaterialIcons name="arrow-back" size={24} color="#1C2526" />
         </Pressable>
-        <Text style={styles.headerTitle}>Xác nhận đặt lịch</Text>
+        <Text style={styles.headerTitle}>Thông tin đặt lịch</Text>
       </View>
 
       <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
-        {/* Step Info Card */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardTitle}>Chi tiết yêu cầu sửa chữa</Text>
-
-          <View style={styles.detailRow}>
-            <MaterialIcons name="work-outline" size={20} color="#818A91" />
-            <View style={styles.detailTextCol}>
-              <Text style={styles.detailLabel}>Loại dịch vụ</Text>
-              <Text style={styles.detailValue}>{categoryName}</Text>
+        {/* Block 1: My Address Card */}
+        <Pressable
+          style={styles.cardContainer}
+          onPress={() => {
+            if (addresses.length > 0) {
+              setShowAddressModal(true);
+            } else {
+              router.push('/saved-addresses' as any);
+            }
+          }}>
+          <View style={styles.cardHeaderRow}>
+            <Text style={styles.cardSectionLabel}>Địa chỉ của tôi</Text>
+            <View style={styles.changeAddressBadge}>
+              <Text style={styles.changeAddressText}>Thay đổi</Text>
+              <MaterialIcons name="chevron-right" size={20} color="#0F382C" />
             </View>
           </View>
-
-          <View style={styles.detailRow}>
-            <MaterialIcons name="access-time" size={20} color="#818A91" />
-            <View style={styles.detailTextCol}>
-              <Text style={styles.detailLabel}>Thời gian thực hiện</Text>
-              <Text style={styles.detailValue}>
-                {formatScheduleTime(draft.scheduledAt, draft.scheduledType)}
+          <View style={styles.addressDetails}>
+            <View style={styles.userNamePhoneRow}>
+              <MaterialIcons name="place" size={18} color="#0F382C" />
+              <Text style={styles.userNameText}>
+                {selectedAddress ? (selectedAddress.label || 'Nhà riêng') : (draft?.address ? 'Địa chỉ giao' : 'Chưa chọn địa chỉ')}
               </Text>
             </View>
+            {displayAddressText ? (
+              <Text style={styles.addressLineText}>{displayAddressText}</Text>
+            ) : null}
           </View>
+        </Pressable>
 
-          <View style={styles.detailRow}>
-            <MaterialIcons name="place" size={20} color="#818A91" />
-            <View style={styles.detailTextCol}>
-              <Text style={styles.detailLabel}>Địa chỉ làm việc</Text>
-              <Text style={styles.detailValue}>{draft.address}</Text>
-            </View>
+        {/* Block 2: Selected Service & KTV Info Card */}
+        <View style={styles.cardContainer}>
+          <View style={styles.serviceHeaderRow}>
+            <Text style={styles.serviceNameTitle}>{categoryName}</Text>
           </View>
+          <Text style={styles.serviceMetaText}>⏱ {durationNum} phút | {formatCurrency(servicePrice)}</Text>
 
-          <View style={styles.detailRow}>
-            <MaterialIcons name="error-outline" size={20} color="#818A91" />
-            <View style={styles.detailTextCol}>
-              <Text style={styles.detailLabel}>Mô tả sự cố</Text>
-              <Text style={styles.detailValue}>{draft.description}</Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Worker allocation Info */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardTitle}>Phương thức kết nối thợ</Text>
-
-          {draft.autoMatch ? (
-            <View style={styles.autoMatchRow}>
-              <View style={styles.autoMatchIconBox}>
-                <MaterialIcons name="bolt" size={24} color="#FF8228" />
-              </View>
-              <View style={styles.autoMatchInfoCol}>
-                <Text style={styles.autoMatchTitle}>Kết nối nhanh (Tự động)</Text>
-                <Text style={styles.autoMatchDesc}>
-                  Hệ thống đang phát tìm thợ gần bạn nhất để nhận lịch sớm nhất.
-                </Text>
-              </View>
-            </View>
+          {workerLoading ? (
+            <ActivityIndicator size="small" color="#0F382C" style={{ marginVertical: 8 }} />
           ) : worker ? (
-            <View style={styles.workerRow}>
-              <Image source={{ uri: worker.avatarUrl }} style={styles.workerAvatar} />
-              <View style={styles.workerInfoCol}>
-                <Text style={styles.workerName}>{worker.fullName}</Text>
-                <View style={styles.workerRating}>
-                  <MaterialIcons name="star" size={14} color="#FFB020" />
-                  <Text style={styles.workerRatingVal}>{worker.rating.toFixed(1)}</Text>
-                  <Text style={styles.workerJobsText}>• {worker.completedJobs} đơn thành công</Text>
+            <View style={styles.ktvMiniProfileRow}>
+              {worker.avatarUrl ? (
+                <Image
+                  source={{ uri: worker.avatarUrl }}
+                  style={styles.ktvMiniAvatar}
+                />
+              ) : (
+                <View style={styles.ktvAvatarPlaceholder}>
+                  <MaterialIcons name="person" size={26} color="#0F382C" />
+                </View>
+              )}
+              <View style={styles.ktvMiniMeta}>
+                <Text style={styles.ktvMiniName}>{worker.fullName}</Text>
+                <View style={styles.ratingRowSmall}>
+                  <MaterialIcons name="star" size={14} color="#D4AF37" />
+                  <Text style={styles.ratingScoreSmall}>{(worker.rating || 5.0).toFixed(1)}</Text>
+                  <Text style={styles.ratingReviewsMuted}>({worker.reviewsCount ?? 0} đánh giá)</Text>
                 </View>
               </View>
             </View>
           ) : (
-            <Text style={styles.errorText}>Không load được thông tin thợ chỉ định.</Text>
+            <View style={styles.autoMatchRow}>
+              <MaterialIcons name="autorenew" size={20} color="#0F382C" />
+              <Text style={styles.autoMatchText}>Ghép kỹ thuật viên uy tín tự động gần bạn nhất</Text>
+            </View>
           )}
         </View>
 
-        {/* Cost summary card */}
-        <View style={styles.infoCard}>
-          <Text style={styles.infoCardTitle}>Chi phí ước tính</Text>
-
-          <View style={styles.costRow}>
-            <Text style={styles.costLabel}>Giá nhân công cơ bản</Text>
-            <Text style={styles.costValue}>{formatCurrency(basePrice)}</Text>
-          </View>
-          <View style={styles.costRow}>
-            <Text style={styles.costLabel}>Phí di chuyển lắp đặt</Text>
-            <Text style={styles.costValue}>{formatCurrency(travelPrice)}</Text>
-          </View>
-          <View style={styles.costDivider} />
-          <View style={[styles.costRow, { marginTop: 6 }]}>
-            <Text style={styles.costTotalLabel}>Tổng số tiền (Ước lượng)</Text>
-            <Text style={styles.costTotalValue}>{formatCurrency(totalPrice)}</Text>
+        {/* Block 3: Payment Method Selector */}
+        <View style={styles.cardContainer}>
+          <View style={styles.paymentHeaderRow}>
+            <Text style={styles.cardSectionLabel}>Phương thức thanh toán</Text>
+            <Pressable onPress={() => setShowPaymentModal(true)}>
+              <Text style={styles.seeAllText}>Tất cả  &gt;</Text>
+            </Pressable>
           </View>
 
-          <View style={styles.infoAlert}>
-            <MaterialIcons name="info-outline" size={16} color="#0070E9" />
-            <Text style={styles.infoAlertText}>
-              Lưu ý: Giá trên là ước lượng cơ bản của thợ. Tổng chi phí thực tế có thể thay đổi sau
-              khi khảo sát thực tế và thương lượng (nếu phát sinh vật tư).
-            </Text>
+          <Pressable style={styles.selectedPaymentOption} onPress={() => setShowPaymentModal(true)}>
+            <View style={styles.cashIconCircle}>
+              <MaterialIcons name={getPaymentIcon(selectedPaymentInfo.value) as any} size={18} color="#0F382C" />
+            </View>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.paymentOptionName}>{selectedPaymentInfo.description || selectedPaymentInfo.name}</Text>
+              {selectedPaymentInfo.value === PaymentMethod.Wallet && (
+                <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 12, color: '#6B7280' }}>
+                  Số dư: {formatCurrency(walletBalance)}
+                </Text>
+              )}
+            </View>
+            <MaterialIcons name="chevron-right" size={20} color="#6B7280" />
+          </Pressable>
+
+          {selectedPaymentMethod === PaymentMethod.Wallet && walletInsufficient && (
+            <View style={styles.paymentWarningBox}>
+              <MaterialIcons name="info" size={18} color="#BA1A1A" />
+              <Text style={styles.paymentWarningText}>
+                Ví không đủ số dư để thanh toán {formatCurrency(finalPrice)}. Vui lòng nạp thêm hoặc chọn phương thức khác.
+              </Text>
+            </View>
+          )}
+        </View>
+
+        {/* Block 4: Voucher Card */}
+        <View style={styles.cardContainer}>
+          <View style={styles.voucherHeaderRow}>
+            <Text style={styles.cardSectionLabel}>Mã voucher / Khuyến mãi</Text>
+          </View>
+
+          {selectedVoucher ? (
+            <View style={styles.selectedVoucherBox}>
+              <MaterialIcons name="check-circle" size={20} color="#059669" />
+              <View style={styles.selectedVoucherTextCol}>
+                <Text style={styles.selectedVoucherCode}>{selectedVoucher.code}</Text>
+                {discountAmount > 0 && (
+                  <Text style={styles.selectedVoucherDiscount}>
+                    Giảm {formatCurrency(discountAmount)} khi thanh toán
+                  </Text>
+                )}
+              </View>
+              <Pressable
+                style={styles.removeVoucherButton}
+                onPress={() => {
+                  setSelectedVoucher(null);
+                  setDiscountAmount(0);
+                  setVoucherCode('');
+                }}>
+                <MaterialIcons name="close" size={18} color="#059669" />
+              </Pressable>
+            </View>
+          ) : (
+            <>
+              <View style={styles.voucherInputRow}>
+                <TextInput
+                  style={styles.voucherTextInput}
+                  placeholder="Nhập mã voucher..."
+                  placeholderTextColor="#9CA3AF"
+                  value={voucherCode}
+                  onChangeText={(val) => {
+                    setVoucherCode(val.toUpperCase());
+                    if (voucherError) setVoucherError('');
+                  }}
+                  autoCapitalize="characters"
+                  editable={!voucherApplying}
+                />
+                <Pressable
+                  style={[styles.applyVoucherBtn, (!voucherCode.trim() || voucherApplying) && styles.smallButtonDisabled]}
+                  disabled={!voucherCode.trim() || voucherApplying}
+                  onPress={async () => {
+                    setVoucherApplying(true);
+                    setVoucherError('');
+                    try {
+                      const result = await applyVoucher(voucherCode, activeDraftId || '');
+                      if (result && result.isEligible) {
+                        setSelectedVoucher(result);
+                        setDiscountAmount(getVoucherDiscount(result));
+                      } else {
+                        setVoucherError(result?.ineligibleReason || 'Voucher không đủ điều kiện.');
+                      }
+                    } catch (err: any) {
+                      setVoucherError(getApiErrorMessage(err));
+                    } finally {
+                      setVoucherApplying(false);
+                    }
+                  }}>
+                  {voucherApplying ? (
+                    <ActivityIndicator size="small" color="#ffffff" />
+                  ) : (
+                    <Text style={styles.applyVoucherText}>Áp dụng</Text>
+                  )}
+                </Pressable>
+              </View>
+              {voucherError ? <Text style={styles.voucherErrorText}>{voucherError}</Text> : null}
+              <Pressable
+                style={styles.chooseVoucherButton}
+                onPress={() => setShowVoucherModal(true)}>
+                <MaterialIcons name="local-activity" size={18} color="#0F382C" />
+                <Text style={styles.chooseVoucherText}>
+                  {loadingVouchers
+                    ? 'Đang tải voucher...'
+                    : `Chọn voucher (${eligibleVouchers.filter((item) => item.isEligible).length} khả dụng)`}
+                </Text>
+              </Pressable>
+            </>
+          )}
+        </View>
+
+        {/* Block 5: Payment Summary Details */}
+        <View style={styles.cardContainer}>
+          <Text style={styles.cardSectionLabel}>Chi tiết thanh toán</Text>
+
+          <View style={styles.summaryRow}>
+            <Text style={styles.summaryLabel}>Tạm tính</Text>
+            <Text style={styles.summaryValue}>{formatCurrency(servicePrice)}</Text>
+          </View>
+
+          {discountAmount > 0 && (
+            <View style={styles.summaryRow}>
+              <Text style={styles.summaryLabel}>Giảm giá</Text>
+              <Text style={styles.discountValue}>- {formatCurrency(discountAmount)}</Text>
+            </View>
+          )}
+
+          <View style={styles.dividerLine} />
+
+          <View style={styles.totalSummaryRow}>
+            <View>
+              <Text style={styles.totalCountText}>Tổng: 1 dịch vụ</Text>
+              {discountAmount > 0 && (
+                <Text style={styles.savedNoticeText}>🎉 Bạn đã tiết kiệm được {formatCurrency(discountAmount)}</Text>
+              )}
+            </View>
+            <View style={{ alignItems: 'flex-end' }}>
+              <Text style={styles.totalPriceText}>{formatCurrency(finalPrice)}</Text>
+              {discountAmount > 0 && (
+                <Text style={styles.strikethroughPrice}>{formatCurrency(servicePrice)}</Text>
+              )}
+            </View>
           </View>
         </View>
       </ScrollView>
 
-      {/* Footer action bar */}
-      <View style={[styles.footerBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>
+      {/* Fixed Bottom CTA Button */}
+      <View style={[styles.fixedBottomBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 14 }]}>
         <Pressable
-          style={[styles.confirmButton, confirmLoading && styles.confirmButtonDisabled]}
+          style={[styles.confirmBookingBtn, confirmLoading && styles.confirmBookingBtnDisabled]}
           onPress={handleConfirm}
           disabled={confirmLoading}>
           {confirmLoading ? (
             <ActivityIndicator size="small" color="#ffffff" />
           ) : (
-            <Text style={styles.confirmButtonText}>Xác nhận đặt lịch</Text>
+            <Text style={styles.confirmBookingBtnText}>Thanh toán & Đặt lịch</Text>
           )}
         </Pressable>
       </View>
+
+      {/* Address Selection Modal */}
+      <Modal visible={showAddressModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn địa chỉ nhận dịch vụ</Text>
+              <Pressable onPress={() => setShowAddressModal(false)}>
+                <MaterialIcons name="close" size={24} color="#383838" />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              {addresses.map((item) => (
+                <Pressable
+                  key={item.id}
+                  style={[
+                    styles.modalAddressItem,
+                    selectedAddress?.id === item.id && styles.modalAddressItemSelected,
+                  ]}
+                  onPress={() => {
+                    setSelectedAddress(item);
+                    setShowAddressModal(false);
+                  }}>
+                  <MaterialIcons name="place" size={22} color="#0F382C" />
+                  <View style={styles.modalAddressTextCol}>
+                    <Text style={styles.modalAddressLabel}>{item.label}</Text>
+                    <Text style={styles.modalAddressBody}>
+                      {formatFullAddress(item)}
+                    </Text>
+                  </View>
+                  {selectedAddress?.id === item.id && (
+                    <MaterialIcons name="check-circle" size={20} color="#0F382C" />
+                  )}
+                </Pressable>
+              ))}
+            </ScrollView>
+
+            <Pressable
+              style={styles.modalAddBtn}
+              onPress={() => {
+                setShowAddressModal(false);
+                router.push('/saved-addresses' as any);
+              }}>
+              <MaterialIcons name="add" size={20} color="#0F382C" />
+              <Text style={styles.modalAddBtnText}>Thêm địa chỉ mới</Text>
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Payment Method Selection Modal */}
+      <Modal visible={showPaymentModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn phương thức thanh toán</Text>
+              <Pressable onPress={() => setShowPaymentModal(false)}>
+                <MaterialIcons name="close" size={24} color="#383838" />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              {paymentMethods.map((method) => {
+                const isSelected = selectedPaymentMethod === method.value;
+                const iconName = getPaymentIcon(method.value);
+                return (
+                  <Pressable
+                    key={method.value}
+                    style={[
+                      styles.modalAddressItem,
+                      isSelected && styles.modalAddressItemSelected,
+                    ]}
+                    onPress={() => {
+                      setSelectedPaymentMethod(method.value);
+                      setShowPaymentModal(false);
+                    }}>
+                    <View style={styles.cashIconCircle}>
+                      <MaterialIcons name={iconName as any} size={20} color="#0F382C" />
+                    </View>
+                    <View style={styles.modalAddressTextCol}>
+                      <Text style={styles.modalAddressLabel}>{method.description || method.name}</Text>
+                    </View>
+                    {isSelected && (
+                      <MaterialIcons name="check-circle" size={20} color="#0F382C" />
+                    )}
+                  </Pressable>
+                );
+              })}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Voucher Selection Modal */}
+      <Modal visible={showVoucherModal} transparent animationType="fade">
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Chọn voucher ưu đãi</Text>
+              <Pressable onPress={() => setShowVoucherModal(false)}>
+                <MaterialIcons name="close" size={24} color="#383838" />
+              </Pressable>
+            </View>
+
+            <ScrollView contentContainerStyle={styles.modalScroll}>
+              {eligibleVouchers.length === 0 ? (
+                <Text style={{ textAlign: 'center', color: '#6B7280', marginVertical: 20 }}>
+                  Không có voucher khả dụng cho đơn hàng này.
+                </Text>
+              ) : (
+                eligibleVouchers.map((voucher) => (
+                  <Pressable
+                    key={voucher.code}
+                    style={[
+                      styles.modalAddressItem,
+                      !voucher.isEligible && { opacity: 0.5 },
+                      selectedVoucher?.code === voucher.code && styles.modalAddressItemSelected,
+                    ]}
+                    disabled={!voucher.isEligible}
+                    onPress={() => {
+                      setSelectedVoucher(voucher);
+                      setDiscountAmount(getVoucherDiscount(voucher));
+                      setVoucherCode(voucher.code);
+                      setShowVoucherModal(false);
+                    }}>
+                    <MaterialIcons name="local-offer" size={24} color={voucher.isEligible ? '#0F382C' : '#9CA3AF'} />
+                    <View style={styles.modalAddressTextCol}>
+                      <Text style={styles.modalAddressLabel}>{voucher.code}</Text>
+                      {voucher.description ? (
+                        <Text style={styles.modalAddressBody}>{voucher.description}</Text>
+                      ) : null}
+                      {voucher.calculatedDiscount ? (
+                        <Text style={{ fontSize: 12, color: '#059669', marginTop: 2, fontFamily: 'Montserrat_600SemiBold' }}>
+                          Giảm {formatCurrency(voucher.calculatedDiscount)}
+                        </Text>
+                      ) : null}
+                      {!voucher.isEligible && voucher.ineligibleReason && (
+                        <Text style={{ fontSize: 12, color: '#DC2626', marginTop: 2 }}>
+                          {formatVoucherIneligibleReason(voucher.ineligibleReason)}
+                        </Text>
+                      )}
+                    </View>
+                    {selectedVoucher?.code === voucher.code && (
+                      <MaterialIcons name="check-circle" size={20} color="#0F382C" />
+                    )}
+                  </Pressable>
+                ))
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -259,287 +790,471 @@ export default function BookingCheckoutScreen() {
 const styles = StyleSheet.create({
   screen: {
     flex: 1,
-    backgroundColor: '#fbf9f8',
+    backgroundColor: '#FBF9F5',
   },
   header: {
-    height: 96,
+    height: 84,
     flexDirection: 'row',
     alignItems: 'center',
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,
-    borderColor: '#DDDDDD',
-    zIndex: 10,
+    borderColor: '#EFECE6',
   },
   backButton: {
-    height: 44,
-    width: 44,
+    width: 36,
+    height: 36,
     alignItems: 'center',
     justifyContent: 'center',
+    marginRight: 8,
   },
   headerTitle: {
-    marginLeft: 6,
-    color: '#383838',
     fontFamily: 'Montserrat_700Bold',
     fontSize: 18,
-  },
-  centerContainer: {
-    flex: 1,
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  errorText: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#BA1A1A',
+    color: '#1C2526',
   },
   scrollContent: {
     padding: 16,
     paddingBottom: 110,
+    gap: 14,
   },
-  infoCard: {
+  cardContainer: {
     backgroundColor: '#ffffff',
-    borderRadius: 16,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
+    borderRadius: 18,
     padding: 16,
-    marginBottom: 16,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.03,
+    shadowRadius: 8,
+    elevation: 2,
   },
-  infoCardTitle: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 15,
-    color: '#383838',
-    marginBottom: 14,
-    borderBottomWidth: 1,
-    borderColor: '#f5f3f2',
-    paddingBottom: 8,
-  },
-  detailRow: {
+  cardHeaderRow: {
     flexDirection: 'row',
-    gap: 12,
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 8,
+  },
+  cardSectionLabel: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  addressDetails: {
+    gap: 4,
+  },
+  userNamePhoneRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  userNameText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
+    color: '#1C2526',
+  },
+  userPhoneText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
+    color: '#1C2526',
+  },
+  addressLineText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 13,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+  serviceHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 4,
+  },
+  serviceNameTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 17,
+    color: '#1C2526',
+  },
+  removeServiceBtn: {
+    padding: 4,
+  },
+  serviceMetaText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    color: '#6B7280',
     marginBottom: 14,
   },
-  detailTextCol: {
-    flex: 1,
-  },
-  detailLabel: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    color: '#818A91',
-    marginBottom: 2,
-  },
-  detailValue: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 13,
-    color: '#383838',
-    lineHeight: 18,
+  ktvMiniProfileRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#FBF9F5',
+    padding: 10,
+    borderRadius: 14,
   },
   autoMatchRow: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
-    backgroundColor: '#FFE6D5',
-    borderWidth: 1,
-    borderColor: '#FF8228',
+    gap: 10,
+    backgroundColor: '#F4F1EA',
     padding: 12,
-    borderRadius: 10,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
   },
-  autoMatchIconBox: {
-    width: 36,
-    height: 36,
-    borderRadius: 18,
-    backgroundColor: '#ffffff',
-    alignItems: 'center',
-    justifyContent: 'center',
-  },
-  autoMatchInfoCol: {
+  autoMatchText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    color: '#0F382C',
     flex: 1,
   },
-  autoMatchTitle: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-    color: '#622a00',
-  },
-  autoMatchDesc: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    color: '#9a4600',
-    marginTop: 2,
-    lineHeight: 14,
-  },
-  workerRow: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#fbf9f8',
-    borderWidth: 1,
-    borderColor: '#efedec',
-    padding: 12,
-    borderRadius: 10,
-  },
-  workerAvatar: {
+  ktvMiniAvatar: {
     width: 48,
     height: 48,
     borderRadius: 24,
-    backgroundColor: '#efedec',
   },
-  workerInfoCol: {
-    marginLeft: 12,
-    flex: 1,
+  ktvAvatarPlaceholder: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#E6F0EB',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
-  workerName: {
+  ktvMiniMeta: {
+    gap: 2,
+  },
+  ktvMiniName: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-    color: '#383838',
+    fontSize: 15,
+    color: '#1C2526',
   },
-  workerRating: {
+  ratingRowSmall: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 4,
-    marginTop: 2,
   },
-  workerRatingVal: {
+  ratingScoreSmall: {
     fontFamily: 'Montserrat_700Bold',
     fontSize: 12,
-    color: '#383838',
+    color: '#1C2526',
   },
-  workerJobsText: {
+  ratingReviewsMuted: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 11,
     color: '#818A91',
   },
-  costRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    marginBottom: 10,
-  },
-  costLabel: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 13,
-    color: '#818A91',
-  },
-  costValue: {
-    fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 14,
-    color: '#383838',
-  },
-  costDivider: {
-    height: 1,
-    backgroundColor: '#f5f3f2',
-    marginVertical: 4,
-  },
-  costTotalLabel: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
-    color: '#383838',
-  },
-  costTotalValue: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
-    color: '#FF8228',
-  },
-  infoAlert: {
-    flexDirection: 'row',
-    gap: 8,
-    backgroundColor: '#E7F2FC',
-    borderWidth: 1,
-    borderColor: '#0070E9',
-    borderRadius: 10,
-    padding: 12,
-    marginTop: 16,
-  },
-  infoAlertText: {
-    flex: 1,
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 11,
-    color: '#0070E9',
-    lineHeight: 16,
-  },
-  walletBalanceRow: {
+  paymentHeaderRow: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    backgroundColor: '#FFE6D5',
-    borderRadius: 10,
-    padding: 12,
     marginBottom: 12,
   },
-  walletLabel: {
-    fontFamily: 'Montserrat_400Regular',
-    fontSize: 12,
-    color: '#9a4600',
+  seeAllText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#0F382C',
   },
-  walletValue: {
-    fontFamily: 'Montserrat_700Bold',
-    fontSize: 18,
-    color: '#FF8228',
-    marginTop: 2,
-  },
-  paymentGrid: {
-    flexDirection: 'row',
-    flexWrap: 'wrap',
-    gap: 10,
-  },
-  paymentMethodButton: {
-    width: '48%',
-    minHeight: 46,
-    borderRadius: 10,
-    borderWidth: 1,
-    borderColor: '#DDDDDD',
-    backgroundColor: '#ffffff',
+  selectedPaymentOption: {
     flexDirection: 'row',
     alignItems: 'center',
+    gap: 10,
+    backgroundColor: '#F9FAF9',
+    padding: 10,
+    borderRadius: 12,
+  },
+  cashIconCircle: {
+    width: 28,
+    height: 28,
+    borderRadius: 14,
+    backgroundColor: '#E6F0EB',
+    alignItems: 'center',
     justifyContent: 'center',
-    gap: 6,
-    paddingHorizontal: 8,
   },
-  paymentMethodButtonActive: {
-    borderColor: '#FF8228',
-    backgroundColor: '#FFF3EA',
+  paymentOptionName: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#1C2526',
   },
-  paymentMethodText: {
+  voucherHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  selectVoucherText: {
     fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#0F382C',
+  },
+  voucherInputRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+  },
+  voucherTextInput: {
+    flex: 1,
+    backgroundColor: '#F4F1EA',
+    borderRadius: 12,
+    height: 42,
+    paddingHorizontal: 14,
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#1C2526',
+    letterSpacing: 1,
+  },
+  voucherBox: {
+    flex: 1,
+    backgroundColor: '#F4F1EA',
+    borderRadius: 12,
+    height: 42,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  voucherBoxText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#1C2526',
+    letterSpacing: 1,
+  },
+  applyVoucherBtn: {
+    backgroundColor: '#0F382C',
+    paddingHorizontal: 18,
+    height: 42,
+    borderRadius: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  appliedVoucherBtn: {
+    backgroundColor: '#E6F0EB',
+  },
+  applyVoucherText: {
+    color: '#ffffff',
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+  },
+  appliedVoucherText: {
+    color: '#0F382C',
+  },
+  summaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 10,
+  },
+  summaryLabel: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 14,
+    color: '#6B7280',
+  },
+  summaryValue: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    color: '#1C2526',
+  },
+  discountValue: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    color: '#DC2626',
+  },
+  dividerLine: {
+    height: 1,
+    backgroundColor: '#EFECE6',
+    marginVertical: 12,
+  },
+  totalSummaryRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  totalCountText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 15,
+    color: '#1C2526',
+  },
+  savedNoticeText: {
+    fontFamily: 'Montserrat_500Medium',
     fontSize: 12,
-    color: '#818A91',
+    color: '#0F382C',
+    marginTop: 2,
   },
-  paymentMethodTextActive: {
-    color: '#FF8228',
+  totalPriceText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 18,
+    color: '#0F382C',
   },
-  footerBar: {
+  strikethroughPrice: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#9CA3AF',
+    textDecorationLine: 'line-through',
+  },
+  fixedBottomBar: {
     position: 'absolute',
     bottom: 0,
     left: 0,
     right: 0,
     backgroundColor: '#ffffff',
-    paddingTop: 12,
-    paddingHorizontal: 16,
     borderTopWidth: 1,
-    borderColor: '#DDDDDD',
-    shadowColor: '#000000',
-    shadowOpacity: 0.05,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: -4 },
-    elevation: 8,
+    borderColor: '#EFECE6',
+    paddingHorizontal: 16,
+    paddingTop: 12,
   },
-  confirmButton: {
-    backgroundColor: '#FF8228',
+  confirmBookingBtn: {
+    backgroundColor: '#0F382C',
+    paddingVertical: 14,
+    borderRadius: 22,
+    alignItems: 'center',
+  },
+  confirmBookingBtnDisabled: {
+    opacity: 0.6,
+  },
+  confirmBookingBtnText: {
+    color: '#ffffff',
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
+  },
+  changeAddressBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 2,
+  },
+  changeAddressText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#0F382C',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    padding: 20,
+    maxHeight: '80%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 16,
+  },
+  modalTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 17,
+    color: '#1C2526',
+  },
+  modalScroll: {
+    paddingBottom: 16,
+  },
+  modalAddressItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 12,
     borderRadius: 12,
-    height: 56,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    marginBottom: 10,
+    gap: 12,
+  },
+  modalAddressItemSelected: {
+    borderColor: '#0F382C',
+    backgroundColor: '#F4F1EA',
+  },
+  modalAddressTextCol: {
+    flex: 1,
+  },
+  modalAddressLabel: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#1C2526',
+    marginBottom: 2,
+  },
+  modalAddressBody: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#6B7280',
+  },
+  modalAddBtn: {
+    flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#FF8228',
-    shadowOpacity: 0.2,
-    shadowRadius: 10,
-    shadowOffset: { width: 0, height: 4 },
-    elevation: 4,
+    gap: 8,
+    paddingVertical: 12,
+    borderWidth: 1,
+    borderColor: '#0F382C',
+    borderRadius: 12,
+    marginTop: 8,
   },
-  confirmButtonDisabled: {
-    backgroundColor: '#EAE5E3',
-    shadowOpacity: 0,
-    elevation: 0,
-  },
-  confirmButtonText: {
-    color: '#ffffff',
+  modalAddBtnText: {
     fontFamily: 'Montserrat_600SemiBold',
-    fontSize: 16,
+    fontSize: 14,
+    color: '#0F382C',
+  },
+  paymentWarningBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: '#FFDAD6',
+    borderRadius: 10,
+    padding: 10,
+    marginTop: 12,
+  },
+  paymentWarningText: {
+    flex: 1,
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 12,
+    color: '#BA1A1A',
+  },
+  selectedVoucherBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#ECFDF5',
+    borderWidth: 1,
+    borderColor: '#A7F3D0',
+    borderRadius: 12,
+    padding: 12,
+    gap: 10,
+  },
+  selectedVoucherTextCol: {
+    flex: 1,
+  },
+  selectedVoucherCode: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#047857',
+  },
+  selectedVoucherDiscount: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 12,
+    color: '#059669',
+    marginTop: 2,
+  },
+  removeVoucherButton: {
+    padding: 4,
+  },
+  chooseVoucherButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginTop: 10,
+    paddingVertical: 6,
+  },
+  chooseVoucherText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#0F382C',
+  },
+  voucherErrorText: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 12,
+    color: '#DC2626',
+    marginTop: 6,
+  },
+  smallButtonDisabled: {
+    opacity: 0.5,
   },
 });

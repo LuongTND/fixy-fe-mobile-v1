@@ -1,3 +1,4 @@
+import 'react-native-gesture-handler';
 import '@/global.css';
 
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
@@ -12,7 +13,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
 import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as React from 'react';
-import { ActivityIndicator, Keyboard, TouchableWithoutFeedback, View } from 'react-native';
+import { ActivityIndicator, View } from 'react-native';
 import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
@@ -61,30 +62,27 @@ export default function RootLayout() {
   }
 
   return (
-    <QueryClientProvider client={queryClient}>
-      <NotificationPopupObserver />
-      <StatusBar style="dark" />
-      <GestureHandlerRootView style={{ flex: 1 }}>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <QueryClientProvider client={queryClient}>
+        <NotificationPopupObserver />
+        <StatusBar style="dark" />
         <KeyboardProvider>
-          <TouchableWithoutFeedback onPress={Keyboard.dismiss} accessible={false}>
-            <View style={{ flex: 1 }}>
-              <ActionSheetProvider>
-                <NavThemeProvider value={NAV_THEME[colorScheme]}>
-                  <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
-                    <Stack.Screen name="index" />
-                    <Stack.Screen name="(auth)" />
-                    <Stack.Screen name="(customer)" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="(worker)" options={{ gestureEnabled: false }} />
-                    <Stack.Screen name="(booking)" />
-                    <Stack.Screen name="(location)" />
-                    <Stack.Screen name="+not-found" />
-                  </Stack>
-                </NavThemeProvider>
-              </ActionSheetProvider>
-            </View>
-          </TouchableWithoutFeedback>
+          <ActionSheetProvider>
+            <NavThemeProvider value={NAV_THEME[colorScheme]}>
+              <Stack screenOptions={{ headerShown: false, animation: 'fade' }}>
+                <Stack.Screen name="index" />
+                <Stack.Screen name="(auth)" />
+                <Stack.Screen name="(customer)" options={{ gestureEnabled: false }} />
+                <Stack.Screen name="(worker)" options={{ gestureEnabled: false }} />
+                <Stack.Screen name="(booking)" />
+                <Stack.Screen name="(location)" />
+                <Stack.Screen name="+not-found" />
+              </Stack>
+            </NavThemeProvider>
+          </ActionSheetProvider>
         </KeyboardProvider>
-      </GestureHandlerRootView>
-    </QueryClientProvider>
+      </QueryClientProvider>
+    </GestureHandlerRootView>
   );
 }
+
