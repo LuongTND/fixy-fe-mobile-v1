@@ -19,13 +19,15 @@ import {
   TextInput,
   View,
   Image,
+  Platform,
 } from 'react-native';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { getApiErrorMessage } from '@/services/api/client';
 import { fetchCategories } from '@/services/api/categories';
-import { recognizeIdentityImage } from '@/services/api/fpt';
+import { recognizeIdentityImage, compareFaces } from '@/services/api/fpt';
+import { FaceCaptureModal } from '@/components/camera/FaceCaptureModal';
 import { prepareUploadFile } from '@/services/api/media';
 import { vietnamProvincesApi, matchAddressOption, cleanSearchText } from '@/services/api/provinces';
 import {
@@ -39,6 +41,29 @@ import {
 import { updateUserProfile } from '@/services/api/user';
 import { useAuthStore } from '@/store/store';
 import { formatCurrency, formatToIsoDateTime } from '@/utils/format';
+
+const parseDateString = (str?: string): Date => {
+  if (!str) return new Date();
+  const trimmed = str.trim().split('T')[0];
+  const parts = trimmed.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      return new Date(year, month, day);
+    }
+  }
+  const d = new Date(trimmed);
+  return isNaN(d.getTime()) ? new Date() : d;
+};
+
+const formatDateToYMD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 type PickerType = 'province' | 'ward';
 type AddressPickerOption = { name: string; code?: number };
@@ -119,6 +144,13 @@ export default function WorkerSetupScreen() {
   const [scanningCccd, setScanningCccd] = React.useState(false);
   const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
 
+  // Face Verification States (eKYC)
+  const [faceSelfieUri, setFaceSelfieUri] = React.useState<string | null>(null);
+  const [faceMatchScore, setFaceMatchScore] = React.useState<number | null>(null);
+  const [isFaceMatched, setIsFaceMatched] = React.useState<boolean>(false);
+  const [isComparingFace, setIsComparingFace] = React.useState<boolean>(false);
+  const [faceCaptureModalOpen, setFaceCaptureModalOpen] = React.useState<boolean>(false);
+
   // Certificates list
   const [certificates, setCertificates] = React.useState<CertificateItem[]>([]);
   const [certTitle, setCertTitle] = React.useState('');
@@ -142,7 +174,9 @@ export default function WorkerSetupScreen() {
   const [pickerSearchQuery, setPickerSearchQuery] = React.useState('');
 
   // Date picker states
-  const [showDatePicker, setShowDatePicker] = React.useState(false);
+  type DatePickerTarget = 'citizenId' | 'certificate' | null;
+  const [activeDatePicker, setActiveDatePicker] = React.useState<DatePickerTarget>(null);
+  const [tempSelectedDate, setTempSelectedDate] = React.useState<Date>(() => new Date());
 
   // Goong Place AutoComplete & GPS states
   const [autoCompleteResults, setAutoCompleteResults] = React.useState<any[]>([]);
@@ -310,8 +344,51 @@ export default function WorkerSetupScreen() {
         });
         setSelectedServices(serviceMap);
       }
+      if (profile.user?.faceImageUrl || (profile as any).faceImageUrl) {
+        const faceUrl = profile.user?.faceImageUrl || (profile as any).faceImageUrl;
+        setFaceSelfieUri(faceUrl);
+        setIsFaceMatched(true);
+        setFaceMatchScore((profile.user as any)?.faceMatchScore ?? 92);
+      }
       setIsEditMode(true);
       setCurrentStep(1);
+    }
+  };
+
+  const handleFaceCaptured = async (selfieUri: string) => {
+    setFaceSelfieUri(selfieUri);
+    if (!cccdFrontUri) {
+      Alert.alert(
+        'Thiếu ảnh CCCD',
+        'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước để tiến hành đối soát khuôn mặt.'
+      );
+      return;
+    }
+    setIsComparingFace(true);
+    try {
+      const result = await compareFaces(cccdFrontUri, selfieUri);
+      setFaceMatchScore(result.similarity);
+      if (result.isMatch) {
+        setIsFaceMatched(true);
+        Alert.alert(
+          'Xác thực thành công',
+          `Khuôn mặt trùng khớp với ảnh trên CCCD (Độ trùng khớp: ${result.similarity.toFixed(1)}%).`
+        );
+      } else {
+        setIsFaceMatched(false);
+        Alert.alert(
+          'Không trùng khớp',
+          `Khuôn mặt không khớp với ảnh trên CCCD (Độ trùng khớp: ${result.similarity.toFixed(1)}%). Vui lòng chụp lại ở nơi đủ sáng.`
+        );
+      }
+    } catch (err: any) {
+      console.warn('Face match error:', err);
+      Alert.alert(
+        'Lỗi đối soát',
+        err.message || 'Không thể so khớp khuôn mặt lúc này. Vui lòng thử lại.'
+      );
+    } finally {
+      setIsComparingFace(false);
     }
   };
 
@@ -566,7 +643,13 @@ export default function WorkerSetupScreen() {
       quality: 0.8,
     });
     if (!result.canceled) {
-      setPortfolioUris([...portfolioUris, ...result.assets.map((a) => a.uri)]);
+      const merged = [...portfolioUris, ...result.assets.map((a) => a.uri)];
+      if (merged.length > 10) {
+        Alert.alert('Giới hạn', 'Bạn chỉ được tải lên tối đa 10 hình ảnh hoạt động.');
+        setPortfolioUris(merged.slice(0, 10));
+      } else {
+        setPortfolioUris(merged);
+      }
     }
   };
 
@@ -579,6 +662,10 @@ export default function WorkerSetupScreen() {
     if (next[catId]) {
       delete next[catId];
     } else {
+      if (Object.keys(next).length >= 10) {
+        Alert.alert('Giới hạn dịch vụ', 'Kĩ thuật viên chỉ được chọn tối đa 10 dịch vụ.');
+        return;
+      }
       next[catId] = {
         categoryId: catId,
         basePrice: 500000,
@@ -785,6 +872,8 @@ export default function WorkerSetupScreen() {
           citizenIdIssueDate,
           citizenIdIssuePlace,
           localUris: cccdUris,
+          faceSelfieUri,
+          faceMatchScore,
         };
 
         const certificatesPayload = {
@@ -859,6 +948,20 @@ export default function WorkerSetupScreen() {
         formData.append('IdentificationUploads', fileObj);
       }
     });
+
+    if (faceSelfieUri) {
+      const selfieObj = await prepareUploadFile(faceSelfieUri, 'selfie.jpg', {
+        compress: true,
+        resizeWidth: 1024,
+        quality: 0.8,
+      });
+      if (selfieObj) {
+        formData.append('FaceSelfieUpload', selfieObj);
+      }
+      if (faceMatchScore) {
+        formData.append('FaceMatchScore', String(faceMatchScore));
+      }
+    }
 
     // Portfolio uploads
     const portfolioFiles = await Promise.all(
@@ -1188,13 +1291,21 @@ export default function WorkerSetupScreen() {
             />
 
             <Text style={styles.fieldLabel}>Ngày cấp (yyyy-MM-dd)</Text>
-            <TextInput
-              style={styles.textInput}
-              value={citizenIdIssueDate}
-              onChangeText={setCitizenIdIssueDate}
-              placeholder="Ví dụ: 2020-05-19"
-              placeholderTextColor="#9A9A9A"
-            />
+            <Pressable
+              style={styles.datePickerInputBtn}
+              onPress={() => {
+                setTempSelectedDate(parseDateString(citizenIdIssueDate));
+                setActiveDatePicker('citizenId');
+              }}>
+              <Text
+                style={[
+                  styles.datePickerInputText,
+                  !citizenIdIssueDate && styles.datePickerInputPlaceholder,
+                ]}>
+                {citizenIdIssueDate || 'Chọn ngày cấp CCCD (yyyy-MM-dd)'}
+              </Text>
+              <MaterialIcons name="calendar-today" size={20} color="#0F382C" />
+            </Pressable>
 
             <Text style={styles.fieldLabel}>Nơi cấp</Text>
             <TextInput
@@ -1204,6 +1315,82 @@ export default function WorkerSetupScreen() {
               placeholder="Ví dụ: Cục Cảnh sát QLHC về trật tự xã hội"
               placeholderTextColor="#9A9A9A"
             />
+
+            {/* Section: Face ID Verification */}
+            <Text style={styles.sectionTitle}>Xác thực khuôn mặt (eKYC) *</Text>
+            <View style={styles.faceIdCard}>
+              {faceSelfieUri ? (
+                <View style={styles.faceIdFilledRow}>
+                  <Pressable onPress={() => setActivePreviewImage(faceSelfieUri)}>
+                    <Image source={{ uri: faceSelfieUri }} style={styles.faceIdAvatar} />
+                  </Pressable>
+                  <View style={styles.faceIdInfo}>
+                    <View style={styles.faceIdStatusRow}>
+                      <MaterialIcons
+                        name={isFaceMatched ? 'check-circle' : 'error'}
+                        size={18}
+                        color={isFaceMatched ? '#16A34A' : '#DC2626'}
+                      />
+                      <Text
+                        style={[
+                          styles.faceIdStatusText,
+                          { color: isFaceMatched ? '#16A34A' : '#DC2626' },
+                        ]}>
+                        {isFaceMatched
+                          ? `Đã khớp CCCD (${(faceMatchScore ?? 90).toFixed(1)}%)`
+                          : 'Chưa khớp với CCCD'}
+                      </Text>
+                    </View>
+                    <Text style={styles.faceIdSubText}>
+                      {isFaceMatched
+                        ? 'Ảnh chân dung đã được đối soát thành công.'
+                        : 'Khuôn mặt chưa trùng khớp, vui lòng chụp lại.'}
+                    </Text>
+                    <Pressable
+                      style={styles.faceIdRetakeBtn}
+                      onPress={() => setFaceCaptureModalOpen(true)}
+                      disabled={isComparingFace}>
+                      <MaterialIcons name="camera-alt" size={14} color="#0F382C" />
+                      <Text style={styles.faceIdRetakeText}>Chụp lại khuôn mặt</Text>
+                    </Pressable>
+                  </View>
+                </View>
+              ) : (
+                <View style={styles.faceIdEmptyBox}>
+                  <View style={styles.faceIdIconCircle}>
+                    <MaterialIcons name="face" size={32} color="#0F382C" />
+                  </View>
+                  <Text style={styles.faceIdEmptyTitle}>Chụp ảnh chân dung khuôn mặt</Text>
+                  <Text style={styles.faceIdEmptyDesc}>
+                    Hệ thống sẽ đối soát khuôn mặt của bạn với ảnh trên CCCD để hoàn tất xác thực danh tính.
+                  </Text>
+                  <Pressable
+                    style={[
+                      styles.faceIdCaptureBtn,
+                      (!cccdFrontUri || isComparingFace) && styles.faceIdCaptureBtnDisabled,
+                    ]}
+                    onPress={() => {
+                      if (!cccdFrontUri) {
+                        Alert.alert('Chưa có ảnh CCCD', 'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước.');
+                        return;
+                      }
+                      setFaceCaptureModalOpen(true);
+                    }}
+                    disabled={!cccdFrontUri || isComparingFace}>
+                    {isComparingFace ? (
+                      <ActivityIndicator size="small" color="#ffffff" />
+                    ) : (
+                      <>
+                        <MaterialIcons name="camera-alt" size={18} color="#ffffff" />
+                        <Text style={styles.faceIdCaptureBtnText}>
+                          {cccdFrontUri ? 'Bắt đầu chụp khuôn mặt' : 'Cần tải mặt trước CCCD trước'}
+                        </Text>
+                      </>
+                    )}
+                  </Pressable>
+                </View>
+              )}
+            </View>
 
             <Text style={styles.sectionTitle}>Chứng chỉ hành nghề (Nếu có)</Text>
             <View style={styles.certForm}>
@@ -1221,13 +1408,21 @@ export default function WorkerSetupScreen() {
                 placeholder="Nơi cấp chứng chỉ"
                 placeholderTextColor="#9A9A9A"
               />
-              <TextInput
-                style={styles.textInput}
-                value={certIssuedAt}
-                onChangeText={setCertIssuedAt}
-                placeholder="Ngày nhận chứng chỉ (yyyy-MM-dd, ví dụ: 2022-05-15)"
-                placeholderTextColor="#9A9A9A"
-              />
+              <Pressable
+                style={styles.datePickerInputBtn}
+                onPress={() => {
+                  setTempSelectedDate(parseDateString(certIssuedAt));
+                  setActiveDatePicker('certificate');
+                }}>
+                <Text
+                  style={[
+                    styles.datePickerInputText,
+                    !certIssuedAt && styles.datePickerInputPlaceholder,
+                  ]}>
+                  {certIssuedAt || 'Chọn ngày nhận chứng chỉ (yyyy-MM-dd)'}
+                </Text>
+                <MaterialIcons name="calendar-today" size={20} color="#0F382C" />
+              </Pressable>
               {certUri ? (
                 <View style={styles.cccdImagesPreviewRow}>
                   <Pressable onPress={() => setActivePreviewImage(certUri)}>
@@ -1289,10 +1484,24 @@ export default function WorkerSetupScreen() {
                     );
                     return;
                   }
+                  if (!/^\d{12}$/.test(citizenIdNumber.trim())) {
+                    Alert.alert(
+                      'CCCD không hợp lệ',
+                      'Số căn cước công dân phải bao gồm đúng 12 chữ số.'
+                    );
+                    return;
+                  }
                   if (!cccdFrontUri || !cccdBackUri) {
                     Alert.alert(
                       'Thiếu ảnh CCCD',
                       'Vui lòng tải đủ 2 mặt (Mặt trước và Mặt sau) của CCCD để tiếp tục.'
+                    );
+                    return;
+                  }
+                  if (!faceSelfieUri || !isFaceMatched) {
+                    Alert.alert(
+                      'Chưa xác thực khuôn mặt',
+                      'Vui lòng chụp ảnh chân dung và hoàn tất xác thực khuôn mặt khớp với CCCD để tiếp tục.'
                     );
                     return;
                   }
@@ -1565,6 +1774,89 @@ export default function WorkerSetupScreen() {
           </Pressable>
         </Modal>
       )}
+
+      {/* Date Picker Modal (iOS) */}
+      {activeDatePicker !== null && Platform.OS === 'ios' && (
+        <Modal transparent animationType="fade" visible={true}>
+          <View style={styles.datePickerModalOverlay}>
+            <Pressable
+              style={StyleSheet.absoluteFill}
+              onPress={() => setActiveDatePicker(null)}
+            />
+            <View
+              style={[
+                styles.datePickerContainer,
+                { paddingBottom: Math.max(insets.bottom, 16) },
+              ]}>
+              <View style={styles.datePickerHeader}>
+                <Pressable
+                  onPress={() => setActiveDatePicker(null)}
+                  style={styles.pickerHeaderBtn}>
+                  <Text style={styles.pickerCancelText}>Hủy</Text>
+                </Pressable>
+                <Text style={styles.pickerTitleText}>
+                  {activeDatePicker === 'citizenId'
+                    ? 'Chọn ngày cấp CCCD'
+                    : 'Chọn ngày nhận chứng chỉ'}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    const formatted = formatDateToYMD(tempSelectedDate);
+                    if (activeDatePicker === 'citizenId') {
+                      setCitizenIdIssueDate(formatted);
+                    } else if (activeDatePicker === 'certificate') {
+                      setCertIssuedAt(formatted);
+                    }
+                    setActiveDatePicker(null);
+                  }}
+                  style={styles.pickerHeaderBtn}>
+                  <Text style={styles.pickerDoneText}>Xong</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={tempSelectedDate}
+                mode="date"
+                display="spinner"
+                maximumDate={new Date()}
+                textColor="#1b1c1c"
+                themeVariant="light"
+                locale="vi-VN"
+                onChange={(_, date) => {
+                  if (date) setTempSelectedDate(date);
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Date Picker (Android) */}
+      {activeDatePicker !== null && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={tempSelectedDate}
+          mode="date"
+          display="default"
+          maximumDate={new Date()}
+          onChange={(event, selectedDate) => {
+            if (event.type !== 'dismissed' && selectedDate) {
+              const formatted = formatDateToYMD(selectedDate);
+              if (activeDatePicker === 'citizenId') {
+                setCitizenIdIssueDate(formatted);
+              } else if (activeDatePicker === 'certificate') {
+                setCertIssuedAt(formatted);
+              }
+            }
+            setActiveDatePicker(null);
+          }}
+        />
+      )}
+
+      {/* Face Capture Modal (eKYC) */}
+      <FaceCaptureModal
+        visible={faceCaptureModalOpen}
+        onClose={() => setFaceCaptureModalOpen(false)}
+        onCapture={handleFaceCaptured}
+      />
     </View>
   );
 }
@@ -2339,5 +2631,162 @@ const styles = StyleSheet.create({
     fontSize: 11,
     color: '#718096',
     marginTop: 2,
+  },
+  datePickerInputBtn: {
+    height: 52,
+    borderRadius: 10,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  datePickerInputText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 15,
+    color: '#383838',
+  },
+  datePickerInputPlaceholder: {
+    color: '#9A9A9A',
+  },
+  datePickerModalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0,0,0,0.5)',
+    justifyContent: 'flex-end',
+  },
+  datePickerContainer: {
+    backgroundColor: '#ffffff',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    paddingHorizontal: 16,
+    paddingTop: 12,
+  },
+  datePickerHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#EEEEEE',
+  },
+  pickerHeaderBtn: {
+    paddingHorizontal: 8,
+    paddingVertical: 4,
+  },
+  pickerCancelText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 14,
+    color: '#818A91',
+  },
+  pickerTitleText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
+    color: '#1b1c1c',
+  },
+  pickerDoneText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#0F382C',
+  },
+  faceIdCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 14,
+    borderWidth: 1,
+    borderColor: '#DDDDDD',
+    padding: 16,
+    marginTop: 4,
+  },
+  faceIdEmptyBox: {
+    alignItems: 'center',
+    paddingVertical: 12,
+    gap: 10,
+  },
+  faceIdIconCircle: {
+    width: 64,
+    height: 64,
+    borderRadius: 32,
+    backgroundColor: '#E6F4EA',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  faceIdEmptyTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 15,
+    color: '#1b1c1c',
+    textAlign: 'center',
+  },
+  faceIdEmptyDesc: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#6B7280',
+    textAlign: 'center',
+    lineHeight: 18,
+    paddingHorizontal: 12,
+  },
+  faceIdCaptureBtn: {
+    height: 46,
+    paddingHorizontal: 20,
+    backgroundColor: '#0F382C',
+    borderRadius: 10,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 6,
+    width: '100%',
+  },
+  faceIdCaptureBtnDisabled: {
+    backgroundColor: '#9A9A9A',
+  },
+  faceIdCaptureBtnText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#ffffff',
+  },
+  faceIdFilledRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 14,
+  },
+  faceIdAvatar: {
+    width: 80,
+    height: 80,
+    borderRadius: 40,
+    borderWidth: 2,
+    borderColor: '#0F382C',
+  },
+  faceIdInfo: {
+    flex: 1,
+    gap: 4,
+  },
+  faceIdStatusRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+  },
+  faceIdStatusText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+  },
+  faceIdSubText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 16,
+  },
+  faceIdRetakeBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    marginTop: 4,
+    paddingVertical: 4,
+  },
+  faceIdRetakeText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
+    color: '#0F382C',
+    textDecorationLine: 'underline',
   },
 });

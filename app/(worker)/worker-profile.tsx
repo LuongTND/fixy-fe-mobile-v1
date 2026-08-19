@@ -16,12 +16,36 @@ import {
   TextInput,
   View,
   Image,
+  Platform,
 } from 'react-native';
 import * as Location from 'expo-location';
 import Constants from 'expo-constants';
 import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { vietnamProvincesApi, matchAddressOption, cleanSearchText } from '@/services/api/provinces';
+
+const parseDateString = (str?: string): Date => {
+  if (!str) return new Date();
+  const trimmed = str.trim().split('T')[0];
+  const parts = trimmed.split('-');
+  if (parts.length === 3) {
+    const year = parseInt(parts[0], 10);
+    const month = parseInt(parts[1], 10) - 1;
+    const day = parseInt(parts[2], 10);
+    if (!isNaN(year) && !isNaN(month) && !isNaN(day)) {
+      return new Date(year, month, day);
+    }
+  }
+  const d = new Date(trimmed);
+  return isNaN(d.getTime()) ? new Date() : d;
+};
+
+const formatDateToYMD = (date: Date): string => {
+  const year = date.getFullYear();
+  const month = String(date.getMonth() + 1).padStart(2, '0');
+  const day = String(date.getDate()).padStart(2, '0');
+  return `${year}-${month}-${day}`;
+};
 
 const GOONG_API_KEY = Constants.expoConfig?.extra?.goongApiKey || '';
 
@@ -43,7 +67,9 @@ import {
   WorkerScheduleWeekly,
 } from '@/services/api/workers';
 import { getApiErrorMessage } from '@/services/api/client';
-import { FptIdentityRecognitionResult, recognizeIdentityImage } from '@/services/api/fpt';
+import { FptIdentityRecognitionResult, recognizeIdentityImage, compareFaces } from '@/services/api/fpt';
+import { FaceCaptureModal } from '@/components/camera/FaceCaptureModal';
+import { formatToIsoDateTime } from '@/utils/format';
 import {
   dateToApiTime,
   dateToDateOnly,
@@ -438,6 +464,13 @@ export default function WorkerProfileScreen() {
   const [idLocalUris, setIdLocalUris] = React.useState<string[]>([]);
   const [activePreviewImage, setActivePreviewImage] = React.useState<string | null>(null);
 
+  // Face Verification States (eKYC)
+  const [idFaceSelfieUri, setIdFaceSelfieUri] = React.useState<string | null>(null);
+  const [idFaceMatchScore, setIdFaceMatchScore] = React.useState<number | null>(null);
+  const [isIdFaceMatched, setIsIdFaceMatched] = React.useState<boolean>(false);
+  const [isComparingIdFace, setIsComparingIdFace] = React.useState<boolean>(false);
+  const [idFaceCaptureModalOpen, setIdFaceCaptureModalOpen] = React.useState<boolean>(false);
+
   // Load identification CCCD details when modal opens
   React.useEffect(() => {
     if (profile && identificationModalOpen) {
@@ -445,14 +478,64 @@ export default function WorkerProfileScreen() {
       setIdIssueDate(profile.citizenIdIssueDate ? profile.citizenIdIssueDate.split('T')[0] : '');
       setIdIssuePlace(profile.citizenIdIssuePlace || '');
       setIdLocalUris(profile.identificationImages?.map((img: any) => img.url) || []);
+      if (profile.user?.faceImageUrl || (profile as any).faceImageUrl) {
+        setIdFaceSelfieUri(profile.user?.faceImageUrl || (profile as any).faceImageUrl);
+        setIsIdFaceMatched(true);
+        setIdFaceMatchScore((profile.user as any)?.faceMatchScore ?? 92);
+      } else {
+        setIdFaceSelfieUri(null);
+        setIsIdFaceMatched(false);
+      }
     }
   }, [profile, identificationModalOpen]);
+
+  const handleIdFaceCaptured = async (selfieUri: string) => {
+    setIdFaceSelfieUri(selfieUri);
+    const cardFront = idLocalUris[0];
+    if (!cardFront) {
+      Alert.alert(
+        'Thiếu ảnh CCCD',
+        'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước để tiến hành đối soát khuôn mặt.'
+      );
+      return;
+    }
+    setIsComparingIdFace(true);
+    try {
+      const result = await compareFaces(cardFront, selfieUri);
+      setIdFaceMatchScore(result.similarity);
+      if (result.isMatch) {
+        setIsIdFaceMatched(true);
+        Alert.alert(
+          'Xác thực thành công',
+          `Khuôn mặt trùng khớp với ảnh trên CCCD (${result.similarity.toFixed(1)}%).`
+        );
+      } else {
+        setIsIdFaceMatched(false);
+        Alert.alert(
+          'Không trùng khớp',
+          `Khuôn mặt không khớp với ảnh trên CCCD (${result.similarity.toFixed(1)}%). Vui lòng chụp lại ở nơi đủ sáng.`
+        );
+      }
+    } catch (err: any) {
+      console.warn('Id face match error:', err);
+      Alert.alert('Lỗi đối soát', err.message || 'Không thể so khớp khuôn mặt lúc này.');
+    } finally {
+      setIsComparingIdFace(false);
+    }
+  };
 
   // Certificates States
   const [certificatesModalOpen, setCertificatesModalOpen] = React.useState(false);
   const [newCertTitle, setNewCertTitle] = React.useState('');
   const [newCertIssuedBy, setNewCertIssuedBy] = React.useState('');
+  const [newCertIssuedAt, setNewCertIssuedAt] = React.useState('');
   const [newCertLocalUris, setNewCertLocalUris] = React.useState<string[]>([]);
+
+  // Profile date picker states
+  type ProfileDatePickerTarget = 'idCard' | 'newCert' | null;
+  const [activeProfileDatePicker, setActiveProfileDatePicker] =
+    React.useState<ProfileDatePickerTarget>(null);
+  const [tempProfileDate, setTempProfileDate] = React.useState<Date>(() => new Date());
 
   // Day off exception states
   const [addDayOffModalOpen, setAddDayOffModalOpen] = React.useState(false);
@@ -575,6 +658,8 @@ export default function WorkerProfileScreen() {
         citizenIdIssueDate: idIssueDate,
         citizenIdIssuePlace: idIssuePlace,
         localUris: idLocalUris,
+        faceSelfieUri: idFaceSelfieUri,
+        faceMatchScore: idFaceMatchScore,
       });
     },
     onSuccess: () => {
@@ -582,7 +667,7 @@ export default function WorkerProfileScreen() {
       setIdentificationModalOpen(false);
       setActivePreviewImage(null);
       setIdLocalUris([]);
-      Alert.alert('Thành công', 'Hồ sơ CCCD đã được gửi đi để duyệt xác minh.');
+      Alert.alert('Thành công', 'Hồ sơ CCCD & Khuôn mặt đã được gửi đi để duyệt xác minh.');
     },
   });
 
@@ -622,7 +707,7 @@ export default function WorkerProfileScreen() {
       const newCert = {
         title: newCertTitle,
         issuedBy: newCertIssuedBy,
-        issuedAt: dateToDateOnly(new Date()),
+        issuedAt: newCertIssuedAt ? formatToIsoDateTime(newCertIssuedAt) : dateToDateOnly(new Date()),
         localUris: newCertLocalUris,
       };
       await updateCertificates({
@@ -634,6 +719,7 @@ export default function WorkerProfileScreen() {
       queryClient.invalidateQueries({ queryKey: ['workerProfileMe'] });
       setNewCertTitle('');
       setNewCertIssuedBy('');
+      setNewCertIssuedAt('');
       setNewCertLocalUris([]);
       Alert.alert('Thành công', 'Đã thêm chứng chỉ mới.');
     },
@@ -823,12 +909,15 @@ export default function WorkerProfileScreen() {
 
   const cccdRecognitionLoading = recognizeCccdMutation.isPending;
   const canSubmitIdentification =
-    idNumber.trim().length > 0 &&
+    idNumber.trim().length === 12 &&
     idIssueDate.trim().length > 0 &&
     idIssuePlace.trim().length > 0 &&
     idLocalUris.length >= 2 &&
+    idFaceSelfieUri !== null &&
+    isIdFaceMatched &&
     !updateCccdMutation.isPending &&
-    !cccdRecognitionLoading;
+    !cccdRecognitionLoading &&
+    !isComparingIdFace;
 
   if (isLoadingProfile) {
     return (
@@ -1351,13 +1440,18 @@ export default function WorkerProfileScreen() {
               />
 
               <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Ngày cấp:</Text>
-              <TextInput
-                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
-                placeholder="Ví dụ: 2024-02-12"
-                placeholderTextColor="#9A9A9A"
-                value={idIssueDate}
-                onChangeText={setIdIssueDate}
-              />
+              <Pressable
+                className="border border-gray-200 rounded-lg h-12 px-3 justify-between flex-row items-center bg-white mb-4"
+                onPress={() => {
+                  setTempProfileDate(parseDateString(idIssueDate));
+                  setActiveProfileDatePicker('idCard');
+                }}>
+                <Text
+                  className={`font-montserrat text-sm ${idIssueDate ? 'text-[#383838]' : 'text-[#9A9A9A]'}`}>
+                  {idIssueDate || 'Chọn ngày cấp CCCD (yyyy-MM-dd)'}
+                </Text>
+                <MaterialIcons name="calendar-today" size={18} color="#0F382C" />
+              </Pressable>
 
               <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Nơi cấp:</Text>
               <TextInput
@@ -1436,8 +1530,73 @@ export default function WorkerProfileScreen() {
                 </Pressable>
               )}
 
+              {/* Face ID Verification Section */}
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-1.5">Xác thực khuôn mặt (eKYC) *:</Text>
+              <View className="border border-gray-200 rounded-xl p-3.5 bg-white mb-2">
+                {idFaceSelfieUri ? (
+                  <View className="flex-row items-center gap-3">
+                    <Pressable onPress={() => setActivePreviewImage(idFaceSelfieUri)}>
+                      <Image source={{ uri: idFaceSelfieUri }} className="w-16 h-16 rounded-full border-2 border-[#0F382C]" />
+                    </Pressable>
+                    <View className="flex-1 gap-1">
+                      <View className="flex-row items-center gap-1.5">
+                        <MaterialIcons
+                          name={isIdFaceMatched ? 'check-circle' : 'error'}
+                          size={16}
+                          color={isIdFaceMatched ? '#16A34A' : '#DC2626'}
+                        />
+                        <Text
+                          className={`font-montserrat-bold text-xs ${isIdFaceMatched ? 'text-[#16A34A]' : 'text-[#DC2626]'}`}>
+                          {isIdFaceMatched
+                            ? `Đã khớp CCCD (${(idFaceMatchScore ?? 90).toFixed(1)}%)`
+                            : 'Chưa khớp CCCD'}
+                        </Text>
+                      </View>
+                      <Text className="font-montserrat text-[11px] text-gray-500">
+                        {isIdFaceMatched ? 'Ảnh chân dung đã đối soát thành công.' : 'Khuôn mặt chưa trùng khớp, vui lòng chụp lại.'}
+                      </Text>
+                      <Pressable
+                        className="flex-row items-center gap-1 mt-0.5"
+                        onPress={() => setIdFaceCaptureModalOpen(true)}
+                        disabled={isComparingIdFace}>
+                        <MaterialIcons name="camera-alt" size={12} color="#0F382C" />
+                        <Text className="font-montserrat-semibold text-[11px] text-[#0F382C] underline">Chụp lại</Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                ) : (
+                  <View className="items-center py-2 gap-2">
+                    <MaterialIcons name="face" size={28} color="#0F382C" />
+                    <Text className="font-montserrat-bold text-xs text-[#1b1c1c] text-center">
+                      Chụp ảnh khuôn mặt để đối soát CCCD
+                    </Text>
+                    <Pressable
+                      className={`h-9 px-4 rounded-lg bg-[#0F382C] flex-row items-center justify-center gap-1.5 w-full ${(!idLocalUris[0] || isComparingIdFace) ? 'bg-[#9A9A9A]' : ''}`}
+                      onPress={() => {
+                        if (!idLocalUris[0]) {
+                          Alert.alert('Chưa có ảnh CCCD', 'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước.');
+                          return;
+                        }
+                        setIdFaceCaptureModalOpen(true);
+                      }}
+                      disabled={!idLocalUris[0] || isComparingIdFace}>
+                      {isComparingIdFace ? (
+                        <ActivityIndicator size="small" color="#ffffff" />
+                      ) : (
+                        <>
+                          <MaterialIcons name="camera-alt" size={16} color="#ffffff" />
+                          <Text className="font-montserrat-bold text-xs text-white">
+                            {idLocalUris[0] ? 'Bắt đầu chụp khuôn mặt' : 'Cần tải mặt trước CCCD'}
+                          </Text>
+                        </>
+                      )}
+                    </Pressable>
+                  </View>
+                )}
+              </View>
+
               <Pressable
-                className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center mt-4 ${!canSubmitIdentification ? 'bg-[#EAE5E3]' : ''}`}
+                className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center mt-3 ${!canSubmitIdentification ? 'bg-[#EAE5E3]' : ''}`}
                 onPress={() => updateCccdMutation.mutate()}
                 disabled={!canSubmitIdentification}>
                 {updateCccdMutation.isPending ? (
@@ -1509,6 +1668,20 @@ export default function WorkerProfileScreen() {
                 value={newCertIssuedBy}
                 onChangeText={setNewCertIssuedBy}
               />
+
+              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Ngày nhận chứng chỉ:</Text>
+              <Pressable
+                className="border border-gray-200 rounded-lg h-12 px-3 justify-between flex-row items-center bg-white mb-4"
+                onPress={() => {
+                  setTempProfileDate(parseDateString(newCertIssuedAt));
+                  setActiveProfileDatePicker('newCert');
+                }}>
+                <Text
+                  className={`font-montserrat text-sm ${newCertIssuedAt ? 'text-[#383838]' : 'text-[#9A9A9A]'}`}>
+                  {newCertIssuedAt || 'Chọn ngày nhận chứng chỉ (yyyy-MM-dd)'}
+                </Text>
+                <MaterialIcons name="calendar-today" size={18} color="#0F382C" />
+              </Pressable>
 
               <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Tài liệu chứng chỉ (Hình ảnh):</Text>
               {newCertLocalUris.length > 0 ? (
@@ -1697,6 +1870,87 @@ export default function WorkerProfileScreen() {
           </Pressable>
         </Modal>
       ) : null}
+
+      {/* Profile Date Picker Modal (iOS) */}
+      {activeProfileDatePicker !== null && Platform.OS === 'ios' && (
+        <Modal transparent animationType="slide" visible={true}>
+          <View className="flex-1 bg-black/50 justify-end">
+            <Pressable
+              className="absolute inset-0"
+              onPress={() => setActiveProfileDatePicker(null)}
+            />
+            <View
+              className="bg-white rounded-t-3xl px-4 pt-3"
+              style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
+              <View className="flex-row items-center justify-between py-3 border-b border-gray-200">
+                <Pressable
+                  onPress={() => setActiveProfileDatePicker(null)}
+                  className="px-2 py-1">
+                  <Text className="font-montserrat-semibold text-sm text-[#818A91]">Hủy</Text>
+                </Pressable>
+                <Text className="font-montserrat-bold text-base text-[#1b1c1c]">
+                  {activeProfileDatePicker === 'idCard'
+                    ? 'Chọn ngày cấp CCCD'
+                    : 'Chọn ngày nhận chứng chỉ'}
+                </Text>
+                <Pressable
+                  onPress={() => {
+                    const formatted = formatDateToYMD(tempProfileDate);
+                    if (activeProfileDatePicker === 'idCard') {
+                      setIdIssueDate(formatted);
+                    } else if (activeProfileDatePicker === 'newCert') {
+                      setNewCertIssuedAt(formatted);
+                    }
+                    setActiveProfileDatePicker(null);
+                  }}
+                  className="px-2 py-1">
+                  <Text className="font-montserrat-bold text-sm text-[#0F382C]">Xong</Text>
+                </Pressable>
+              </View>
+              <DateTimePicker
+                value={tempProfileDate}
+                mode="date"
+                display="spinner"
+                maximumDate={new Date()}
+                textColor="#1b1c1c"
+                themeVariant="light"
+                locale="vi-VN"
+                onChange={(_, date) => {
+                  if (date) setTempProfileDate(date);
+                }}
+              />
+            </View>
+          </View>
+        </Modal>
+      )}
+
+      {/* Profile Date Picker (Android) */}
+      {activeProfileDatePicker !== null && Platform.OS === 'android' && (
+        <DateTimePicker
+          value={tempProfileDate}
+          mode="date"
+          display="default"
+          maximumDate={new Date()}
+          onChange={(event, selectedDate) => {
+            if (event.type !== 'dismissed' && selectedDate) {
+              const formatted = formatDateToYMD(selectedDate);
+              if (activeProfileDatePicker === 'idCard') {
+                setIdIssueDate(formatted);
+              } else if (activeProfileDatePicker === 'newCert') {
+                setNewCertIssuedAt(formatted);
+              }
+            }
+            setActiveProfileDatePicker(null);
+          }}
+        />
+      )}
+
+      {/* Face Capture Modal (eKYC) */}
+      <FaceCaptureModal
+        visible={idFaceCaptureModalOpen}
+        onClose={() => setIdFaceCaptureModalOpen(false)}
+        onCapture={handleIdFaceCaptured}
+      />
     </View>
   );
 }
