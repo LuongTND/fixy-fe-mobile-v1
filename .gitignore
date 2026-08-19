@@ -14,6 +14,9 @@ web-build/
 # expo router
 expo-env.d.ts
 
+obj/
+bin/
+
 skills/
 
 

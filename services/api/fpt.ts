@@ -115,3 +115,66 @@ export async function recognizeIdentityImage(
 
   return normalizeRecognition(response.data);
 }
+
+export type FptFaceMatchResult = {
+  isMatch: boolean;
+  similarity: number;
+  isBothFaceFound: boolean;
+  message?: string;
+};
+
+export async function compareFaces(
+  cardFrontUri: string,
+  selfieUri: string
+): Promise<FptFaceMatchResult> {
+  const formData = new FormData();
+  const file1 = await prepareUploadFile(cardFrontUri, `card_${Date.now()}.jpg`, { compress: false });
+  const file2 = await prepareUploadFile(selfieUri, `selfie_${Date.now()}.jpg`, { compress: false });
+
+  if (file1) {
+    formData.append('file[]', file1);
+  }
+  if (file2) {
+    formData.append('file[]', file2);
+  }
+
+  const fptApiKey = getFptAiApiKey();
+
+  try {
+    const response = fptApiKey
+      ? await axios.post('https://api.fpt.ai/dmp/checkface/v1', formData, {
+          headers: {
+            'Content-Type': 'multipart/form-data',
+            'api-key': fptApiKey,
+          },
+          transformRequest: (data) => data,
+        })
+      : await axios.post(`${getFptProxyBaseUrl()}/api/fpt/face-match`, formData, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+          transformRequest: (data) => data,
+        });
+
+    const resData = response.data?.data ?? response.data;
+    const similarity = typeof resData?.similarity === 'number'
+      ? resData.similarity
+      : parseFloat(resData?.similarity || '0');
+
+    const isBothFaceFound = resData?.is_both_face_found ?? resData?.isBothFaceFound ?? true;
+    const isMatch = (resData?.is_match ?? resData?.isMatch ?? (similarity >= 80)) && isBothFaceFound;
+
+    return {
+      isMatch,
+      similarity: isNaN(similarity) ? 0 : similarity,
+      isBothFaceFound,
+      message: response.data?.message || (isMatch ? 'Khuôn mặt trùng khớp' : 'Khuôn mặt không trùng khớp'),
+    };
+  } catch (err: any) {
+    console.warn('[FPT AI] Face Match error:', err?.response?.data || err?.message);
+    throw new Error(
+      err?.response?.data?.message ||
+        err?.response?.data?.errorMessage ||
+        'Không thể so khớp khuôn mặt lúc này. Vui lòng thử lại.'
+    );
+  }
+}
+

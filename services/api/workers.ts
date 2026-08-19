@@ -66,6 +66,19 @@ export type WorkerProfile = {
   citizenIdNumber?: string;
   citizenIdIssueDate?: string;
   citizenIdIssuePlace?: string;
+  faceImageUrl?: string;
+  isFaceMatched?: boolean;
+  faceMatchScore?: number;
+  faceVerifiedAt?: string;
+  user?: {
+    id?: string;
+    fullName?: string;
+    phone?: string;
+    faceImageUrl?: string;
+    isFaceMatched?: boolean;
+    faceMatchScore?: number;
+    faceVerifiedAt?: string;
+  };
   identificationImages?: {
     id: string;
     url: string;
@@ -213,6 +226,21 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
     citizenIdNumber: w.citizenIdNumber || '',
     citizenIdIssueDate: w.citizenIdIssueDate || '',
     citizenIdIssuePlace: w.citizenIdIssuePlace || '',
+    faceImageUrl: w.faceImageUrl || w.user?.faceImageUrl || undefined,
+    isFaceMatched: w.isFaceMatched ?? w.user?.isFaceMatched ?? false,
+    faceMatchScore: w.faceMatchScore ?? w.user?.faceMatchScore ?? undefined,
+    faceVerifiedAt: w.faceVerifiedAt || w.user?.faceVerifiedAt || undefined,
+    user: w.user
+      ? {
+          id: w.user.id,
+          fullName: w.user.fullName,
+          phone: w.user.phone,
+          faceImageUrl: w.user.faceImageUrl,
+          isFaceMatched: w.user.isFaceMatched,
+          faceMatchScore: w.user.faceMatchScore,
+          faceVerifiedAt: w.user.faceVerifiedAt,
+        }
+      : undefined,
     identificationImages:
       (w.identificationImages || w.identificationMedia || []).map(
         (img: any, index: number) => ({
@@ -691,11 +719,26 @@ export async function updateIdentificationImages(payload: {
   citizenIdIssueDate: string;
   citizenIdIssuePlace: string;
   localUris: string[];
+  faceSelfieUri?: string | null;
+  faceMatchScore?: number | null;
 }): Promise<any> {
   const formData = new FormData();
   formData.append('CitizenIdNumber', payload.citizenIdNumber);
   formData.append('CitizenIdIssueDate', formatToIsoDateTime(payload.citizenIdIssueDate));
   formData.append('CitizenIdIssuePlace', payload.citizenIdIssuePlace);
+  if (payload.faceMatchScore !== undefined && payload.faceMatchScore !== null) {
+    formData.append('FaceMatchScore', String(payload.faceMatchScore));
+  }
+  if (payload.faceSelfieUri) {
+    const selfieObj = await prepareUploadFile(payload.faceSelfieUri, `selfie_${Date.now()}.jpg`, {
+      compress: true,
+      resizeWidth: 1024,
+      quality: 0.8,
+    });
+    if (selfieObj) {
+      formData.append('FaceSelfie', selfieObj);
+    }
+  }
   const fileObjs = await Promise.all(
     payload.localUris.map((uri, index) =>
       prepareUploadFile(uri, `id_${Date.now()}_${index}.jpg`, { compress: true, resizeWidth: 1600, quality: 0.7 })

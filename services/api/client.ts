@@ -207,8 +207,31 @@ function getAxiosMessage(error: AxiosError) {
       if (msgLower.includes('invalid credentials') || msgLower.includes('incorrect password')) {
         return 'Tên đăng nhập hoặc mật khẩu không chính xác.';
       }
-      if (msgLower.includes('worker profile not found')) {
+      if (msgLower.includes('worker profile not found') || msgLower.includes('worker register request not found')) {
         return 'Không tìm thấy hồ sơ kỹ thuật viên.';
+      }
+      if (msgLower.includes('already registered as worker') || msgLower.includes('already registered')) {
+        return 'Tài khoản này đã đăng ký hồ sơ kỹ thuật viên trước đó.';
+      }
+      if (msgLower.includes('citizen id') || msgLower.includes('cccd') || msgLower.includes('identification')) {
+        if (msgLower.includes('already') || msgLower.includes('duplicate') || msgLower.includes('exist')) {
+          return 'Số CCCD này đã được đăng ký bởi một tài khoản khác.';
+        }
+        if (msgLower.includes('front and back') || msgLower.includes('2') || msgLower.includes('two')) {
+          return 'Vui lòng tải đủ 2 mặt (Mặt trước và Mặt sau) của CCCD.';
+        }
+      }
+      if (msgLower.includes('maximum of 10 services') || msgLower.includes('minimum of 1 service')) {
+        return 'Kĩ thuật viên chỉ được chọn từ 1 đến tối đa 10 dịch vụ.';
+      }
+      if (msgLower.includes('one primary service')) {
+        return 'Vui lòng chọn đúng 1 dịch vụ chính.';
+      }
+      if (msgLower.includes('provice address') || msgLower.includes('provide address')) {
+        return 'Vui lòng cung cấp đầy đủ thông tin địa chỉ hoạt động.';
+      }
+      if (msgLower.includes('maximum of 10 image')) {
+        return 'Chỉ được tải lên tối đa 10 hình ảnh hoạt động (Portfolio).';
       }
       if (msgLower.includes('outside working hours') || msgLower.includes('outside custom working hours')) {
         return 'Kỹ thuật viên đang ngoài khung giờ làm việc.';
