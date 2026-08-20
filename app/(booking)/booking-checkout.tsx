@@ -38,6 +38,7 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import PayOSWebView from '@/components/PayOSWebView';
 import VNPayWebView from '@/components/VNPayWebView';
+import EContractModal from '@/components/EContractModal';
 import { verifyVnpayCallback } from '@/services/api/payment';
 
 export default function BookingCheckoutScreen() {
@@ -73,6 +74,12 @@ export default function BookingCheckoutScreen() {
   const [showVnpayWebView, setShowVnpayWebView] = React.useState(false);
   const [vnpayUrl, setVnpayUrl] = React.useState('');
   const [confirmedBookingId, setConfirmedBookingId] = React.useState<string | null>(null);
+  const [acceptedTerms, setAcceptedTerms] = React.useState(false);
+  const [showContractModal, setShowContractModal] = React.useState(false);
+  // True when the contract was opened by pressing the CTA, so accepting resumes the booking
+  const pendingBookingRef = React.useRef(false);
+  // Measured so the scroll content always clears the fixed bottom bar, whatever its height
+  const [bottomBarHeight, setBottomBarHeight] = React.useState(110);
 
   const [createdDraftId, setCreatedDraftId] = React.useState<string | null>(null);
   const activeDraftId = paramDraftId || createdDraftId;
@@ -217,7 +224,7 @@ export default function BookingCheckoutScreen() {
         throw new Error('Không thể tạo đơn nháp.');
       }
 
-      const draftResult = await confirmDraft(targetDraftId);
+      const draftResult = await confirmDraft(targetDraftId, { acceptedTerms: true });
       const bookingId = draftResult.bookingId || (draftResult as any).id;
 
       if (!bookingId) {
@@ -303,7 +310,33 @@ export default function BookingCheckoutScreen() {
       ]);
       return;
     }
+
+    if (!acceptedTerms) {
+      pendingBookingRef.current = true;
+      setShowContractModal(true);
+      return;
+    }
+
     confirmMutation.mutate();
+  };
+
+  const openContract = () => {
+    pendingBookingRef.current = false;
+    setShowContractModal(true);
+  };
+
+  const handleCloseContract = () => {
+    pendingBookingRef.current = false;
+    setShowContractModal(false);
+  };
+
+  const handleAcceptContract = () => {
+    setAcceptedTerms(true);
+    setShowContractModal(false);
+    if (pendingBookingRef.current) {
+      pendingBookingRef.current = false;
+      confirmMutation.mutate();
+    }
   };
 
   const displayAddressText = selectedAddress
@@ -395,7 +428,9 @@ export default function BookingCheckoutScreen() {
         <Text style={styles.headerTitle}>Thông tin đặt lịch</Text>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView
+        contentContainerStyle={[styles.scrollContent, { paddingBottom: bottomBarHeight + 16 }]}
+        showsVerticalScrollIndicator={false}>
         {/* Block 1: My Address Card */}
         <Pressable
           style={styles.cardContainer}
@@ -618,7 +653,25 @@ export default function BookingCheckoutScreen() {
       </ScrollView>
 
       {/* Fixed Bottom CTA Button */}
-      <View style={[styles.fixedBottomBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 14 }]}>
+      <View
+        style={[styles.fixedBottomBar, { paddingBottom: insets.bottom > 0 ? insets.bottom : 14 }]}
+        onLayout={(event) => setBottomBarHeight(event.nativeEvent.layout.height)}>
+        <Pressable
+          style={styles.termsAcceptRow}
+          onPress={() => (acceptedTerms ? setAcceptedTerms(false) : openContract())}>
+          <MaterialIcons
+            name={acceptedTerms ? 'check-box' : 'check-box-outline-blank'}
+            size={22}
+            color={acceptedTerms ? '#0F382C' : '#9CA3AF'}
+          />
+          <Text style={styles.termsAcceptText}>
+            Tôi đã đọc và đồng ý với{' '}
+            <Text style={styles.contractLinkText} onPress={openContract}>
+              Hợp đồng dịch vụ điện tử
+            </Text>
+          </Text>
+        </Pressable>
+
         <Pressable
           style={[styles.confirmBookingBtn, confirmLoading && styles.confirmBookingBtnDisabled]}
           onPress={handleConfirm}
@@ -783,6 +836,15 @@ export default function BookingCheckoutScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Electronic Service Contract Modal */}
+      <EContractModal
+        visible={showContractModal}
+        onClose={handleCloseContract}
+        onAccept={handleAcceptContract}
+        customerName={selectedAddress?.label}
+        categoryName={categoryName}
+      />
     </View>
   );
 }
@@ -815,7 +877,6 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 110,
     gap: 14,
   },
   cardContainer: {
@@ -1099,6 +1160,25 @@ const styles = StyleSheet.create({
     borderColor: '#EFECE6',
     paddingHorizontal: 16,
     paddingTop: 12,
+  },
+  termsAcceptRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    paddingBottom: 10,
+  },
+  termsAcceptText: {
+    flex: 1,
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#6B7280',
+    lineHeight: 18,
+  },
+  contractLinkText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 12,
+    color: '#0F382C',
+    textDecorationLine: 'underline',
   },
   confirmBookingBtn: {
     backgroundColor: '#0F382C',

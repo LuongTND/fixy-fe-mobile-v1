@@ -347,9 +347,12 @@ export async function deleteDraft(draftId: string): Promise<void> {
 }
 
 export async function confirmDraft(
-  draftId: string
+  draftId: string,
+  payload?: { acceptedTerms?: boolean }
 ): Promise<{ bookingId: string; booking?: Booking }> {
-  const response = await apiClient.post(`${BOOKING_PATH}/drafts/${draftId}/confirm`);
+  const response = await apiClient.post(`${BOOKING_PATH}/drafts/${draftId}/confirm`, {
+    acceptedTerms: payload?.acceptedTerms ?? true,
+  });
   const data = unwrapData(response.data);
   const bookingId = data?.bookingId ?? data?.id ?? response.data?.bookingId ?? response.data?.id;
   const booking =
