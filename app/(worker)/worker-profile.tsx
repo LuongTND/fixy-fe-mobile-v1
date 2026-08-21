@@ -673,7 +673,15 @@ export default function WorkerProfileScreen() {
 
   const recognizeCccdMutation = useMutation({
     mutationFn: async (localUris: string[]) => {
-      const results = await Promise.all(localUris.map((uri) => recognizeIdentityImage(uri)));
+      const results = [];
+      for (const uri of localUris) {
+        try {
+          const res = await recognizeIdentityImage(uri);
+          results.push(res);
+        } catch (e: any) {
+          console.warn('CCCD recognition partial error:', e?.message);
+        }
+      }
       return mergeIdentityRecognitionResults(results);
     },
     onSuccess: (result) => {
@@ -1951,6 +1959,23 @@ export default function WorkerProfileScreen() {
         onClose={() => setIdFaceCaptureModalOpen(false)}
         onCapture={handleIdFaceCaptured}
       />
+
+      {/* Fullscreen Comparing Face Loading Overlay */}
+      {isComparingIdFace && (
+        <Modal visible transparent animationType="fade">
+          <View className="flex-1 bg-black/75 justify-center items-center px-7">
+            <View className="w-full max-w-xs bg-slate-800 rounded-3xl p-6 items-center gap-3 border border-white/10 shadow-2xl">
+              <ActivityIndicator size="large" color="#4ADE80" />
+              <Text className="font-montserrat-bold text-base text-white text-center">
+                Đang đối soát khuôn mặt...
+              </Text>
+              <Text className="font-montserrat text-xs text-slate-400 text-center leading-relaxed">
+                Hệ thống đang so khớp ảnh chân dung với CCCD. Vui lòng chờ trong giây lát.
+              </Text>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }

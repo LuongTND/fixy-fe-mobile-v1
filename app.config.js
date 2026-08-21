@@ -39,6 +39,7 @@ module.exports = ({ config }) => {
         process.env.NEXT_PUBLIC_APP_URL ||
         envLocal.NEXT_PUBLIC_APP_URL,
       fptAiApiKey: process.env.FPT_AI_API_KEY || envLocal.FPT_AI_API_KEY,
+      geminiApiKey: process.env.GEMINI_API_KEY || envLocal.GEMINI_API_KEY,
       chatHubUrl: process.env.CHAT_HUB_URL || envLocal.CHAT_HUB_URL,
       notificationHubUrl: process.env.NOTIFICATION_HUB_URL || envLocal.NOTIFICATION_HUB_URL,
       goongApiKey: process.env.GOONG_API_KEY || envLocal.GOONG_API_KEY,
