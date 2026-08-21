@@ -37,6 +37,8 @@ import {
   updateWorkerProfile,
   updateIdentificationImages,
   updateCertificates,
+  uploadPortfolioImages,
+  deletePortfolioImage,
 } from '@/services/api/workers';
 import { updateUserProfile } from '@/services/api/user';
 import { useAuthStore } from '@/store/store';
@@ -783,6 +785,11 @@ export default function WorkerSetupScreen() {
       workerPayload: any;
       cccdPayload?: any;
       certificatesPayload?: any;
+      portfolioPayload?: {
+        workerProfileId: string;
+        newUris: string[];
+        deletedImageIds: string[];
+      };
     }) => {
       if (payload.userPayload) {
         await updateUserProfile(payload.userPayload);
@@ -793,6 +800,17 @@ export default function WorkerSetupScreen() {
       }
       if (payload.certificatesPayload) {
         await updateCertificates(payload.certificatesPayload);
+      }
+      if (payload.portfolioPayload) {
+        const { workerProfileId, newUris, deletedImageIds } = payload.portfolioPayload;
+        if (deletedImageIds && deletedImageIds.length > 0) {
+          await Promise.all(
+            deletedImageIds.map((mediaId) => deletePortfolioImage(workerProfileId, mediaId))
+          );
+        }
+        if (newUris && newUris.length > 0) {
+          await uploadPortfolioImages(workerProfileId, newUris);
+        }
       }
     },
     onSuccess: () => {
@@ -886,11 +904,33 @@ export default function WorkerSetupScreen() {
           })),
         };
 
+        const existingPortfolioImages = profile?.portfolioImages || [];
+        const deletedImageIds = existingPortfolioImages
+          .filter((img: any) => !portfolioUris.includes(img.url))
+          .map((img: any) => img.id)
+          .filter((id: string) => id && !id.startsWith('portfolio-'));
+
+        const newPortfolioUris = portfolioUris.filter(
+          (uri) =>
+            uri.startsWith('file:') ||
+            uri.startsWith('content:') ||
+            uri.startsWith('ph:') ||
+            uri.startsWith('blob:') ||
+            !uri.startsWith('http')
+        );
+
+        const portfolioPayload = {
+          workerProfileId: profile?.workerProfileId || profile?.id || '',
+          newUris: newPortfolioUris,
+          deletedImageIds,
+        };
+
         updateMutation.mutate({
           userPayload,
           workerPayload,
           cccdPayload,
           certificatesPayload,
+          portfolioPayload,
         });
       } catch (err: any) {
         Alert.alert('Lỗi', err.message || 'Không thể cập nhật hồ sơ.');
@@ -1857,6 +1897,21 @@ export default function WorkerSetupScreen() {
         onClose={() => setFaceCaptureModalOpen(false)}
         onCapture={handleFaceCaptured}
       />
+
+      {/* Fullscreen Comparing Face Loading Overlay */}
+      {isComparingFace && (
+        <Modal visible transparent animationType="fade">
+          <View style={styles.comparingOverlay}>
+            <View style={styles.comparingCard}>
+              <ActivityIndicator size="large" color="#4ADE80" />
+              <Text style={styles.comparingTitle}>Đang đối soát khuôn mặt...</Text>
+              <Text style={styles.comparingSub}>
+                Hệ thống đang so khớp ảnh chân dung với CCCD. Vui lòng chờ trong giây lát.
+              </Text>
+            </View>
+          </View>
+        </Modal>
+      )}
     </View>
   );
 }
@@ -2788,5 +2843,40 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#0F382C',
     textDecorationLine: 'underline',
+  },
+  comparingOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    justifyContent: 'center',
+    alignItems: 'center',
+    paddingHorizontal: 28,
+  },
+  comparingCard: {
+    width: '100%',
+    maxWidth: 320,
+    backgroundColor: '#1E293B',
+    borderRadius: 20,
+    padding: 24,
+    alignItems: 'center',
+    gap: 12,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.1)',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 10 },
+    shadowOpacity: 0.5,
+    shadowRadius: 20,
+  },
+  comparingTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
+    color: '#ffffff',
+    textAlign: 'center',
+  },
+  comparingSub: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 13,
+    color: '#94A3B8',
+    textAlign: 'center',
+    lineHeight: 18,
   },
 });

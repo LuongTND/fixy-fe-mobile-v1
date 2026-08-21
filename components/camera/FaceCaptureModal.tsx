@@ -1,9 +1,11 @@
-import { MaterialIcons } from '@expo/vector-icons';
+import { MaterialIcons, Ionicons } from '@expo/vector-icons';
 import { Camera, CameraView } from 'expo-camera';
 import * as React from 'react';
 import {
   ActivityIndicator,
+  Animated,
   Dimensions,
+  Easing,
   Image,
   Modal,
   Platform,
@@ -15,8 +17,10 @@ import {
 } from 'react-native';
 
 const { width: SCREEN_WIDTH, height: SCREEN_HEIGHT } = Dimensions.get('window');
-const OVAL_WIDTH = Math.min(SCREEN_WIDTH * 0.72, 280);
-const OVAL_HEIGHT = OVAL_WIDTH * 1.35;
+
+// Kích thước khung Oval tối ưu theo nhân trắc học tỷ lệ mặt người (1:1.32)
+const OVAL_WIDTH = Math.min(SCREEN_WIDTH * 0.78, 300);
+const OVAL_HEIGHT = OVAL_WIDTH * 1.32;
 
 interface FaceCaptureModalProps {
   visible: boolean;
@@ -30,6 +34,18 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
   const [capturedUri, setCapturedUri] = React.useState<string | null>(null);
   const [isCapturing, setIsCapturing] = React.useState(false);
   const cameraRef = React.useRef<CameraView | null>(null);
+
+  // Animations: Laser Scan & Pulse Glow
+  const scanAnim = React.useRef(new Animated.Value(0)).current;
+  const pulseAnim = React.useRef(new Animated.Value(1)).current;
+
+  // Tip index rotator
+  const [tipIndex, setTipIndex] = React.useState(0);
+  const tips = [
+    { icon: 'face', title: 'Căn chỉnh khuôn mặt vào giữa khung tròn', sub: 'Giữ điện thoại ngang tầm mắt, thẳng mặt' },
+    { icon: 'straighten', title: 'Giữ cự ly vừa vặn', sub: 'Không đưa máy quá xa hoặc dí sát mặt' },
+    { icon: 'wb-sunny', title: 'Đảm bảo đủ ánh sáng', sub: 'Tránh ngược sáng, không đeo kính râm hoặc khẩu trang' },
+  ];
 
   const requestPermission = React.useCallback(async () => {
     try {
@@ -58,6 +74,55 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
           requestPermission();
         }
       })();
+
+      // Start Laser Scan Animation
+      const scanLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(scanAnim, {
+            toValue: 1,
+            duration: 2200,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+          Animated.timing(scanAnim, {
+            toValue: 0,
+            duration: 2200,
+            easing: Easing.inOut(Easing.quad),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      scanLoop.start();
+
+      // Start Pulse Glow Animation
+      const pulseLoop = Animated.loop(
+        Animated.sequence([
+          Animated.timing(pulseAnim, {
+            toValue: 1.03,
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+          Animated.timing(pulseAnim, {
+            toValue: 0.98,
+            duration: 1200,
+            easing: Easing.inOut(Easing.ease),
+            useNativeDriver: true,
+          }),
+        ])
+      );
+      pulseLoop.start();
+
+      // Rotate tips every 3.5s
+      const tipTimer = setInterval(() => {
+        setTipIndex((prev) => (prev + 1) % tips.length);
+      }, 3500);
+
+      return () => {
+        scanLoop.stop();
+        pulseLoop.stop();
+        clearInterval(tipTimer);
+      };
     }
   }, [visible, requestPermission]);
 
@@ -66,7 +131,7 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
     try {
       setIsCapturing(true);
       const photo = await cameraRef.current.takePictureAsync({
-        quality: 0.85,
+        quality: 0.9,
         skipProcessing: Platform.OS === 'android',
       });
       if (photo?.uri) {
@@ -92,10 +157,14 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
 
   if (!visible) return null;
 
+  const laserTranslateY = scanAnim.interpolate({
+    inputRange: [0, 1],
+    outputRange: [10, OVAL_HEIGHT - 20],
+  });
+
   return (
     <Modal visible={visible} animationType="slide" transparent={false} onRequestClose={onClose}>
       <SafeAreaView style={styles.container}>
-        {/* Permission check */}
         {!hasPermission ? (
           <View style={styles.permissionContainer}>
             <View style={styles.permissionIconCircle}>
@@ -114,19 +183,25 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
           </View>
         ) : (
           <View style={styles.cameraWrapper}>
-            {/* If captured, show Preview */}
             {capturedUri ? (
+              // PREVIEW SCREEN
               <View style={styles.previewContainer}>
                 <Image source={{ uri: capturedUri }} style={styles.previewImage} resizeMode="cover" />
 
                 {/* Oval Guide Overlay on Preview */}
                 <View style={styles.overlayContainer} pointerEvents="none">
-                  <View style={styles.ovalMask} />
+                  <View style={styles.maskTop} />
+                  <View style={styles.maskMiddleRow}>
+                    <View style={styles.maskSide} />
+                    <View style={styles.ovalMaskPreview} />
+                    <View style={styles.maskSide} />
+                  </View>
+                  <View style={styles.maskBottom} />
                 </View>
 
                 {/* Preview Header */}
                 <View style={styles.topBar}>
-                  <Text style={styles.topBarTitle}>Kiểm tra ảnh chụp</Text>
+                  <Text style={styles.topBarTitle}>Kiểm tra ảnh chân dung</Text>
                   <Pressable style={styles.closeBtn} onPress={onClose}>
                     <MaterialIcons name="close" size={24} color="#ffffff" />
                   </Pressable>
@@ -134,9 +209,12 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
 
                 {/* Preview Bottom Action Buttons */}
                 <View style={styles.previewBottomBar}>
-                  <Text style={styles.previewHint}>
-                    Đảm bảo khuôn mặt rõ nét, không bị lóa sáng hay rung mờ trước khi xác nhận.
-                  </Text>
+                  <View style={styles.previewTipBox}>
+                    <Ionicons name="checkmark-circle-outline" size={18} color="#4ADE80" />
+                    <Text style={styles.previewHint}>
+                      Đảm bảo khuôn mặt rõ nét, đủ ánh sáng và không bị che khuất.
+                    </Text>
+                  </View>
                   <View style={styles.previewBtnRow}>
                     <Pressable style={styles.retakeBtn} onPress={handleRetake}>
                       <MaterialIcons name="replay" size={20} color="#383838" />
@@ -151,7 +229,7 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
                 </View>
               </View>
             ) : (
-              // Live Camera View
+              // LIVE CAMERA SCREEN
               <View style={styles.cameraInner}>
                 <CameraView
                   ref={cameraRef}
@@ -161,23 +239,45 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
                   enableTorch={false}
                 />
 
-                {/* Dark Overlay with Oval Cutout */}
+                {/* Dark Mask with Oval Cutout */}
                 <View style={styles.overlayContainer} pointerEvents="none">
-                  {/* Top dark area */}
                   <View style={styles.maskTop} />
 
-                  {/* Middle row with Oval */}
                   <View style={styles.maskMiddleRow}>
                     <View style={styles.maskSide} />
-                    <View style={styles.ovalFrame}>
-                      {/* Corner markers inside oval */}
-                      <View style={styles.ovalCornerTop} />
-                      <View style={styles.ovalCornerBottom} />
-                    </View>
+
+                    {/* Animated Oval Target */}
+                    <Animated.View
+                      style={[
+                        styles.ovalFrame,
+                        {
+                          transform: [{ scale: pulseAnim }],
+                        },
+                      ]}>
+                      {/* Laser Scanning Line */}
+                      <Animated.View
+                        style={[
+                          styles.laserLine,
+                          {
+                            transform: [{ translateY: laserTranslateY }],
+                          },
+                        ]}
+                      />
+
+                      {/* Corner Target Markers */}
+                      <View style={styles.cornerTopLeft} />
+                      <View style={styles.cornerTopRight} />
+                      <View style={styles.cornerBottomLeft} />
+                      <View style={styles.cornerBottomRight} />
+
+                      {/* Center Crosshair Tick Marks */}
+                      <View style={styles.tickTop} />
+                      <View style={styles.tickBottom} />
+                    </Animated.View>
+
                     <View style={styles.maskSide} />
                   </View>
 
-                  {/* Bottom dark area */}
                   <View style={styles.maskBottom} />
                 </View>
 
@@ -187,7 +287,8 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
                     <MaterialIcons name="close" size={24} color="#ffffff" />
                   </Pressable>
                   <View style={styles.stepBadge}>
-                    <Text style={styles.stepBadgeText}>Xác thực khuôn mặt</Text>
+                    <View style={styles.liveIndicatorDot} />
+                    <Text style={styles.stepBadgeText}>eKYC AI Face Match</Text>
                   </View>
                   <Pressable
                     style={styles.switchCamBtn}
@@ -196,17 +297,18 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
                   </Pressable>
                 </View>
 
-                {/* Center Instructions */}
-                <View style={styles.instructionBox}>
-                  <Text style={styles.instructionMainText}>
-                    Căn chỉnh khuôn mặt vào giữa khung tròn
-                  </Text>
-                  <Text style={styles.instructionSubText}>
-                    Giữ điện thoại thẳng mặt, đủ ánh sáng và không đeo kính râm
-                  </Text>
+                {/* Dynamic Smart Guidance Banner */}
+                <View style={styles.smartTipContainer}>
+                  <View style={styles.smartTipCard}>
+                    <MaterialIcons name={tips[tipIndex].icon as any} size={20} color="#4ADE80" />
+                    <View style={{ flex: 1 }}>
+                      <Text style={styles.smartTipTitle}>{tips[tipIndex].title}</Text>
+                      <Text style={styles.smartTipSub}>{tips[tipIndex].sub}</Text>
+                    </View>
+                  </View>
                 </View>
 
-                {/* Bottom Controls Bar */}
+                {/* Bottom Capture Controls */}
                 <View style={styles.bottomBar}>
                   <Pressable
                     style={[styles.captureBtn, isCapturing && styles.captureBtnDisabled]}
@@ -248,7 +350,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
   },
   maskTop: {
-    flex: 1,
+    flex: 0.85, // Tỷ lệ đặt khung oval tự nhiên ở khoảng 38% chiều cao màn hình
     width: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
@@ -271,8 +373,12 @@ const styles = StyleSheet.create({
     backgroundColor: 'transparent',
     overflow: 'hidden',
     position: 'relative',
+    shadowColor: '#4ADE80',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.6,
+    shadowRadius: 10,
   },
-  ovalMask: {
+  ovalMaskPreview: {
     width: OVAL_WIDTH,
     height: OVAL_HEIGHT,
     borderRadius: OVAL_WIDTH / 2,
@@ -280,28 +386,84 @@ const styles = StyleSheet.create({
     borderColor: '#4ADE80',
     backgroundColor: 'transparent',
   },
-  ovalCornerTop: {
+  laserLine: {
     position: 'absolute',
-    top: 20,
-    left: '50%',
-    marginLeft: -25,
-    width: 50,
+    left: 10,
+    right: 10,
     height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: '#4ADE80',
+    shadowColor: '#4ADE80',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.9,
+    shadowRadius: 8,
     borderRadius: 2,
   },
-  ovalCornerBottom: {
+  cornerTopLeft: {
     position: 'absolute',
-    bottom: 20,
+    top: 25,
+    left: 25,
+    width: 18,
+    height: 18,
+    borderTopWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: '#ffffff',
+    borderTopLeftRadius: 6,
+  },
+  cornerTopRight: {
+    position: 'absolute',
+    top: 25,
+    right: 25,
+    width: 18,
+    height: 18,
+    borderTopWidth: 3,
+    borderRightWidth: 3,
+    borderColor: '#ffffff',
+    borderTopRightRadius: 6,
+  },
+  cornerBottomLeft: {
+    position: 'absolute',
+    bottom: 25,
+    left: 25,
+    width: 18,
+    height: 18,
+    borderBottomWidth: 3,
+    borderLeftWidth: 3,
+    borderColor: '#ffffff',
+    borderBottomLeftRadius: 6,
+  },
+  cornerBottomRight: {
+    position: 'absolute',
+    bottom: 25,
+    right: 25,
+    width: 18,
+    height: 18,
+    borderBottomWidth: 3,
+    borderRightWidth: 3,
+    borderColor: '#ffffff',
+    borderBottomRightRadius: 6,
+  },
+  tickTop: {
+    position: 'absolute',
+    top: 14,
     left: '50%',
-    marginLeft: -25,
-    width: 50,
+    marginLeft: -20,
+    width: 40,
     height: 3,
-    backgroundColor: 'rgba(255, 255, 255, 0.6)',
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    borderRadius: 2,
+  },
+  tickBottom: {
+    position: 'absolute',
+    bottom: 14,
+    left: '50%',
+    marginLeft: -20,
+    width: 40,
+    height: 3,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
     borderRadius: 2,
   },
   maskBottom: {
-    flex: 1.4,
+    flex: 1.15,
     width: '100%',
     backgroundColor: 'rgba(0, 0, 0, 0.65)',
   },
@@ -319,7 +481,7 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -327,15 +489,26 @@ const styles = StyleSheet.create({
     width: 42,
     height: 42,
     borderRadius: 21,
-    backgroundColor: 'rgba(0, 0, 0, 0.45)',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
     alignItems: 'center',
     justifyContent: 'center',
   },
   stepBadge: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
     paddingHorizontal: 14,
-    paddingVertical: 6,
-    borderRadius: 16,
-    backgroundColor: 'rgba(15, 56, 44, 0.85)',
+    paddingVertical: 7,
+    borderRadius: 20,
+    backgroundColor: 'rgba(15, 56, 44, 0.9)',
+    borderWidth: 1,
+    borderColor: 'rgba(74, 222, 128, 0.3)',
+  },
+  liveIndicatorDot: {
+    width: 8,
+    height: 8,
+    borderRadius: 4,
+    backgroundColor: '#4ADE80',
   },
   stepBadgeText: {
     fontFamily: 'Montserrat_700Bold',
@@ -347,32 +520,40 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#ffffff',
   },
-  instructionBox: {
+  smartTipContainer: {
     position: 'absolute',
-    top: Platform.OS === 'ios' ? 70 : 80,
-    left: 24,
-    right: 24,
-    alignItems: 'center',
+    top: Platform.OS === 'ios' ? 68 : 78,
+    left: 20,
+    right: 20,
     zIndex: 20,
+    alignItems: 'center',
   },
-  instructionMainText: {
+  smartTipCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 10,
+    backgroundColor: 'rgba(20, 20, 20, 0.85)',
+    borderRadius: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: 'rgba(255, 255, 255, 0.12)',
+    maxWidth: 360,
+    shadowColor: '#000000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 6,
+  },
+  smartTipTitle: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 16,
+    fontSize: 13,
     color: '#ffffff',
-    textAlign: 'center',
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
   },
-  instructionSubText: {
+  smartTipSub: {
     fontFamily: 'Montserrat_500Medium',
-    fontSize: 12,
-    color: '#D1D5DB',
-    textAlign: 'center',
-    marginTop: 4,
-    textShadowColor: 'rgba(0,0,0,0.8)',
-    textShadowOffset: { width: 0, height: 1 },
-    textShadowRadius: 4,
+    fontSize: 11,
+    color: '#9CA3AF',
+    marginTop: 2,
   },
   bottomBar: {
     position: 'absolute',
@@ -384,22 +565,26 @@ const styles = StyleSheet.create({
     zIndex: 20,
   },
   captureBtn: {
-    width: 76,
-    height: 76,
-    borderRadius: 38,
+    width: 78,
+    height: 78,
+    borderRadius: 39,
     borderWidth: 4,
     borderColor: '#ffffff',
     backgroundColor: 'transparent',
     alignItems: 'center',
     justifyContent: 'center',
+    shadowColor: '#ffffff',
+    shadowOffset: { width: 0, height: 0 },
+    shadowOpacity: 0.4,
+    shadowRadius: 10,
   },
   captureBtnDisabled: {
     opacity: 0.6,
   },
   captureBtnInner: {
-    width: 60,
-    height: 60,
-    borderRadius: 30,
+    width: 62,
+    height: 62,
+    borderRadius: 31,
     backgroundColor: '#ffffff',
   },
   previewContainer: {
@@ -417,18 +602,29 @@ const styles = StyleSheet.create({
     bottom: 0,
     left: 0,
     right: 0,
-    backgroundColor: 'rgba(0, 0, 0, 0.75)',
+    backgroundColor: 'rgba(15, 23, 42, 0.92)',
     paddingHorizontal: 20,
     paddingTop: 16,
     paddingBottom: Platform.OS === 'ios' ? 32 : 24,
     gap: 14,
     zIndex: 20,
+    borderTopWidth: 1,
+    borderTopColor: 'rgba(255, 255, 255, 0.1)',
+  },
+  previewTipBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    backgroundColor: 'rgba(255, 255, 255, 0.08)',
+    borderRadius: 10,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
   },
   previewHint: {
+    flex: 1,
     fontFamily: 'Montserrat_500Medium',
     fontSize: 12,
     color: '#E5E7EB',
-    textAlign: 'center',
   },
   previewBtnRow: {
     flexDirection: 'row',
@@ -458,6 +654,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    borderWidth: 1,
+    borderColor: '#4ADE80',
   },
   confirmBtnText: {
     fontFamily: 'Montserrat_700Bold',

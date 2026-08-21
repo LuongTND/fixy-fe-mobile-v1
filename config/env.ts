@@ -33,6 +33,11 @@ export function getFptAiApiKey() {
   return typeof apiKey === 'string' ? apiKey.trim() : '';
 }
 
+export function getGeminiApiKey() {
+  const apiKey = Constants.expoConfig?.extra?.geminiApiKey;
+  return typeof apiKey === 'string' ? apiKey.trim() : '';
+}
+
 function stripApiSuffix(url: string) {
   return url.replace(/\/api\/?$/, '');
 }
