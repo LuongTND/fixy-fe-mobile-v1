@@ -18,6 +18,7 @@ import { getWalletOverview, WalletOverview } from '@/services/api/wallet';
 import { applyVoucher, getEligibleVouchers } from '@/services/api/vouchers';
 import { EligibleVoucher, formatVoucherIneligibleReason, getVoucherDiscount } from '@/services/api/voucher-utils';
 import { formatCurrency, formatFullAddress } from '@/utils/format';
+import { getUserProfile } from '@/services/api/user';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { router, useFocusEffect, useLocalSearchParams } from 'expo-router';
@@ -90,6 +91,14 @@ export default function BookingCheckoutScreen() {
       queryClient.invalidateQueries({ queryKey: ['addresses'] });
     }, [queryClient])
   );
+
+  // Fetch user profile for customer name in contracts
+  const { data: userProfileData } = useQuery({
+    queryKey: ['userProfile'],
+    queryFn: getUserProfile,
+    staleTime: 1000 * 60 * 10,
+  });
+  const customerFullName = userProfileData?.data?.fullName || userProfileData?.data?.phone || 'Khách hàng';
 
   // Fetch Wallet Overview
   const { data: wallet = null } = useQuery<WalletOverview>({
@@ -842,7 +851,7 @@ export default function BookingCheckoutScreen() {
         visible={showContractModal}
         onClose={handleCloseContract}
         onAccept={handleAcceptContract}
-        customerName={selectedAddress?.label}
+        customerName={customerFullName}
         categoryName={categoryName}
       />
     </View>
