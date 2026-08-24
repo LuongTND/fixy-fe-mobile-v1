@@ -270,7 +270,7 @@ export default function WorkerDetailScreen() {
 
     return worker.services.map((srv, index) => {
       const matchedCat = categories.find((c) => c.id === srv.categoryId);
-      const name = matchedCat?.name || `Dịch vụ ${index + 1}`;
+      const name = srv.categoryName || matchedCat?.name || `Dịch vụ ${index + 1}`;
 
       const rawOptions = (srv.options || []).filter((opt: any) => opt.isActive !== false);
       const sortedOptions = [...rawOptions].sort(
@@ -460,6 +460,13 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
             <Text style={styles.reviewsCount}>
               {totalReviewsCount > 0 ? `(${totalReviewsCount} đánh giá)` : '(Chưa có đánh giá)'}
             </Text>
+            {typeof worker?.experienceYears === 'number' && worker.experienceYears > 0 ? (
+              <>
+                <Text style={styles.dotDivider}>|</Text>
+                <MaterialIcons name="workspace-premium" size={14} color="#0F382C" />
+                <Text style={styles.distanceText}>{worker.experienceYears} năm KN</Text>
+              </>
+            ) : null}
           </View>
 
           {/* Fixy Trust Box */}
