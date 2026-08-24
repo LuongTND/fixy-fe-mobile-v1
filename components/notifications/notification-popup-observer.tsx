@@ -51,8 +51,6 @@ setNotificationHandler({
   }),
 });
 
-
-
 function openNotificationTarget(data: PopupNotificationData) {
   const parsedRoute = parseDeepLink(data.deepLink);
   if (parsedRoute) {
@@ -167,7 +165,7 @@ export function NotificationPopupObserver() {
     async function startSignalR() {
       // Check if token is expired
       const jwt = parseJwt(accessToken || '');
-      const isExpired = jwt?.exp ? Date.now() >= (jwt.exp * 1000 - 10000) : false; // 10s buffer
+      const isExpired = jwt?.exp ? Date.now() >= jwt.exp * 1000 - 10000 : false; // 10s buffer
       if (isExpired) {
         console.log('[notifications] Token is expired or expiring soon. Triggering refresh...');
         getUnreadCount().catch(() => {});

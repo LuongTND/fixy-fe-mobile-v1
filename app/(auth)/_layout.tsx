@@ -20,9 +20,12 @@ export default function AuthLayout() {
           router.replace('/(customer)/home');
         } else {
           // Corrupted session (token exists but no role): logout to recover
-          useAuthStore.getState().logout().then(() => {
-            router.replace('/(auth)/login');
-          });
+          useAuthStore
+            .getState()
+            .logout()
+            .then(() => {
+              router.replace('/(auth)/login');
+            });
         }
       }, 0);
       return () => clearTimeout(timer);

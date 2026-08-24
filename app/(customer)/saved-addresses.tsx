@@ -136,9 +136,7 @@ export default function SavedAddressesScreen() {
                       </View>
                     )}
                   </View>
-                  <Text style={styles.addressBody}>
-                    {formatFullAddress(item)}
-                  </Text>
+                  <Text style={styles.addressBody}>{formatFullAddress(item)}</Text>
                 </View>
 
                 <View style={styles.addressActions}>

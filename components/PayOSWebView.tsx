@@ -158,8 +158,7 @@ const PayOSWebView: React.FC<PayOSWebViewProps> = ({
             // If PayOS page itself has a connectivity issue
             const isGatewayError =
               nativeEvent.url &&
-              (nativeEvent.url.includes('pay.payos.vn') ||
-                nativeEvent.url.includes('payos.vn'));
+              (nativeEvent.url.includes('pay.payos.vn') || nativeEvent.url.includes('payos.vn'));
             if (isGatewayError) {
               Alert.alert(
                 'Sự cố kết nối PayOS',

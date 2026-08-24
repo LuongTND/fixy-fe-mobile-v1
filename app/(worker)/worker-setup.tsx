@@ -235,8 +235,14 @@ export default function WorkerSetupScreen() {
           setLongitude(lng);
 
           const comps = data.result.address_components || [];
-          const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
-          const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+          const cityComp = comps.find((c: any) =>
+            c.types?.includes('administrative_area_level_1')
+          )?.long_name;
+          const wardComp = comps.find(
+            (c: any) =>
+              c.types?.includes('administrative_area_level_3') ||
+              c.types?.includes('administrative_area_level_2')
+          )?.long_name;
 
           if (cityComp) setAddrCity(cityComp);
           if (wardComp) setAddrWard(wardComp);
@@ -273,8 +279,14 @@ export default function WorkerSetupScreen() {
         setAddrDetail(first.formatted_address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
 
         const comps = first.address_components || [];
-        const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
-        const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+        const cityComp = comps.find((c: any) =>
+          c.types?.includes('administrative_area_level_1')
+        )?.long_name;
+        const wardComp = comps.find(
+          (c: any) =>
+            c.types?.includes('administrative_area_level_3') ||
+            c.types?.includes('administrative_area_level_2')
+        )?.long_name;
 
         if (cityComp) setAddrCity(cityComp);
         if (wardComp) setAddrWard(wardComp);
@@ -291,17 +303,19 @@ export default function WorkerSetupScreen() {
     }
   };
 
-
-
   // Load previous profile fields if Rejected (edit mode)
   const handleEditProfile = () => {
     if (profile) {
       setFullName(profile.fullName || '');
       setPhone(profile.phone || '');
       setBio(profile.bio || '');
-      setExperienceYears(profile.experienceYears !== undefined ? String(profile.experienceYears) : '3');
+      setExperienceYears(
+        profile.experienceYears !== undefined ? String(profile.experienceYears) : '3'
+      );
       setCitizenIdNumber(profile.citizenIdNumber || '');
-      setCitizenIdIssueDate(profile.citizenIdIssueDate ? profile.citizenIdIssueDate.split('T')[0] : '');
+      setCitizenIdIssueDate(
+        profile.citizenIdIssueDate ? profile.citizenIdIssueDate.split('T')[0] : ''
+      );
       setCitizenIdIssuePlace(profile.citizenIdIssuePlace || '');
       setCccdFrontUri(profile.identificationImages?.[0]?.url || null);
       setCccdBackUri(profile.identificationImages?.[1]?.url || null);
@@ -338,9 +352,24 @@ export default function WorkerSetupScreen() {
                     isActive: opt.isActive ?? true,
                   }))
                 : [
-                    { durationMinutes: 60, price: s.basePrice || 500000, sortOrder: 1, isActive: true },
-                    { durationMinutes: 90, price: (s.basePrice || 500000) + 150000, sortOrder: 2, isActive: true },
-                    { durationMinutes: 120, price: (s.basePrice || 500000) + 300000, sortOrder: 3, isActive: true },
+                    {
+                      durationMinutes: 60,
+                      price: s.basePrice || 500000,
+                      sortOrder: 1,
+                      isActive: true,
+                    },
+                    {
+                      durationMinutes: 90,
+                      price: (s.basePrice || 500000) + 150000,
+                      sortOrder: 2,
+                      isActive: true,
+                    },
+                    {
+                      durationMinutes: 120,
+                      price: (s.basePrice || 500000) + 300000,
+                      sortOrder: 3,
+                      isActive: true,
+                    },
                   ],
           };
         });
@@ -969,9 +998,15 @@ export default function WorkerSetupScreen() {
       formData.append(`WorkerService[${idx}].IsPrimary`, idx === 0 ? 'true' : 'false');
       if (s.options && s.options.length > 0) {
         s.options.forEach((opt, optIdx) => {
-          formData.append(`WorkerService[${idx}].Options[${optIdx}].DurationMinutes`, String(opt.durationMinutes));
+          formData.append(
+            `WorkerService[${idx}].Options[${optIdx}].DurationMinutes`,
+            String(opt.durationMinutes)
+          );
           formData.append(`WorkerService[${idx}].Options[${optIdx}].Price`, String(opt.price));
-          formData.append(`WorkerService[${idx}].Options[${optIdx}].SortOrder`, String(opt.sortOrder || optIdx + 1));
+          formData.append(
+            `WorkerService[${idx}].Options[${optIdx}].SortOrder`,
+            String(opt.sortOrder || optIdx + 1)
+          );
           formData.append(`WorkerService[${idx}].Options[${optIdx}].IsActive`, 'true');
         });
       }
@@ -980,7 +1015,11 @@ export default function WorkerSetupScreen() {
     // Identification images
     const cccdFiles = await Promise.all(
       cccdUris.map((uri, idx) =>
-        prepareUploadFile(uri, `cccd_${idx}.jpg`, { compress: true, resizeWidth: 1600, quality: 0.7 })
+        prepareUploadFile(uri, `cccd_${idx}.jpg`, {
+          compress: true,
+          resizeWidth: 1600,
+          quality: 0.7,
+        })
       )
     );
     cccdFiles.forEach((fileObj) => {
@@ -1047,8 +1086,8 @@ export default function WorkerSetupScreen() {
   return (
     <View style={styles.screen}>
       <View style={[styles.header, { paddingTop: insets.top }]}>
-        <Pressable 
-          style={styles.headerBackBtn} 
+        <Pressable
+          style={styles.headerBackBtn}
           onPress={() => router.replace('/(worker)/worker-home' as any)}>
           <MaterialIcons name="arrow-back" size={24} color="#383838" />
         </Pressable>
@@ -1084,7 +1123,10 @@ export default function WorkerSetupScreen() {
         </View>
       )}
 
-      <KeyboardAwareScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false} bottomOffset={36}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={styles.scrollContent}
+        showsVerticalScrollIndicator={false}
+        bottomOffset={36}>
         {/* Step 1: Basic Info & Services */}
         {currentStep === 1 && (
           <View style={styles.stepContainer}>
@@ -1138,7 +1180,9 @@ export default function WorkerSetupScreen() {
             </Text>
 
             <Text style={styles.sectionTitle}>Dịch vụ cung cấp</Text>
-            <Text style={styles.subLabel}>Chọn các dịch vụ Spa & Massage bạn cung cấp và thiết lập gói giá:</Text>
+            <Text style={styles.subLabel}>
+              Chọn các dịch vụ Spa & Massage bạn cung cấp và thiết lập gói giá:
+            </Text>
 
             {isLoadingCategories ? (
               <ActivityIndicator size="small" color="#0F382C" />
@@ -1168,7 +1212,9 @@ export default function WorkerSetupScreen() {
                               <TextInput
                                 style={styles.optionDurationInput}
                                 value={String(opt.durationMinutes || '')}
-                                onChangeText={(val) => handleOptionDurationChange(cat.id, optIdx, val)}
+                                onChangeText={(val) =>
+                                  handleOptionDurationChange(cat.id, optIdx, val)
+                                }
                                 keyboardType="number-pad"
                                 placeholder="60"
                                 placeholderTextColor="#9A9A9A"
@@ -1254,21 +1300,29 @@ export default function WorkerSetupScreen() {
                 <Text style={styles.cccdSlotHeaderLabel}>Mặt trước CCCD *</Text>
                 {cccdFrontUri ? (
                   <View style={styles.cccdSlotCardFilled}>
-                    <Pressable style={{ flex: 1 }} onPress={() => setActivePreviewImage(cccdFrontUri)}>
+                    <Pressable
+                      style={{ flex: 1 }}
+                      onPress={() => setActivePreviewImage(cccdFrontUri)}>
                       <Image source={{ uri: cccdFrontUri }} style={styles.cccdSlotImage} />
                     </Pressable>
                     <View style={styles.cccdSlotActionRow}>
-                      <Pressable style={styles.cccdSlotChangeBtn} onPress={() => handlePickCccdSlot('front')}>
+                      <Pressable
+                        style={styles.cccdSlotChangeBtn}
+                        onPress={() => handlePickCccdSlot('front')}>
                         <MaterialIcons name="photo-camera" size={14} color="#0F382C" />
                         <Text style={styles.cccdSlotChangeText}>Đổi ảnh</Text>
                       </Pressable>
-                      <Pressable style={styles.cccdSlotDeleteIconBtn} onPress={() => setCccdFrontUri(null)}>
+                      <Pressable
+                        style={styles.cccdSlotDeleteIconBtn}
+                        onPress={() => setCccdFrontUri(null)}>
                         <MaterialIcons name="delete" size={16} color="#BA1A1A" />
                       </Pressable>
                     </View>
                   </View>
                 ) : (
-                  <Pressable style={styles.cccdSlotCardEmpty} onPress={() => handlePickCccdSlot('front')}>
+                  <Pressable
+                    style={styles.cccdSlotCardEmpty}
+                    onPress={() => handlePickCccdSlot('front')}>
                     <MaterialIcons name="add-a-photo" size={28} color="#0F382C" />
                     <Text style={styles.cccdSlotEmptyTitle}>Tải Mặt trước</Text>
                     <Text style={styles.cccdSlotEmptySub}>Chụp hoặc chọn 1 ảnh</Text>
@@ -1281,23 +1335,38 @@ export default function WorkerSetupScreen() {
                 <Text style={styles.cccdSlotHeaderLabel}>Mặt sau CCCD *</Text>
                 {cccdBackUri ? (
                   <View style={styles.cccdSlotCardFilled}>
-                    <Pressable style={{ flex: 1 }} onPress={() => setActivePreviewImage(cccdBackUri)}>
+                    <Pressable
+                      style={{ flex: 1 }}
+                      onPress={() => setActivePreviewImage(cccdBackUri)}>
                       <Image source={{ uri: cccdBackUri }} style={styles.cccdSlotImage} />
                     </Pressable>
                     <View style={styles.cccdSlotActionRow}>
-                      <Pressable style={styles.cccdSlotChangeBtn} onPress={() => handlePickCccdSlot('back')}>
+                      <Pressable
+                        style={styles.cccdSlotChangeBtn}
+                        onPress={() => handlePickCccdSlot('back')}>
                         <MaterialIcons name="photo-camera" size={14} color="#0F382C" />
                         <Text style={styles.cccdSlotChangeText}>Đổi ảnh</Text>
                       </Pressable>
-                      <Pressable style={styles.cccdSlotDeleteIconBtn} onPress={() => setCccdBackUri(null)}>
+                      <Pressable
+                        style={styles.cccdSlotDeleteIconBtn}
+                        onPress={() => setCccdBackUri(null)}>
                         <MaterialIcons name="delete" size={16} color="#BA1A1A" />
                       </Pressable>
                     </View>
                   </View>
                 ) : (
-                  <Pressable style={styles.cccdSlotCardEmpty} onPress={() => handlePickCccdSlot('back')}>
-                    <MaterialIcons name="add-a-photo" size={28} color={cccdFrontUri ? "#0F382C" : "#A0A0A0"} />
-                    <Text style={[styles.cccdSlotEmptyTitle, !cccdFrontUri && { color: '#A0A0A0' }]}>Tải Mặt sau</Text>
+                  <Pressable
+                    style={styles.cccdSlotCardEmpty}
+                    onPress={() => handlePickCccdSlot('back')}>
+                    <MaterialIcons
+                      name="add-a-photo"
+                      size={28}
+                      color={cccdFrontUri ? '#0F382C' : '#A0A0A0'}
+                    />
+                    <Text
+                      style={[styles.cccdSlotEmptyTitle, !cccdFrontUri && { color: '#A0A0A0' }]}>
+                      Tải Mặt sau
+                    </Text>
                     <Text style={styles.cccdSlotEmptySub}>Chụp hoặc chọn 1 ảnh</Text>
                   </Pressable>
                 )}
@@ -1402,7 +1471,8 @@ export default function WorkerSetupScreen() {
                   </View>
                   <Text style={styles.faceIdEmptyTitle}>Chụp ảnh chân dung khuôn mặt</Text>
                   <Text style={styles.faceIdEmptyDesc}>
-                    Hệ thống sẽ đối soát khuôn mặt của bạn với ảnh trên CCCD để hoàn tất xác thực danh tính.
+                    Hệ thống sẽ đối soát khuôn mặt của bạn với ảnh trên CCCD để hoàn tất xác thực
+                    danh tính.
                   </Text>
                   <Pressable
                     style={[
@@ -1411,7 +1481,10 @@ export default function WorkerSetupScreen() {
                     ]}
                     onPress={() => {
                       if (!cccdFrontUri) {
-                        Alert.alert('Chưa có ảnh CCCD', 'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước.');
+                        Alert.alert(
+                          'Chưa có ảnh CCCD',
+                          'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước.'
+                        );
                         return;
                       }
                       setFaceCaptureModalOpen(true);
@@ -1583,7 +1656,12 @@ export default function WorkerSetupScreen() {
               <MaterialIcons name="arrow-drop-down" size={24} color="#574237" />
             </Pressable>
 
-            <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
+            <View
+              style={{
+                flexDirection: 'row',
+                justifyContent: 'space-between',
+                alignItems: 'center',
+              }}>
               <Text style={styles.fieldLabel}>Địa chỉ chi tiết (Số nhà, đường...)</Text>
               <Pressable
                 style={{ flexDirection: 'row', alignItems: 'center', gap: 4, paddingVertical: 4 }}
@@ -1594,7 +1672,8 @@ export default function WorkerSetupScreen() {
                 ) : (
                   <MaterialIcons name="my-location" size={16} color="#0F382C" />
                 )}
-                <Text style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 12, color: '#0F382C' }}>
+                <Text
+                  style={{ fontFamily: 'Montserrat_600SemiBold', fontSize: 12, color: '#0F382C' }}>
                   Lấy GPS
                 </Text>
               </Pressable>
@@ -1619,7 +1698,12 @@ export default function WorkerSetupScreen() {
                       key={item.place_id || idx}
                       style={styles.autoCompleteRow}
                       onPress={() => handleSelectAutoCompletePlace(item)}>
-                      <MaterialIcons name="location-on" size={18} color="#0F382C" style={{ marginRight: 8, marginTop: 2 }} />
+                      <MaterialIcons
+                        name="location-on"
+                        size={18}
+                        color="#0F382C"
+                        style={{ marginRight: 8, marginTop: 2 }}
+                      />
                       <View style={{ flex: 1 }}>
                         <Text style={styles.autoCompleteMainText}>
                           {item.structured_formatting?.main_text || item.description}
@@ -1681,7 +1765,8 @@ export default function WorkerSetupScreen() {
               <Pressable
                 style={[
                   styles.nextBtnHalf,
-                  (registerMutation.isPending || updateMutation.isPending) && styles.nextBtnDisabled,
+                  (registerMutation.isPending || updateMutation.isPending) &&
+                    styles.nextBtnDisabled,
                 ]}
                 disabled={registerMutation.isPending || updateMutation.isPending}
                 onPress={handleSubmit}>
@@ -1707,8 +1792,8 @@ export default function WorkerSetupScreen() {
                 </View>
                 <Text style={styles.statusTitle}>Hồ sơ đang chờ duyệt</Text>
                 <Text style={styles.statusDesc}>
-                  Đội ngũ quản trị viên Fixy Spa đang kiểm tra và đối chiếu tài liệu CCCD/Chứng chỉ của
-                  bạn. Quá trình này sẽ hoàn tất trong vòng 24 - 48 giờ.
+                  Đội ngũ quản trị viên Fixy Spa đang kiểm tra và đối chiếu tài liệu CCCD/Chứng chỉ
+                  của bạn. Quá trình này sẽ hoàn tất trong vòng 24 - 48 giờ.
                 </Text>
                 <Pressable
                   style={styles.refreshBtn}
@@ -1819,19 +1904,11 @@ export default function WorkerSetupScreen() {
       {activeDatePicker !== null && Platform.OS === 'ios' && (
         <Modal transparent animationType="fade" visible={true}>
           <View style={styles.datePickerModalOverlay}>
-            <Pressable
-              style={StyleSheet.absoluteFill}
-              onPress={() => setActiveDatePicker(null)}
-            />
+            <Pressable style={StyleSheet.absoluteFill} onPress={() => setActiveDatePicker(null)} />
             <View
-              style={[
-                styles.datePickerContainer,
-                { paddingBottom: Math.max(insets.bottom, 16) },
-              ]}>
+              style={[styles.datePickerContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
               <View style={styles.datePickerHeader}>
-                <Pressable
-                  onPress={() => setActiveDatePicker(null)}
-                  style={styles.pickerHeaderBtn}>
+                <Pressable onPress={() => setActiveDatePicker(null)} style={styles.pickerHeaderBtn}>
                   <Text style={styles.pickerCancelText}>Hủy</Text>
                 </Pressable>
                 <Text style={styles.pickerTitleText}>

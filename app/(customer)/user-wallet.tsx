@@ -18,7 +18,6 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import VNPayWebView from '@/components/VNPayWebView';
-import { BottomTabBar } from '@/components/layout/bottom-tab-bar';
 import { getWalletOverview, WalletOverview } from '@/services/api/wallet';
 import { topUpWallet, verifyVnpayCallback } from '@/services/api/payment';
 import { PaymentMethod } from '@/services/api/bookings';
@@ -74,7 +73,6 @@ export default function UserWalletScreen() {
 
     setIsSubmittingTopup(true);
     try {
-      // method: PaymentMethod.Vnpay (1)
       const result = await topUpWallet(amountVal, PaymentMethod.Vnpay);
       if (result.paymentUrl) {
         setPaymentUrl(result.paymentUrl);
@@ -136,7 +134,15 @@ export default function UserWalletScreen() {
       <View style={[styles.screen, { paddingTop: insets.top }]}>
         {/* Header */}
         <View style={styles.header}>
+          <Pressable
+            style={styles.backButton}
+            onPress={() =>
+              router.canGoBack() ? router.back() : router.replace('/(customer)/profile' as any)
+            }>
+            <MaterialIcons name="arrow-back" size={24} color="#0F382C" />
+          </Pressable>
           <Text style={styles.headerTitle}>Ví điện tử</Text>
+          <View style={{ width: 40 }} />
         </View>
 
         {isLoading ? (
@@ -213,7 +219,10 @@ export default function UserWalletScreen() {
 
                 {/* Top Up Button */}
                 <Pressable
-                  style={[styles.topupSubmitBtn, isSubmittingTopup && styles.topupSubmitBtnDisabled]}
+                  style={[
+                    styles.topupSubmitBtn,
+                    isSubmittingTopup && styles.topupSubmitBtnDisabled,
+                  ]}
                   onPress={handleTopup}
                   disabled={isSubmittingTopup}>
                   {isSubmittingTopup ? (
@@ -240,11 +249,11 @@ export default function UserWalletScreen() {
                           styles.transactionIcon,
                           tx.direction === 'Debit' && styles.transactionIconDebit,
                         ]}>
-                      <MaterialIcons
-                        name={getWalletTransactionIcon(tx.type, tx.direction)}
-                        size={22}
-                        color={tx.direction === 'Debit' ? '#BA1A1A' : '#006E20'}
-                      />
+                        <MaterialIcons
+                          name={getWalletTransactionIcon(tx.type, tx.direction)}
+                          size={22}
+                          color={tx.direction === 'Debit' ? '#BA1A1A' : '#006E20'}
+                        />
                       </View>
                       <View>
                         <Text style={styles.transactionName}>
@@ -285,8 +294,6 @@ export default function UserWalletScreen() {
             onError={handlePaymentError}
           />
         )}
-        {/* Bottom Bar */}
-        <BottomTabBar activeTab="wallet" />
       </View>
     </KeyboardAvoidingView>
   );
@@ -303,11 +310,20 @@ const styles = StyleSheet.create({
   },
   header: {
     height: 60,
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 16,
     borderBottomWidth: 1,
     borderColor: '#EFECE6',
     backgroundColor: '#ffffff',
+  },
+  backButton: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   headerTitle: {
     fontFamily: 'Montserrat_700Bold',
@@ -317,7 +333,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     padding: 16,
-    paddingBottom: 110,
+    paddingBottom: 60,
     gap: 24,
   },
   balanceCardContainer: {
@@ -423,89 +439,81 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     gap: 8,
     backgroundColor: '#0F382C',
-    borderRadius: 20,
-    height: 48,
-    shadowColor: '#0F382C',
-    shadowOpacity: 0.15,
-    shadowRadius: 6,
-    elevation: 3,
+    borderRadius: 12,
+    height: 50,
   },
   topupSubmitBtnDisabled: {
-    backgroundColor: '#EAE5E3',
-    shadowOpacity: 0,
-    elevation: 0,
+    opacity: 0.6,
   },
   topupSubmitBtnText: {
     fontFamily: 'Montserrat_700Bold',
-    fontSize: 14,
+    fontSize: 15,
     color: '#ffffff',
   },
   transactionSection: {
     gap: 4,
   },
   transactionList: {
-    gap: 8,
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    borderWidth: 1,
+    borderColor: '#EFECE6',
+    overflow: 'hidden',
   },
   transactionItem: {
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    backgroundColor: '#ffffff',
-    borderRadius: 14,
-    padding: 12,
-    borderWidth: 1,
-    borderColor: '#EFECE6',
-    shadowColor: '#0F382C',
-    shadowOpacity: 0.03,
-    shadowRadius: 8,
-    elevation: 1,
+    justifyContent: 'space-between',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderColor: '#F4F1EA',
   },
   transactionLeft: {
     flexDirection: 'row',
     alignItems: 'center',
     gap: 12,
-    flex: 1,
   },
   transactionIcon: {
     width: 40,
     height: 40,
     borderRadius: 20,
-    backgroundColor: '#E8F5E9',
+    backgroundColor: '#E6F0EB',
     alignItems: 'center',
     justifyContent: 'center',
   },
   transactionIconDebit: {
-    backgroundColor: '#FFEBEE',
+    backgroundColor: '#FCE8E8',
   },
   transactionName: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 14,
-    lineHeight: 21,
+    lineHeight: 20,
     color: '#1C2526',
   },
   transactionDate: {
     fontFamily: 'Montserrat_400Regular',
     fontSize: 12,
-    lineHeight: 18,
+    lineHeight: 16,
     color: '#818A91',
+    marginTop: 2,
   },
   transactionAmount: {
-    fontFamily: 'Montserrat_600SemiBold',
+    fontFamily: 'Montserrat_700Bold',
     fontSize: 14,
-    lineHeight: 21,
+    lineHeight: 20,
     color: '#BA1A1A',
   },
   transactionAmountCredit: {
-    color: '#0F382C',
+    color: '#006E20',
   },
   emptyState: {
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 32,
+    padding: 32,
     gap: 8,
   },
   emptyText: {
-    fontFamily: 'Montserrat_400Regular',
+    fontFamily: 'Montserrat_500Medium',
     fontSize: 14,
     color: '#818A91',
   },

@@ -178,30 +178,15 @@ export function WorkerTabBar({ activeTab }: WorkerTabBarProps) {
           }}>
           {/* pointerEvents none — gesture owns this layer */}
           <View style={styles.tabsRow} pointerEvents="none">
-            <TabItem
-              slot={0}
-              iconActive="home"
-              iconInactive="home"
-              activeIndex={activeIndex}
-            />
-            <TabItem
-              slot={1}
-              iconActive="work"
-              iconInactive="work"
-              activeIndex={activeIndex}
-            />
+            <TabItem slot={0} iconActive="home" iconInactive="home" activeIndex={activeIndex} />
+            <TabItem slot={1} iconActive="work" iconInactive="work" activeIndex={activeIndex} />
             <TabItem
               slot={2}
               iconActive="account-balance-wallet"
               iconInactive="account-balance-wallet"
               activeIndex={activeIndex}
             />
-            <TabItem
-              slot={3}
-              iconActive="person"
-              iconInactive="person"
-              activeIndex={activeIndex}
-            />
+            <TabItem slot={3} iconActive="person" iconInactive="person" activeIndex={activeIndex} />
           </View>
         </Animated.View>
       </GestureDetector>

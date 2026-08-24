@@ -34,7 +34,11 @@ export default function ProfileInfoScreen() {
   const insets = useSafeAreaInsets();
   const queryClient = useQueryClient();
 
-  const { data: profileResponse, isLoading, refetch } = useQuery({
+  const {
+    data: profileResponse,
+    isLoading,
+    refetch,
+  } = useQuery({
     queryKey: ['userProfile'],
     queryFn: getUserProfile,
   });
@@ -228,7 +232,12 @@ export default function ProfileInfoScreen() {
           <View style={styles.card}>
             <Text style={styles.fieldLabel}>Họ và tên</Text>
             <View style={styles.inputWrapper}>
-              <MaterialIcons name="person-outline" size={20} color="#818A91" style={styles.inputIcon} />
+              <MaterialIcons
+                name="person-outline"
+                size={20}
+                color="#818A91"
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.textInput}
                 value={fullName}
@@ -240,7 +249,12 @@ export default function ProfileInfoScreen() {
 
             <Text style={styles.fieldLabel}>Số điện thoại</Text>
             <View style={styles.inputWrapper}>
-              <MaterialIcons name="phone-iphone" size={20} color="#818A91" style={styles.inputIcon} />
+              <MaterialIcons
+                name="phone-iphone"
+                size={20}
+                color="#818A91"
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={styles.textInput}
                 value={phone}
@@ -253,7 +267,12 @@ export default function ProfileInfoScreen() {
 
             <Text style={styles.fieldLabel}>Email</Text>
             <View style={styles.inputWrapperDisabled}>
-              <MaterialIcons name="mail-outline" size={20} color="#818A91" style={styles.inputIcon} />
+              <MaterialIcons
+                name="mail-outline"
+                size={20}
+                color="#818A91"
+                style={styles.inputIcon}
+              />
               <TextInput
                 style={[styles.textInput, { color: '#818A91' }]}
                 value={email}
@@ -346,7 +365,8 @@ export default function ProfileInfoScreen() {
         <Modal transparent animationType="slide" visible={showDatePicker}>
           <View style={styles.modalOverlay}>
             <Pressable style={StyleSheet.absoluteFill} onPress={() => setShowDatePicker(false)} />
-            <View style={[styles.datePickerContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
+            <View
+              style={[styles.datePickerContainer, { paddingBottom: Math.max(insets.bottom, 16) }]}>
               <View style={styles.datePickerHeader}>
                 <Pressable onPress={() => setShowDatePicker(false)} style={styles.pickerHeaderBtn}>
                   <Text style={styles.pickerCancelText}>Hủy</Text>

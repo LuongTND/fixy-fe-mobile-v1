@@ -523,7 +523,12 @@ export default function BookingDetailScreen() {
     style: { color: '#818A91', bg: '#f5f3f2', border: '#DDDDDD' },
     icon: 'help-outline',
   };
-  const originalServicePrice = booking.estimatedPrice || booking.estimatedAmount || booking.finalPrice || booking.finalAmount || 0;
+  const originalServicePrice =
+    booking.estimatedPrice ||
+    booking.estimatedAmount ||
+    booking.finalPrice ||
+    booking.finalAmount ||
+    0;
   const finalTotalAmount = booking.finalPrice || booking.finalAmount || originalServicePrice;
   const discountAmount =
     booking.estimatedPrice && booking.finalPrice && booking.estimatedPrice > booking.finalPrice
@@ -684,7 +689,7 @@ export default function BookingDetailScreen() {
             <View style={styles.infoCard}>
               <Text style={styles.infoCardTitle}>Kỹ thuật viên phụ trách</Text>
               <View style={styles.workerRow}>
-                {(booking.worker?.avatarUrl || booking.workerAvatarUrl) ? (
+                {booking.worker?.avatarUrl || booking.workerAvatarUrl ? (
                   <Image
                     source={{
                       uri: (booking.worker?.avatarUrl || booking.workerAvatarUrl) ?? undefined,
@@ -692,9 +697,16 @@ export default function BookingDetailScreen() {
                     style={styles.workerAvatar}
                   />
                 ) : (
-                  <View style={[styles.workerAvatar, { alignItems: 'center', justifyContent: 'center' }]}>
-                    <Text style={{ fontSize: 18, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
-                      {(booking.worker?.fullName || booking.workerName || '').charAt(0).toUpperCase() || '?'}
+                  <View
+                    style={[
+                      styles.workerAvatar,
+                      { alignItems: 'center', justifyContent: 'center' },
+                    ]}>
+                    <Text
+                      style={{ fontSize: 18, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                      {(booking.worker?.fullName || booking.workerName || '')
+                        .charAt(0)
+                        .toUpperCase() || '?'}
                     </Text>
                   </View>
                 )}
@@ -809,9 +821,7 @@ export default function BookingDetailScreen() {
                 showsHorizontalScrollIndicator={false}
                 style={styles.photoList}>
                 {booking.requestImages.map((img, idx) => (
-                  <Pressable
-                    key={img.id ?? idx}
-                    onPress={() => setActivePreviewImage(img.fileUrl)}>
+                  <Pressable key={img.id ?? idx} onPress={() => setActivePreviewImage(img.fileUrl)}>
                     <Image source={{ uri: img.fileUrl }} style={styles.photoAttachment} />
                   </Pressable>
                 ))}
@@ -920,8 +930,7 @@ export default function BookingDetailScreen() {
             )}
           </View>
         )}
-
-        </ScrollView>
+      </ScrollView>
 
       {/* Footer Actions */}
       <View style={[styles.footerBar, { paddingBottom: Math.max(insets.bottom, 20) }]}>

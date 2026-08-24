@@ -83,7 +83,17 @@ function InitialsAvatar({ name, size = 80, style }: { name?: string; size?: numb
   );
 }
 
-function SkeletonShimmer({ width: w, height: h, borderRadius: br = 4, style }: { width: number | string; height: number; borderRadius?: number; style?: any }) {
+function SkeletonShimmer({
+  width: w,
+  height: h,
+  borderRadius: br = 4,
+  style,
+}: {
+  width: number | string;
+  height: number;
+  borderRadius?: number;
+  style?: any;
+}) {
   const shimmerAnim = React.useRef(new Animated.Value(0)).current;
 
   React.useEffect(() => {
@@ -121,7 +131,13 @@ function SkeletonKtvCard() {
         <SkeletonShimmer width="50%" height={12} borderRadius={4} />
         <SkeletonShimmer width="35%" height={12} borderRadius={4} />
       </View>
-      <View style={{ alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch', paddingVertical: 4 }}>
+      <View
+        style={{
+          alignItems: 'flex-end',
+          justifyContent: 'space-between',
+          alignSelf: 'stretch',
+          paddingVertical: 4,
+        }}>
         <SkeletonShimmer width={70} height={10} borderRadius={4} />
         <SkeletonShimmer width={56} height={34} borderRadius={20} />
       </View>
@@ -254,9 +270,7 @@ export default function HomeScreen() {
     <View style={styles.screen}>
       {/* Header Bar */}
       <View style={[styles.header, { paddingTop: insets.top + 6 }]}>
-        <Pressable
-          style={styles.locationContainer}
-          onPress={() => setCityModalVisible(true)}>
+        <Pressable style={styles.locationContainer} onPress={() => setCityModalVisible(true)}>
           <MaterialIcons name="location-on" size={16} color="#0F382C" />
           <Text style={styles.locationText} numberOfLines={1}>
             {selectedCity}
@@ -367,7 +381,9 @@ export default function HomeScreen() {
               const arrivalLabel =
                 item.estimatedArrivalMinutes != null
                   ? `Dự kiến ${item.estimatedArrivalMinutes} phút`
-                  : (item.isOnline ? 'Đặt ngay' : (item.availableTime || ''));
+                  : item.isOnline
+                    ? 'Đặt ngay'
+                    : item.availableTime || '';
 
               const workerTargetId = item.workerProfileId || item.id;
               const avatarUri = item.avatarUrl || item.avatar;
@@ -376,12 +392,18 @@ export default function HomeScreen() {
                 <Pressable
                   key={item.id || workerTargetId}
                   style={styles.ktvCard}
-                  onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
+                  onPress={() =>
+                    router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)
+                  }>
                   <View style={styles.ktvAvatarWrapper}>
                     {avatarUri ? (
                       <Image source={{ uri: avatarUri }} style={styles.ktvAvatar} />
                     ) : (
-                      <InitialsAvatar name={item.fullName || item.name} size={80} style={styles.ktvAvatar} />
+                      <InitialsAvatar
+                        name={item.fullName || item.name}
+                        size={80}
+                        style={styles.ktvAvatar}
+                      />
                     )}
                     <View style={[styles.badgePill, { backgroundColor: badge.color }]}>
                       <Text style={styles.badgePillText}>{badge.text}</Text>
@@ -396,7 +418,11 @@ export default function HomeScreen() {
                     <View style={styles.ratingDistanceRow}>
                       <MaterialIcons name="star" size={16} color="#F59E0B" />
                       <Text style={styles.ratingText}>
-                        {item.rating > 0 ? (typeof item.rating === 'number' ? item.rating.toFixed(1) : item.rating) : '--'}
+                        {item.rating > 0
+                          ? typeof item.rating === 'number'
+                            ? item.rating.toFixed(1)
+                            : item.rating
+                          : '--'}
                       </Text>
                       <Text style={styles.reviewsText}>({item.reviewsCount ?? 0} đánh giá)</Text>
                     </View>
@@ -404,7 +430,11 @@ export default function HomeScreen() {
                     <View style={styles.locationRow}>
                       <MaterialIcons name="near-me" size={14} color="#818A91" />
                       <Text style={styles.distanceText} numberOfLines={1}>
-                        {item.distance || item.city || item.address?.city || selectedCity || 'Không xác định'}
+                        {item.distance ||
+                          item.city ||
+                          item.address?.city ||
+                          selectedCity ||
+                          'Không xác định'}
                       </Text>
                     </View>
                   </View>
@@ -412,10 +442,14 @@ export default function HomeScreen() {
                   <View style={styles.rightColumn}>
                     {arrivalLabel ? (
                       <Text style={styles.ktvAvailability}>{arrivalLabel}</Text>
-                    ) : <View />}
+                    ) : (
+                      <View />
+                    )}
                     <Pressable
                       style={styles.bookActionBtn}
-                      onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
+                      onPress={() =>
+                        router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)
+                      }>
                       <Text style={styles.bookActionText}>Đặt</Text>
                     </Pressable>
                   </View>
@@ -435,10 +469,7 @@ export default function HomeScreen() {
       <BottomTabBar activeTab="home" />
 
       {/* City Selector Modal */}
-      <CitySelectorModal
-        visible={cityModalVisible}
-        onClose={() => setCityModalVisible(false)}
-      />
+      <CitySelectorModal visible={cityModalVisible} onClose={() => setCityModalVisible(false)} />
     </View>
   );
 }

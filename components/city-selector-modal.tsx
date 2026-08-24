@@ -210,11 +210,7 @@ export function CitySelectorModal({ visible, onClose, onSelectCity }: CitySelect
                   style={[styles.provinceItem, isSelected && styles.provinceItemSelected]}
                   onPress={() => handleSelectCity(item)}>
                   <View style={styles.provinceIconCircle}>
-                    <MaterialIcons
-                      name="location-on"
-                      size={18}
-                      color="#0F382C"
-                    />
+                    <MaterialIcons name="location-on" size={18} color="#0F382C" />
                   </View>
                   <Text style={[styles.provinceName, isSelected && styles.provinceNameSelected]}>
                     {item}

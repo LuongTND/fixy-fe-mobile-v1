@@ -14,7 +14,7 @@ import Animated, {
   SharedValue,
 } from 'react-native-reanimated';
 
-export type TabType = 'home' | 'orders' | 'wallet' | 'profile';
+export type TabType = 'home' | 'orders' | 'support' | 'profile' | 'vouchers' | 'wallet';
 
 interface BottomTabBarProps {
   activeTab: TabType;
@@ -25,13 +25,15 @@ const SLOT_COUNT = 4;
 const INDEX_TO_TAB: Record<number, TabType> = {
   0: 'home',
   1: 'orders',
-  2: 'wallet',
+  2: 'support',
   3: 'profile',
 };
 
-const TAB_TO_INDEX: Record<TabType, number> = {
+const TAB_TO_INDEX: Record<string, number> = {
   home: 0,
   orders: 1,
+  support: 2,
+  vouchers: 2,
   wallet: 2,
   profile: 3,
 };
@@ -108,6 +110,10 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
       router.replace('/profile' as any);
     } else if (tab === 'orders') {
       router.replace('/orders' as any);
+    } else if (tab === 'support') {
+      router.replace('/support-tickets' as any);
+    } else if (tab === 'vouchers') {
+      router.replace('/vouchers' as any);
     } else if (tab === 'wallet') {
       router.replace('/user-wallet' as any);
     }
@@ -179,12 +185,7 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
           }}>
           {/* pointerEvents none — gesture owns this layer */}
           <View style={styles.tabsRow} pointerEvents="none">
-            <TabItem
-              slot={0}
-              iconActive="home"
-              iconInactive="home"
-              activeIndex={activeIndex}
-            />
+            <TabItem slot={0} iconActive="home" iconInactive="home" activeIndex={activeIndex} />
             <TabItem
               slot={1}
               iconActive="assignment"
@@ -193,16 +194,11 @@ export function BottomTabBar({ activeTab }: BottomTabBarProps) {
             />
             <TabItem
               slot={2}
-              iconActive="account-balance-wallet"
-              iconInactive="account-balance-wallet"
+              iconActive="support-agent"
+              iconInactive="support-agent"
               activeIndex={activeIndex}
             />
-            <TabItem
-              slot={3}
-              iconActive="person"
-              iconInactive="person"
-              activeIndex={activeIndex}
-            />
+            <TabItem slot={3} iconActive="person" iconInactive="person" activeIndex={activeIndex} />
           </View>
         </Animated.View>
       </GestureDetector>

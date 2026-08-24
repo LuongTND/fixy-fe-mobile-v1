@@ -103,8 +103,6 @@ async function fetchAllWorkersByCategory(
   return workers;
 }
 
-
-
 export default function ServiceWorkersScreen() {
   const insets = useSafeAreaInsets();
   const { serviceId, serviceName } = useLocalSearchParams<{
@@ -115,10 +113,17 @@ export default function ServiceWorkersScreen() {
   const [searchQuery, setSearchQuery] = React.useState('');
   const [filterModalOpen, setFilterModalOpen] = React.useState(false);
   const [categoryModalOpen, setCategoryModalOpen] = React.useState(false);
-  const [selectedCategory, setSelectedCategory] = React.useState<{ id: string; name: string } | null>(null);
+  const [selectedCategory, setSelectedCategory] = React.useState<{
+    id: string;
+    name: string;
+  } | null>(null);
 
   const [activeFilterChip, setActiveFilterChip] = React.useState<'near' | 'popular' | 'all'>('all');
-  const [priceRange, setPriceRange] = React.useState<{ label: string; min: number; max: number } | null>(null);
+  const [priceRange, setPriceRange] = React.useState<{
+    label: string;
+    min: number;
+    max: number;
+  } | null>(null);
   const [minRating, setMinRating] = React.useState<number | null>(null);
   const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
 
@@ -152,7 +157,11 @@ export default function ServiceWorkersScreen() {
   const activeCategoryId = selectedCategory?.id || serviceId;
 
   const sortByParam =
-    activeFilterChip === 'near' ? 'nearest' : activeFilterChip === 'popular' ? 'popular' : undefined;
+    activeFilterChip === 'near'
+      ? 'nearest'
+      : activeFilterChip === 'popular'
+        ? 'popular'
+        : undefined;
 
   const { data: apiWorkers = [], isLoading: loading } = useQuery<WorkerProfile[]>({
     queryKey: [
@@ -202,9 +211,12 @@ export default function ServiceWorkersScreen() {
     const badge = BADGE_CONFIG[item.badge] || BADGE_CONFIG[0];
 
     // Arrival time label
-    const arrivalLabel = item.estimatedArrivalMinutes != null
-      ? `Dự kiến ${item.estimatedArrivalMinutes} phút`
-      : (item.isOnline ? 'Đặt ngay' : '');
+    const arrivalLabel =
+      item.estimatedArrivalMinutes != null
+        ? `Dự kiến ${item.estimatedArrivalMinutes} phút`
+        : item.isOnline
+          ? 'Đặt ngay'
+          : '';
 
     const workerTargetId = item.workerProfileId || item.id;
 
@@ -214,10 +226,7 @@ export default function ServiceWorkersScreen() {
         onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
         <View style={styles.ktvAvatarWrapper}>
           {item.avatarUrl ? (
-            <Image
-              source={{ uri: item.avatarUrl }}
-              style={styles.ktvAvatar}
-            />
+            <Image source={{ uri: item.avatarUrl }} style={styles.ktvAvatar} />
           ) : (
             <View style={[styles.ktvAvatar, styles.ktvAvatarPlaceholder]}>
               <MaterialIcons name="person" size={32} color="#A0AEC0" />
@@ -229,11 +238,15 @@ export default function ServiceWorkersScreen() {
         </View>
 
         <View style={styles.ktvMainDetails}>
-          <Text style={styles.ktvName} numberOfLines={1}>{item.fullName}</Text>
+          <Text style={styles.ktvName} numberOfLines={1}>
+            {item.fullName}
+          </Text>
 
           <View style={styles.ratingDistanceRow}>
             <MaterialIcons name="star" size={16} color="#F59E0B" />
-            <Text style={styles.ratingText}>{item.rating > 0 ? item.rating.toFixed(1) : '5.0'}</Text>
+            <Text style={styles.ratingText}>
+              {item.rating > 0 ? item.rating.toFixed(1) : '5.0'}
+            </Text>
             <Text style={styles.reviewsText}>({item.reviewsCount} đánh giá)</Text>
           </View>
 
@@ -246,9 +259,7 @@ export default function ServiceWorkersScreen() {
         </View>
 
         <View style={styles.rightColumn}>
-          {arrivalLabel ? (
-            <Text style={styles.ktvAvailability}>{arrivalLabel}</Text>
-          ) : <View />}
+          {arrivalLabel ? <Text style={styles.ktvAvailability}>{arrivalLabel}</Text> : <View />}
           <Pressable
             style={styles.bookActionBtn}
             onPress={() => router.push(`/(customer)/worker-detail?id=${workerTargetId}` as any)}>
@@ -360,7 +371,11 @@ export default function ServiceWorkersScreen() {
               <Text style={styles.filterModalTitle}>Bộ lọc Kỹ thuật viên</Text>
               <View style={{ flexDirection: 'row', alignItems: 'center', gap: 14 }}>
                 {(priceRange !== null || minRating !== null) && (
-                  <Pressable onPress={() => { setPriceRange(null); setMinRating(null); }}>
+                  <Pressable
+                    onPress={() => {
+                      setPriceRange(null);
+                      setMinRating(null);
+                    }}>
                     <Text style={styles.resetFilterText}>Đặt lại</Text>
                   </Pressable>
                 )}
@@ -434,7 +449,6 @@ export default function ServiceWorkersScreen() {
               style={styles.categoryListScroll}
               showsVerticalScrollIndicator={false}
               contentContainerStyle={styles.categoryListContent}>
-              
               {/* Option: Tất cả */}
               <Pressable
                 style={[
@@ -463,10 +477,7 @@ export default function ServiceWorkersScreen() {
                 return (
                   <Pressable
                     key={cat.id}
-                    style={[
-                      styles.categoryCardItem,
-                      isSelected && styles.categoryCardItemActive,
-                    ]}
+                    style={[styles.categoryCardItem, isSelected && styles.categoryCardItemActive]}
                     onPress={() => {
                       if (isSelected) {
                         setSelectedCategory(null); // Toggle off!
@@ -494,10 +505,7 @@ export default function ServiceWorkersScreen() {
       </Modal>
 
       {/* City Selector Modal */}
-      <CitySelectorModal
-        visible={cityModalVisible}
-        onClose={() => setCityModalVisible(false)}
-      />
+      <CitySelectorModal visible={cityModalVisible} onClose={() => setCityModalVisible(false)} />
     </View>
   );
 }

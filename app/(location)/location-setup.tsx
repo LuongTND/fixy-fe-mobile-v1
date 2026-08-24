@@ -47,7 +47,10 @@ export function formatAddressDisplay(addr: Address | any): string {
 
   for (const raw of rawParts) {
     if (!raw || typeof raw !== 'string') continue;
-    const subParts = raw.split(',').map((s) => s.trim()).filter(Boolean);
+    const subParts = raw
+      .split(',')
+      .map((s) => s.trim())
+      .filter(Boolean);
     for (const sub of subParts) {
       if (
         cleanParts.length === 0 ||
@@ -218,13 +221,15 @@ export default function LocationSetupScreen() {
 
   const { data: wards = [], isLoading: isLoadingWards } = useQuery<WardOption[]>({
     queryKey: ['wardsList', selectedProvinceCode],
-    queryFn: () => (selectedProvinceCode ? vietnamProvincesApi.getWardsForProvince(selectedProvinceCode) : []),
+    queryFn: () =>
+      selectedProvinceCode ? vietnamProvincesApi.getWardsForProvince(selectedProvinceCode) : [],
     enabled: !!selectedProvinceCode,
   });
 
   React.useEffect(() => {
     if (provinces.length > 0 && !selectedProvinceCode) {
-      const daNang = provinces.find((p) => cleanSearchText(p.name).includes('da nang')) || provinces[0];
+      const daNang =
+        provinces.find((p) => cleanSearchText(p.name).includes('da nang')) || provinces[0];
       if (daNang) {
         setSelectedProvinceCode(daNang.code);
         setSelectedProvinceName(daNang.name);
@@ -533,18 +538,11 @@ export default function LocationSetupScreen() {
           'Địa chỉ dịch vụ';
 
         const cityName =
-          selectedProvinceName ||
-          selectedPlaceInfo?.compound?.province ||
-          'Thành phố Đà Nẵng';
+          selectedProvinceName || selectedPlaceInfo?.compound?.province || 'Thành phố Đà Nẵng';
 
-        const wardName =
-          ward.trim() ||
-          selectedPlaceInfo?.compound?.commune ||
-          '';
+        const wardName = ward.trim() || selectedPlaceInfo?.compound?.commune || '';
 
-        const districtName =
-          selectedPlaceInfo?.compound?.district ||
-          '';
+        const districtName = selectedPlaceInfo?.compound?.district || '';
 
         const detailText =
           newDetail.trim() ||
@@ -571,23 +569,23 @@ export default function LocationSetupScreen() {
           isDefault: true,
         };
 
-      const saved = await createAddress(newAddressData);
-      await queryClient.invalidateQueries({ queryKey: ['addresses'] });
-      await queryClient.invalidateQueries({ queryKey: ['myAddresses'] });
-      await loadAddresses();
-      if (saved && saved.id) {
-        setSelectedAddressId(saved.id);
-      }
-    } else if (selectedAddressId) {
-      // 2. If user tapped an existing saved address card
-      const addr = addresses.find((a) => a.id === selectedAddressId);
-      if (addr) {
-        await handleSetDefault(addr);
-        if (addr.city) {
-          useLocationStore.getState().setSelectedCity(addr.city);
+        const saved = await createAddress(newAddressData);
+        await queryClient.invalidateQueries({ queryKey: ['addresses'] });
+        await queryClient.invalidateQueries({ queryKey: ['myAddresses'] });
+        await loadAddresses();
+        if (saved && saved.id) {
+          setSelectedAddressId(saved.id);
+        }
+      } else if (selectedAddressId) {
+        // 2. If user tapped an existing saved address card
+        const addr = addresses.find((a) => a.id === selectedAddressId);
+        if (addr) {
+          await handleSetDefault(addr);
+          if (addr.city) {
+            useLocationStore.getState().setSelectedCity(addr.city);
+          }
         }
       }
-    }
 
       // 3. Navigation based on role
       const role = selectAuthRole(useAuthStore.getState());
@@ -672,9 +670,6 @@ export default function LocationSetupScreen() {
               </MapLibreGL.ShapeSource>
             )}
           </MapLibreGL.MapView>
-
-
-
         </View>
       ) : isReactNativeMapsSupported ? (
         /* Giao diện bản đồ tương tác react-native-maps trên di động (Expo Go / Dev Build) */
@@ -716,9 +711,6 @@ export default function LocationSetupScreen() {
               />
             )}
           </MapViewRN>
-
-
-
         </View>
       ) : (
         /* Interactive Goong Map View via WebView */
@@ -771,10 +763,6 @@ export default function LocationSetupScreen() {
             }}
             style={styles.map}
           />
-
-
-
-
         </View>
       )}
 
@@ -889,9 +877,7 @@ export default function LocationSetupScreen() {
                       </View>
                     )}
                   </View>
-                  <Text style={styles.addressBody}>
-                    {formatAddressDisplay(item)}
-                  </Text>
+                  <Text style={styles.addressBody}>{formatAddressDisplay(item)}</Text>
                 </View>
 
                 <View style={styles.addressActions}>
@@ -927,7 +913,9 @@ export default function LocationSetupScreen() {
                   </Pressable>
                 </View>
 
-                <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled">
+                <ScrollView
+                  showsVerticalScrollIndicator={false}
+                  keyboardShouldPersistTaps="handled">
                   <Text style={styles.inputLabel}>Tên nhãn địa chỉ *</Text>
                   <TextInput
                     style={styles.textInput}
@@ -940,7 +928,11 @@ export default function LocationSetupScreen() {
                   {/* Province Selector Button */}
                   <Text style={styles.inputLabel}>Tỉnh / Thành phố *</Text>
                   <Pressable style={styles.selectorBtn} onPress={() => setPickerMode('province')}>
-                    <Text style={[styles.selectorBtnText, !selectedProvinceName && { color: '#9CA3AF' }]}>
+                    <Text
+                      style={[
+                        styles.selectorBtnText,
+                        !selectedProvinceName && { color: '#9CA3AF' },
+                      ]}>
                       {selectedProvinceName || 'Chọn Tỉnh / Thành phố'}
                     </Text>
                     <MaterialIcons name="chevron-right" size={22} color="#6B7280" />
@@ -996,7 +988,12 @@ export default function LocationSetupScreen() {
                 </View>
 
                 <View style={styles.searchBox}>
-                  <MaterialIcons name="search" size={20} color="#9CA3AF" style={{ marginRight: 6 }} />
+                  <MaterialIcons
+                    name="search"
+                    size={20}
+                    color="#9CA3AF"
+                    style={{ marginRight: 6 }}
+                  />
                   <TextInput
                     style={styles.modalSearchInput}
                     placeholder="Tìm Tỉnh / Thành phố..."
@@ -1044,7 +1041,12 @@ export default function LocationSetupScreen() {
                 </View>
 
                 <View style={styles.searchBox}>
-                  <MaterialIcons name="search" size={20} color="#9CA3AF" style={{ marginRight: 6 }} />
+                  <MaterialIcons
+                    name="search"
+                    size={20}
+                    color="#9CA3AF"
+                    style={{ marginRight: 6 }}
+                  />
                   <TextInput
                     style={styles.modalSearchInput}
                     placeholder="Tìm Phường / Xã..."
@@ -1076,7 +1078,9 @@ export default function LocationSetupScreen() {
                           ]}>
                           {w.name}
                         </Text>
-                        {ward === w.name && <MaterialIcons name="check" size={20} color="#0F382C" />}
+                        {ward === w.name && (
+                          <MaterialIcons name="check" size={20} color="#0F382C" />
+                        )}
                       </Pressable>
                     ))}
                   </ScrollView>

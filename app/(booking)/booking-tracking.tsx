@@ -11,7 +11,12 @@ import { HubConnectionBuilder, LogLevel, HubConnection } from '@microsoft/signal
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 
 import { BookingStatus, BookingTracking, getBookingTracking } from '@/services/api/bookings';
-import { getDistanceAndDuration, getDirections, GOONG_MAPTILES_API_KEY, GOONG_API_KEY } from '@/services/api/goong';
+import {
+  getDistanceAndDuration,
+  getDirections,
+  GOONG_MAPTILES_API_KEY,
+  GOONG_API_KEY,
+} from '@/services/api/goong';
 import { useAuthStore } from '@/store/store';
 import { getApiBaseUrl } from '@/config/env';
 
@@ -129,7 +134,13 @@ export default function BookingTrackingScreen() {
 
   // Route polyline via Goong Directions
   const { data: routeData = null } = useQuery({
-    queryKey: ['trackingGoongRoute', liveWorkerLat, liveWorkerLng, liveCustomerLat, liveCustomerLng],
+    queryKey: [
+      'trackingGoongRoute',
+      liveWorkerLat,
+      liveWorkerLng,
+      liveCustomerLat,
+      liveCustomerLng,
+    ],
     queryFn: () =>
       getDirections(
         { lat: liveWorkerLat!, lng: liveWorkerLng! },
@@ -165,7 +176,12 @@ export default function BookingTrackingScreen() {
           if (!isActive) return;
           const lat = dto?.Lat ?? dto?.lat;
           const lng = dto?.Lng ?? dto?.lng;
-          if (lat !== undefined && lng !== undefined && !isNaN(Number(lat)) && !isNaN(Number(lng))) {
+          if (
+            lat !== undefined &&
+            lng !== undefined &&
+            !isNaN(Number(lat)) &&
+            !isNaN(Number(lng))
+          ) {
             setRealtimeLocation({
               lat: Number(lat),
               lng: Number(lng),
@@ -204,9 +220,9 @@ export default function BookingTrackingScreen() {
           .invoke('LeaveBookingGroup', params.bookingId)
           .catch(() => {})
           .finally(() => {
-            connection?.stop().catch((err) =>
-              console.warn('[BookingTracking] Error stopping hub:', err)
-            );
+            connection
+              ?.stop()
+              .catch((err) => console.warn('[BookingTracking] Error stopping hub:', err));
           });
       }
     };
@@ -351,25 +367,33 @@ export default function BookingTrackingScreen() {
       });
 
       // Fit bounds to show both markers
-      ${hasWorkerCoords ? `
+      ${
+        hasWorkerCoords
+          ? `
       try {
         var bounds = new goongjs.LngLatBounds();
         bounds.extend([${workerLng}, ${workerLat}]);
         bounds.extend([${liveCustomerLng}, ${liveCustomerLat}]);
         map.fitBounds(bounds, { padding: 60, maxZoom: 15 });
       } catch(e) {}
-      ` : ''}
+      `
+          : ''
+      }
     });
 
     // Worker marker with pulse animation
-    ${hasWorkerCoords ? `
+    ${
+      hasWorkerCoords
+        ? `
     var workerEl = document.createElement('div');
     workerEl.style.position = 'relative';
     workerEl.innerHTML = '<div class="pulse-ring"></div><div class="worker-marker"><svg viewBox="0 0 24 24"><path d="M19.44 9.03L15.41 5H11v2h3.59l2 2H5v2h12.59l-3.83 3.83.59.59L19.44 10.34c.38-.38.59-.88.59-1.41 0-.53-.21-1.04-.59-1.41zM8 16c-1.66 0-3 1.34-3 3s1.34 3 3 3 3-1.34 3-3-1.34-3-3-3zm0 4c-.55 0-1-.45-1-1s.45-1 1-1 1 .45 1 1-.45 1-1 1z"/></svg></div>';
     window.workerMarker = new goongjs.Marker({ element: workerEl })
       .setLngLat([${workerLng}, ${workerLat}])
       .addTo(map);
-    ` : ''}
+    `
+        : ''
+    }
 
     // Customer marker (destination)
     var custEl = document.createElement('div');
@@ -477,8 +501,8 @@ export default function BookingTrackingScreen() {
                 {currentStatusNum >= BookingStatus.Arrived
                   ? 'Đã đến nơi'
                   : etaData
-                  ? `${etaData.durationText} (${etaData.distanceText})`
-                  : 'Đang cập nhật...'}
+                    ? `${etaData.durationText} (${etaData.distanceText})`
+                    : 'Đang cập nhật...'}
               </Text>
             </View>
           </View>

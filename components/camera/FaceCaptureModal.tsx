@@ -42,9 +42,17 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
   // Tip index rotator
   const [tipIndex, setTipIndex] = React.useState(0);
   const tips = [
-    { icon: 'face', title: 'Căn chỉnh khuôn mặt vào giữa khung tròn', sub: 'Giữ điện thoại ngang tầm mắt, thẳng mặt' },
+    {
+      icon: 'face',
+      title: 'Căn chỉnh khuôn mặt vào giữa khung tròn',
+      sub: 'Giữ điện thoại ngang tầm mắt, thẳng mặt',
+    },
     { icon: 'straighten', title: 'Giữ cự ly vừa vặn', sub: 'Không đưa máy quá xa hoặc dí sát mặt' },
-    { icon: 'wb-sunny', title: 'Đảm bảo đủ ánh sáng', sub: 'Tránh ngược sáng, không đeo kính râm hoặc khẩu trang' },
+    {
+      icon: 'wb-sunny',
+      title: 'Đảm bảo đủ ánh sáng',
+      sub: 'Tránh ngược sáng, không đeo kính râm hoặc khẩu trang',
+    },
   ];
 
   const requestPermission = React.useCallback(async () => {
@@ -172,7 +180,8 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
             </View>
             <Text style={styles.permissionTitle}>Cần quyền truy cập Camera</Text>
             <Text style={styles.permissionDesc}>
-              Ứng dụng cần quyền mở camera để chụp ảnh chân dung xác thực khuôn mặt định danh cho kỹ thuật viên.
+              Ứng dụng cần quyền mở camera để chụp ảnh chân dung xác thực khuôn mặt định danh cho kỹ
+              thuật viên.
             </Text>
             <Pressable style={styles.permissionBtn} onPress={requestPermission}>
               <Text style={styles.permissionBtnText}>Cấp quyền Camera</Text>
@@ -186,7 +195,11 @@ export function FaceCaptureModal({ visible, onClose, onCapture }: FaceCaptureMod
             {capturedUri ? (
               // PREVIEW SCREEN
               <View style={styles.previewContainer}>
-                <Image source={{ uri: capturedUri }} style={styles.previewImage} resizeMode="cover" />
+                <Image
+                  source={{ uri: capturedUri }}
+                  style={styles.previewImage}
+                  resizeMode="cover"
+                />
 
                 {/* Oval Guide Overlay on Preview */}
                 <View style={styles.overlayContainer} pointerEvents="none">

@@ -82,13 +82,7 @@ export default function ProfileScreen() {
     <View style={styles.screen}>
       {/* Header */}
       <View style={[styles.header, { paddingTop: Math.max(insets.top, 12) }]}>
-        <View style={{ width: 36 }} />
         <Text style={styles.headerTitle}>Tài khoản</Text>
-        <Pressable
-          style={styles.headerButton}
-          onPress={() => router.push('/(customer)/support-tickets' as any)}>
-          <MaterialIcons name="headset-mic" size={20} color="#0F382C" />
-        </Pressable>
       </View>
 
       {loading ? (
@@ -97,22 +91,21 @@ export default function ProfileScreen() {
         </View>
       ) : (
         <ScrollView
-          contentContainerStyle={[
-            styles.scrollContent,
-            { paddingBottom: insets.bottom + 90 },
-          ]}
+          contentContainerStyle={[styles.scrollContent, { paddingBottom: insets.bottom + 90 }]}
           showsVerticalScrollIndicator={false}>
           {/* User Profile Header */}
           <View style={styles.userHeaderCard}>
             <View style={styles.avatarWrapper}>
               {profile?.avatarUrl ? (
-                <Image
-                  source={{ uri: profile.avatarUrl }}
-                  style={styles.avatarImage}
-                />
+                <Image source={{ uri: profile.avatarUrl }} style={styles.avatarImage} />
               ) : (
-                <View style={[styles.avatarImage, { backgroundColor: '#D6CFC4', alignItems: 'center', justifyContent: 'center' }]}>
-                  <Text style={{ fontSize: 22, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                <View
+                  style={[
+                    styles.avatarImage,
+                    { backgroundColor: '#D6CFC4', alignItems: 'center', justifyContent: 'center' },
+                  ]}>
+                  <Text
+                    style={{ fontSize: 22, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
                     {(profile?.fullName || '').charAt(0).toUpperCase() || '?'}
                   </Text>
                 </View>
@@ -126,7 +119,7 @@ export default function ProfileScreen() {
 
             <View style={styles.userMeta}>
               <Text style={styles.userNameText}>{profile?.fullName || 'Người dùng'}</Text>
-              {(profile?.phone || target) ? (
+              {profile?.phone || target ? (
                 <Text style={styles.userPhoneText}>{profile?.phone || target}</Text>
               ) : null}
             </View>
@@ -146,7 +139,12 @@ export default function ProfileScreen() {
 
             <Pressable
               style={styles.actionCard}
-              onPress={() => Alert.alert('Giới thiệu bạn bè', 'Chia sẻ mã giới thiệu của bạn để cả 2 nhận ngay Voucher 50k!')}>
+              onPress={() =>
+                Alert.alert(
+                  'Giới thiệu bạn bè',
+                  'Chia sẻ mã giới thiệu của bạn để cả 2 nhận ngay Voucher 50k!'
+                )
+              }>
               <View style={[styles.actionIconCircle, { backgroundColor: '#FEF3C7' }]}>
                 <MaterialIcons name="card-giftcard" size={22} color="#D97706" />
               </View>
@@ -157,6 +155,18 @@ export default function ProfileScreen() {
 
           {/* Menu Items Group Matching Spec 4.10 */}
           <View style={styles.menuGroupCard}>
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() => router.push('/(customer)/user-wallet' as any)}>
+              <View style={styles.menuLeft}>
+                <MaterialIcons name="account-balance-wallet" size={22} color="#0F382C" />
+                <Text style={styles.menuItemText}>Ví Fixy của tôi</Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
+            </Pressable>
+
+            <View style={styles.menuDivider} />
+
             <Pressable
               style={styles.menuItemRow}
               onPress={() => router.push('/(customer)/orders' as any)}>
@@ -217,7 +227,9 @@ export default function ProfileScreen() {
 
             <View style={styles.menuDivider} />
 
-            <Pressable style={styles.menuItemRow} onPress={() => Alert.alert('Quốc gia', 'Khu vực hiện tại: Vietnam 🇻🇳')}>
+            <Pressable
+              style={styles.menuItemRow}
+              onPress={() => Alert.alert('Quốc gia', 'Khu vực hiện tại: Vietnam 🇻🇳')}>
               <View style={styles.menuLeft}>
                 <MaterialIcons name="public" size={22} color="#0F382C" />
                 <Text style={styles.menuItemText}>Quốc gia</Text>
@@ -232,22 +244,15 @@ export default function ProfileScreen() {
 
             <Pressable
               style={styles.menuItemRow}
-              onPress={() => Alert.alert('Về Fixy', 'FIXY – SPA TẠI NHÀ\nNền tảng kết nối Kỹ thuật viên Spa & Khách hàng.\nPhiên bản 1.0 (2026)')}>
+              onPress={() =>
+                Alert.alert(
+                  'Về Fixy',
+                  'FIXY – SPA TẠI NHÀ\nNền tảng kết nối Kỹ thuật viên Spa & Khách hàng.\nPhiên bản 1.0 (2026)'
+                )
+              }>
               <View style={styles.menuLeft}>
                 <MaterialIcons name="info-outline" size={22} color="#0F382C" />
                 <Text style={styles.menuItemText}>Về chúng tôi</Text>
-              </View>
-              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
-            </Pressable>
-
-            <View style={styles.menuDivider} />
-
-            <Pressable
-              style={styles.menuItemRow}
-              onPress={() => router.push('/(customer)/support-tickets' as any)}>
-              <View style={styles.menuLeft}>
-                <MaterialIcons name="support-agent" size={22} color="#0F382C" />
-                <Text style={styles.menuItemText}>Hỗ trợ & Khiếu nại</Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#818A91" />
             </Pressable>
@@ -270,7 +275,9 @@ export default function ProfileScreen() {
         <View style={styles.modalOverlay}>
           <View style={styles.logoutModal}>
             <Text style={styles.logoutModalTitle}>Xác nhận đăng xuất</Text>
-            <Text style={styles.logoutModalBody}>Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?</Text>
+            <Text style={styles.logoutModalBody}>
+              Bạn có chắc chắn muốn đăng xuất khỏi ứng dụng?
+            </Text>
             <View style={styles.logoutModalActions}>
               <Pressable style={styles.cancelBtn} onPress={() => setLogoutConfirmOpen(false)}>
                 <Text style={styles.cancelBtnText}>Hủy</Text>
@@ -298,7 +305,7 @@ const styles = StyleSheet.create({
     paddingBottom: 12,
     flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
+    justifyContent: 'center',
     paddingHorizontal: 16,
     backgroundColor: '#ffffff',
     borderBottomWidth: 1,

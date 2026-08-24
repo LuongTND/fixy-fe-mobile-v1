@@ -135,7 +135,9 @@ export async function fetchSpaServiceCategories(): Promise<SpaServiceCategory[]>
 /**
  * Search spa partners with filters
  */
-export async function searchSpaPartners(params: SearchSpaPartnerParams): Promise<PagedResponse<SpaPartner>> {
+export async function searchSpaPartners(
+  params: SearchSpaPartnerParams
+): Promise<PagedResponse<SpaPartner>> {
   try {
     const response = await apiClient.get('/spa-partners', { params });
     const resData = response.data;

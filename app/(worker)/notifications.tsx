@@ -140,38 +140,38 @@ export default function WorkerNotificationsScreen() {
     const icon = getNotificationIcon(item.type);
     return (
       <Pressable
-        className={`flex-row items-center rounded-xl p-3 mb-3 border shadow-sm ${
-          item.isRead ? 'bg-white border-[#EFECE6]' : 'bg-[#FBF9F5] border-[#0F382C]'
+        className={`mb-3 flex-row items-center rounded-xl border p-3 shadow-sm ${
+          item.isRead ? 'border-[#EFECE6] bg-white' : 'border-[#0F382C] bg-[#FBF9F5]'
         }`}
         onPress={() => handleNotificationPress(item)}>
-        <View 
-          className="w-[42px] h-[42px] rounded-full items-center justify-center mr-3"
+        <View
+          className="mr-3 h-[42px] w-[42px] items-center justify-center rounded-full"
           style={{ backgroundColor: icon.bg }}>
           <MaterialIcons name={icon.name as any} size={22} color={icon.color} />
         </View>
         <View className="flex-1 justify-center">
-          <View className="flex-row items-center justify-between mb-1 gap-2">
-            <Text 
-              className={`text-sm flex-1 ${
-                item.isRead 
-                  ? 'text-gray-700 font-montserrat-semibold' 
-                  : 'text-gray-900 font-montserrat-bold'
+          <View className="mb-1 flex-row items-center justify-between gap-2">
+            <Text
+              className={`flex-1 text-sm ${
+                item.isRead
+                  ? 'font-montserrat-semibold text-gray-700'
+                  : 'font-montserrat-bold text-gray-900'
               }`}>
               {item.title}
             </Text>
-            {!item.isRead && <View className="w-2 h-2 rounded-full bg-[#0F382C]" />}
+            {!item.isRead && <View className="h-2 w-2 rounded-full bg-[#0F382C]" />}
           </View>
-          <Text 
-            className="text-xs text-[#4B5563] leading-5 mb-1.5 font-montserrat" 
+          <Text
+            className="mb-1.5 font-montserrat text-xs leading-5 text-[#4B5563]"
             numberOfLines={2}>
             {item.body}
           </Text>
-          <Text className="text-[11px] text-gray-400 font-montserrat">
+          <Text className="font-montserrat text-[11px] text-gray-400">
             {formatDateFriendly(item.createdDate)}
           </Text>
         </View>
         <Pressable
-          className="p-2 ml-1 items-center justify-center"
+          className="ml-1 items-center justify-center p-2"
           onPress={(e) => {
             e.stopPropagation();
             handleDeleteSingle(item);
@@ -185,18 +185,18 @@ export default function WorkerNotificationsScreen() {
   return (
     <View className="flex-1 bg-[#FBF9F5]">
       {/* Top Header */}
-      <View 
-        className="h-24 flex-row items-center justify-between px-4 bg-white border-b border-[#EFECE6] z-10"
+      <View
+        className="z-10 h-24 flex-row items-center justify-between border-b border-[#EFECE6] bg-white px-4"
         style={{ paddingTop: insets.top }}>
-        <Pressable className="p-2 items-center justify-center" onPress={() => router.back()}>
+        <Pressable className="items-center justify-center p-2" onPress={() => router.back()}>
           <MaterialIcons name="arrow-back-ios" size={20} color="#0F382C" />
         </Pressable>
-        <Text className="flex-1 text-center text-lg text-[#0F382C] ml-3 font-montserrat-bold">
+        <Text className="ml-3 flex-1 text-center font-montserrat-bold text-lg text-[#0F382C]">
           Thông báo
         </Text>
         <View className="flex-row items-center gap-1">
           <Pressable
-            className="p-2 items-center justify-center"
+            className="items-center justify-center p-2"
             onPress={() => {
               if (notifications.some((n) => !n.isRead)) {
                 Alert.alert('Xác nhận', 'Đánh dấu đọc tất cả thông báo?', [
@@ -209,9 +209,7 @@ export default function WorkerNotificationsScreen() {
             }}>
             <MaterialIcons name="done-all" size={22} color="#0F382C" />
           </Pressable>
-          <Pressable
-            className="p-2 items-center justify-center"
-            onPress={handleDeleteAll}>
+          <Pressable className="items-center justify-center p-2" onPress={handleDeleteAll}>
             <MaterialIcons name="delete-sweep" size={22} color="#0F382C" />
           </Pressable>
         </View>
@@ -237,14 +235,14 @@ export default function WorkerNotificationsScreen() {
             flexGrow: 1,
           }}
           ListEmptyComponent={
-            <View className="items-center justify-center py-20 px-8">
-              <View className="w-20 h-20 rounded-full bg-[#F4F1EA] items-center justify-center mb-4">
+            <View className="items-center justify-center px-8 py-20">
+              <View className="mb-4 h-20 w-20 items-center justify-center rounded-full bg-[#F4F1EA]">
                 <MaterialIcons name="notifications-none" size={48} color="#818A91" />
               </View>
-              <Text className="text-base text-gray-800 mb-1.5 font-montserrat-bold">
+              <Text className="mb-1.5 font-montserrat-bold text-base text-gray-800">
                 Không có thông báo nào
               </Text>
-              <Text className="text-sm text-gray-400 text-center leading-5 font-montserrat">
+              <Text className="text-center font-montserrat text-sm leading-5 text-gray-400">
                 Bạn sẽ thấy cập nhật về đơn hàng và công việc tại đây.
               </Text>
             </View>

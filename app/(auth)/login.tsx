@@ -24,10 +24,7 @@ export default function LoginScreen() {
       return true;
     };
 
-    const backHandler = BackHandler.addEventListener(
-      'hardwareBackPress',
-      backAction
-    );
+    const backHandler = BackHandler.addEventListener('hardwareBackPress', backAction);
 
     return () => backHandler.remove();
   }, []);
@@ -205,9 +202,7 @@ export default function LoginScreen() {
             <View style={styles.divider} />
           </View>
 
-          <Pressable
-            style={styles.googleButton}
-            onPress={googleSignIn}>
+          <Pressable style={styles.googleButton} onPress={googleSignIn}>
             <GoogleIcon size={24} />
             <Text style={styles.googleText}>Đăng nhập với Google</Text>
           </Pressable>

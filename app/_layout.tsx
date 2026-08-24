@@ -1,4 +1,4 @@
-import 'react-native-gesture-handler';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
 import '@/global.css';
 
 import { ActionSheetProvider } from '@expo/react-native-action-sheet';
@@ -14,7 +14,7 @@ import { Stack } from 'expo-router';
 import { StatusBar } from 'expo-status-bar';
 import * as React from 'react';
 import { ActivityIndicator, View } from 'react-native';
-import { GestureHandlerRootView } from 'react-native-gesture-handler';
+
 import { KeyboardProvider } from 'react-native-keyboard-controller';
 
 import { NotificationPopupObserver } from '@/components/notifications/notification-popup-observer';
@@ -85,4 +85,3 @@ export default function RootLayout() {
     </GestureHandlerRootView>
   );
 }
-

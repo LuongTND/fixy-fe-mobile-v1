@@ -269,9 +269,15 @@ function normalizeBooking(raw: any): Booking {
             rating: worker?.rating ?? worker?.ratingAvg ?? 5,
           }
         : undefined,
-    customerName: source.customerName ?? source.CustomerName ?? source.customer?.fullName ?? source.customer?.name ?? null,
+    customerName:
+      source.customerName ??
+      source.CustomerName ??
+      source.customer?.fullName ??
+      source.customer?.name ??
+      null,
     customerPhone: source.customerPhone ?? source.CustomerPhone ?? source.customer?.phone ?? null,
-    customerAvatarUrl: source.customerAvatarUrl ?? source.CustomerAvatarUrl ?? source.customer?.avatarUrl ?? null,
+    customerAvatarUrl:
+      source.customerAvatarUrl ?? source.CustomerAvatarUrl ?? source.customer?.avatarUrl ?? null,
     createdDate: source.createdDate ?? source.createdAt ?? new Date().toISOString(),
   };
 }
@@ -484,8 +490,14 @@ export async function getBookingTracking(bookingId: string): Promise<BookingTrac
       ...data,
       bookingId: data.bookingId ?? data.BookingId ?? bookingId,
       status: data.status ?? data.Status,
-      workerLat: rawLat !== undefined && rawLat !== null && !isNaN(Number(rawLat)) ? Number(rawLat) : undefined,
-      workerLng: rawLng !== undefined && rawLng !== null && !isNaN(Number(rawLng)) ? Number(rawLng) : undefined,
+      workerLat:
+        rawLat !== undefined && rawLat !== null && !isNaN(Number(rawLat))
+          ? Number(rawLat)
+          : undefined,
+      workerLng:
+        rawLng !== undefined && rawLng !== null && !isNaN(Number(rawLng))
+          ? Number(rawLng)
+          : undefined,
       locationUpdatedAt: data.locationUpdatedAt ?? data.LocationUpdatedAt,
       workerInfo: data.workerInfo ?? data.WorkerInfo,
     };
@@ -627,7 +639,13 @@ export async function fetchPaymentMethodsApi(): Promise<ApiPaymentMethodOption[]
     if (Array.isArray(items) && items.length > 0) {
       return items.map((item: any) => {
         const val = typeof item.value === 'number' ? item.value : (item.Value ?? 5);
-        const label = item.displayName ?? item.DisplayName ?? item.description ?? item.Description ?? PAYMENT_METHOD_LABELS[val as PaymentMethod] ?? item.name;
+        const label =
+          item.displayName ??
+          item.DisplayName ??
+          item.description ??
+          item.Description ??
+          PAYMENT_METHOD_LABELS[val as PaymentMethod] ??
+          item.name;
         return {
           name: item.name ?? item.Name ?? String(val),
           value: val,

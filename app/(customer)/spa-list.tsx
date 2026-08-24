@@ -4,22 +4,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
-import {
-  FlatList,
-  Image,
-  Pressable,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
-import {
-  searchSpaPartners,
-  SpaPartner,
-  SearchSpaPartnerParams,
-} from '@/services/api/spa-partners';
+import { searchSpaPartners, SpaPartner, SearchSpaPartnerParams } from '@/services/api/spa-partners';
 
 function getSpaFallbackThumbnail(_index: number): string | null {
   return null;
@@ -72,7 +60,8 @@ export default function SpaListScreen() {
     hasPromotion: activeFilter === 'promo' ? true : undefined,
     isOffPeakNow: activeFilter === 'off_peak' ? true : undefined,
     searchTerm: searchTerm.trim().length > 0 ? searchTerm.trim() : undefined,
-    sortBy: activeFilter === 'nearby' ? 'distance' : activeFilter === 'top_rated' ? 'rating' : undefined,
+    sortBy:
+      activeFilter === 'nearby' ? 'distance' : activeFilter === 'top_rated' ? 'rating' : undefined,
     pageNumber: 1,
     pageSize: 30,
   };
@@ -110,21 +99,18 @@ export default function SpaListScreen() {
 
     return (
       <Pressable
-        style={({ pressed }) => [
-          styles.spaCard,
-          pressed && styles.spaCardPressed,
-        ]}
+        style={({ pressed }) => [styles.spaCard, pressed && styles.spaCardPressed]}
         onPress={() => handleSpaPress(item)}>
         {/* Top Visual Container */}
         <View style={styles.imageWrapper}>
           {thumbUri ? (
-            <Image
-              source={{ uri: thumbUri }}
-              style={styles.spaCardImage}
-              resizeMode="cover"
-            />
+            <Image source={{ uri: thumbUri }} style={styles.spaCardImage} resizeMode="cover" />
           ) : (
-            <View style={[styles.spaCardImage, { backgroundColor: '#E8E2D8', alignItems: 'center', justifyContent: 'center' }]}>
+            <View
+              style={[
+                styles.spaCardImage,
+                { backgroundColor: '#E8E2D8', alignItems: 'center', justifyContent: 'center' },
+              ]}>
               <MaterialIcons name="spa" size={40} color="#C4B9A8" />
             </View>
           )}
@@ -188,9 +174,7 @@ export default function SpaListScreen() {
           <View style={styles.metaHighlightsRow}>
             <View style={styles.metaHighlightItem}>
               <Ionicons name="time-outline" size={13} color="#6B7280" />
-              <Text style={styles.metaHighlightText}>
-                {item.openingHours || '08:00 - 22:00'}
-              </Text>
+              <Text style={styles.metaHighlightText}>{item.openingHours || '08:00 - 22:00'}</Text>
             </View>
 
             {item.phone && (
@@ -254,9 +238,7 @@ export default function SpaListScreen() {
             <Text style={styles.headerTitle} numberOfLines={1}>
               {categoryName ? `Spa: ${categoryName}` : 'Địa Điểm Spa'}
             </Text>
-            <Text style={styles.headerSubtitle}>
-              {spaPartners.length} spa uy tín được xác thực
-            </Text>
+            <Text style={styles.headerSubtitle}>{spaPartners.length} spa uy tín được xác thực</Text>
           </View>
 
           <Pressable

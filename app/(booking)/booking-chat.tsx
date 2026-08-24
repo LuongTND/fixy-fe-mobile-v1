@@ -234,9 +234,11 @@ export default function BookingChatScreen() {
     async function startSignalR() {
       // Check if token is expired
       const jwt = parseJwt(accessToken || '');
-      const isExpired = jwt?.exp ? Date.now() >= (jwt.exp * 1000 - 10000) : false; // 10s buffer
+      const isExpired = jwt?.exp ? Date.now() >= jwt.exp * 1000 - 10000 : false; // 10s buffer
       if (isExpired) {
-        console.log('[chat] Token is expired or expiring soon. Waiting for refresh via initial load...');
+        console.log(
+          '[chat] Token is expired or expiring soon. Waiting for refresh via initial load...'
+        );
         return;
       }
 
@@ -330,10 +332,12 @@ export default function BookingChatScreen() {
     const isWorker =
       (booking.worker?.id && currentUserId?.toLowerCase() === booking.worker.id.toLowerCase()) ||
       (booking.workerId && currentUserId?.toLowerCase() === booking.workerId.toLowerCase()) ||
-      (booking.workerProfileId && currentUserId?.toLowerCase() === booking.workerProfileId.toLowerCase());
+      (booking.workerProfileId &&
+        currentUserId?.toLowerCase() === booking.workerProfileId.toLowerCase());
 
     if (!isWorker) {
-      const rawWorkerAvatar = booking.workerAvatarUrl || (booking as any).WorkerAvatarUrl || booking.worker?.avatarUrl;
+      const rawWorkerAvatar =
+        booking.workerAvatarUrl || (booking as any).WorkerAvatarUrl || booking.worker?.avatarUrl;
       return {
         name: booking.worker?.fullName || booking.workerName || 'Kỹ thuật viên',
         phone: booking.worker?.phone || booking.workerPhone || '',
@@ -358,7 +362,8 @@ export default function BookingChatScreen() {
   }, [booking, currentUserId]);
 
   const bookingStatusNum = Number(booking?.status);
-  const isFinished = bookingStatusNum === BookingStatus.Completed || bookingStatusNum === BookingStatus.Cancelled;
+  const isFinished =
+    bookingStatusNum === BookingStatus.Completed || bookingStatusNum === BookingStatus.Cancelled;
 
   const sendTextMessage = async (text: string) => {
     if (!currentBookingId) return;
@@ -393,9 +398,7 @@ export default function BookingChatScreen() {
       );
     } catch (err) {
       console.warn('Failed to send text message:', err);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
-      );
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)));
     }
   };
 
@@ -433,9 +436,7 @@ export default function BookingChatScreen() {
       );
     } catch (err) {
       console.warn('Failed to send image message:', err);
-      setMessages((prev) =>
-        prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m))
-      );
+      setMessages((prev) => prev.map((m) => (m.id === tempId ? { ...m, status: 'failed' } : m)));
     }
   };
   const handleRetry = async (failedMsg: ChatMessage) => {
@@ -549,7 +550,9 @@ export default function BookingChatScreen() {
                 status === 'sending' && styles.bubbleSending,
               ]}>
               {isImage ? (
-                <Pressable onPress={() => setPreviewImage(item.mediaUrl || null)} disabled={status === 'sending'}>
+                <Pressable
+                  onPress={() => setPreviewImage(item.mediaUrl || null)}
+                  disabled={status === 'sending'}>
                   <Image
                     source={{ uri: item.mediaUrl }}
                     style={styles.messageImage}
@@ -595,11 +598,27 @@ export default function BookingChatScreen() {
         </View>
         <View style={styles.centerContainer}>
           <MaterialIcons name="chat-bubble-outline" size={56} color="#818A91" />
-          <Text style={{ fontFamily: 'Montserrat_700Bold', fontSize: 16, color: '#1C2526', marginTop: 12 }}>
+          <Text
+            style={{
+              fontFamily: 'Montserrat_700Bold',
+              fontSize: 16,
+              color: '#1C2526',
+              marginTop: 12,
+            }}>
             Chưa có cuộc trò chuyện nào
           </Text>
-          <Text style={{ fontFamily: 'Montserrat_400Regular', fontSize: 13, color: '#818A91', textAlign: 'center', marginHorizontal: 32, marginTop: 6, lineHeight: 18 }}>
-            Bạn chưa có đơn dịch vụ nào cần trao đổi. Hãy đặt lịch dịch vụ để trò chuyện trực tiếp với KTV!
+          <Text
+            style={{
+              fontFamily: 'Montserrat_400Regular',
+              fontSize: 13,
+              color: '#818A91',
+              textAlign: 'center',
+              marginHorizontal: 32,
+              marginTop: 6,
+              lineHeight: 18,
+            }}>
+            Bạn chưa có đơn dịch vụ nào cần trao đổi. Hãy đặt lịch dịch vụ để trò chuyện trực tiếp
+            với KTV!
           </Text>
           <Pressable
             style={{

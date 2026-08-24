@@ -200,21 +200,24 @@ export default function WorkerWalletScreen() {
     }
   }, [vietqrBanks, selectedBank]);
 
-  const fetchWallet = React.useCallback(async (silent = false) => {
-    if (!hasApprovedProfile) return;
-    if (!silent) setIsLoading(true);
-    try {
-      const data = await getWalletOverview();
-      setWallet(data);
-    } catch (error) {
-      if (!silent) {
-        Alert.alert('Lỗi', getApiErrorMessage(error));
+  const fetchWallet = React.useCallback(
+    async (silent = false) => {
+      if (!hasApprovedProfile) return;
+      if (!silent) setIsLoading(true);
+      try {
+        const data = await getWalletOverview();
+        setWallet(data);
+      } catch (error) {
+        if (!silent) {
+          Alert.alert('Lỗi', getApiErrorMessage(error));
+        }
+      } finally {
+        setIsLoading(false);
+        setIsRefreshing(false);
       }
-    } finally {
-      setIsLoading(false);
-      setIsRefreshing(false);
-    }
-  }, [hasApprovedProfile]);
+    },
+    [hasApprovedProfile]
+  );
 
   React.useEffect(() => {
     if (hasApprovedProfile) {
@@ -237,7 +240,13 @@ export default function WorkerWalletScreen() {
 
   if (isLoadingProfile) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF9F5' }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#FBF9F5',
+        }}>
         <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
