@@ -84,7 +84,9 @@ export type WorkerProfile = {
     url: string;
   }[];
   services?: {
+    id?: string;
     categoryId: string;
+    categoryName?: string;
     basePrice: number;
     isPrimary?: boolean;
     options?: {
@@ -206,7 +208,18 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
     isBusy: w.isBusy ?? w.IsBusy ?? false,
     isPro: w.experienceYears >= 5 || w.isPro || false,
     specialties: w.services?.map((s: any) => getCategorySlug(s.categoryId)) || w.specialties || [],
-    bio: w.bio || '',
+    bio:
+      w.bio ||
+      w.Bio ||
+      w.description ||
+      w.Description ||
+      w.about ||
+      w.About ||
+      w.introduction ||
+      w.Introduction ||
+      w.user?.bio ||
+      w.user?.Bio ||
+      '',
     status,
     rejectReason: w.rejectReason || w.reject_reason || '',
     address: w.address
@@ -269,7 +282,9 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
       (w.services || w.Services || [])?.map((s: any) => {
         const rawOpts = s.options || s.Options || [];
         return {
+          id: s.id || s.Id,
           categoryId: s.categoryId || s.CategoryId,
+          categoryName: s.categoryName || s.CategoryName,
           basePrice: s.basePrice ?? s.BasePrice,
           isPrimary: s.isPrimary ?? s.IsPrimary,
           options: rawOpts.map((opt: any) => ({
