@@ -25,7 +25,7 @@ import { CitySelectorModal } from '@/components/city-selector-modal';
 import { useLocationStore } from '@/store/store';
 
 const WORKERS_PAGE_SIZE = 50;
-const MAX_WORKER_PAGES = 20;
+const MAX_WORKER_PAGES = 5;
 
 const PRICE_RANGE_OPTIONS = [
   { label: 'Dưới 200k', min: 0, max: 200000 },
@@ -187,6 +187,7 @@ export default function ServiceWorkersScreen() {
         minRating ?? undefined
       ),
     enabled: true,
+    staleTime: 1000 * 60 * 2,
   });
 
   const workerList = apiWorkers;

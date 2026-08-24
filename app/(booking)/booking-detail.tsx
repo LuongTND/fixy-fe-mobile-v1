@@ -5,6 +5,7 @@ import {
   ActivityIndicator,
   Alert,
   Image,
+  Linking,
   Modal,
   Pressable,
   ScrollView,
@@ -19,6 +20,7 @@ import { SvgCssUri } from 'react-native-svg/css';
 import { HubConnectionBuilder, LogLevel, HubConnection } from '@microsoft/signalr';
 
 import VNPayWebView from '@/components/VNPayWebView';
+import PayOSWebView from '@/components/PayOSWebView';
 import {
   Booking,
   BookingStatus,
@@ -34,6 +36,8 @@ import {
   WalletOverview,
   respondBookingProposal,
   cancelBooking,
+  fetchPaymentMethodsApi,
+  ApiPaymentMethodOption,
 } from '@/services/api/bookings';
 import { verifyVnpayCallback } from '@/services/api/payment';
 import { applyVoucher, getEligibleVouchers } from '@/services/api/vouchers';
@@ -291,6 +295,13 @@ export default function BookingDetailScreen() {
     enabled: !!bookingId && booking !== null && Number(booking.status) === BookingStatus.Completed,
   });
 
+  // Query available payment methods from API
+  const { data: paymentMethods = [] } = useQuery<ApiPaymentMethodOption[]>({
+    queryKey: ['paymentMethods'],
+    queryFn: fetchPaymentMethodsApi,
+    enabled: booking !== null && Number(booking.status) === BookingStatus.PendingPayment,
+  });
+
   // Local UI States
   const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<PaymentMethod>(
     PaymentMethod.Wallet
@@ -303,7 +314,16 @@ export default function BookingDetailScreen() {
   const [vnpayPaymentUrl, setVnpayPaymentUrl] = React.useState<string | null>(null);
   const [showVnpayWebView, setShowVnpayWebView] = React.useState(false);
   const [isVerifyingVnpay, setIsVerifyingVnpay] = React.useState(false);
+  const [payosPaymentUrl, setPayosPaymentUrl] = React.useState<string | null>(null);
+  const [showPayosWebView, setShowPayosWebView] = React.useState(false);
   const bookingStatus = booking?.status;
+
+  // Sync selectedPaymentMethod from booking.paymentMethod when booking data loads
+  React.useEffect(() => {
+    if (booking?.paymentMethod !== undefined && booking?.paymentMethod !== null) {
+      setSelectedPaymentMethod(booking.paymentMethod as PaymentMethod);
+    }
+  }, [booking?.paymentMethod]);
 
   // Clear voucher state if status changes from PendingPayment
   React.useEffect(() => {
@@ -395,35 +415,65 @@ export default function BookingDetailScreen() {
       }
 
       if (selectedPaymentMethod === PaymentMethod.Wallet) {
+        // Wallet payment: check balance first
         const totalAmount =
           booking.finalPrice || booking.finalAmount || booking.estimatedPrice || 0;
         const finalTotalAmount = Math.max(0, totalAmount - getVoucherDiscount(selectedVoucher));
 
         if (wallet && wallet.balance < finalTotalAmount) {
-          throw new Error('Ví không đủ số dư. Vui lòng nạp thêm tiền hoặc chọn VNPay.');
+          throw new Error('Ví không đủ số dư. Vui lòng nạp thêm tiền hoặc chọn phương thức thanh toán online.');
         }
 
         await payBookingWithWallet(booking.id);
+        return 'wallet';
+      } else if (selectedPaymentMethod === PaymentMethod.Vnpay) {
+        // VNPay: open VNPay WebView
+        const payment = await startBookingPayment(booking.id, PaymentMethod.Vnpay);
+        const paymentUrl = payment.paymentUrl ?? payment.redirectUrl;
+        if (!paymentUrl) throw new Error('Không nhận được liên kết thanh toán VNPay.');
+        setVnpayPaymentUrl(paymentUrl);
+        setShowVnpayWebView(true);
+        return 'vnpay';
+      } else if (selectedPaymentMethod === PaymentMethod.PayOS || selectedPaymentMethod === PaymentMethod.Card) {
+        // PayOS / Card: open PayOS WebView
+        const payment = await startBookingPayment(booking.id, selectedPaymentMethod);
+        const paymentUrl = payment.paymentUrl ?? payment.redirectUrl;
+        if (!paymentUrl) throw new Error('Không nhận được liên kết thanh toán PayOS.');
+        setPayosPaymentUrl(paymentUrl);
+        setShowPayosWebView(true);
+        return 'payos';
+      } else if (selectedPaymentMethod === PaymentMethod.Momo) {
+        // MoMo: open external deep-link
+        const payment = await startBookingPayment(booking.id, PaymentMethod.Momo);
+        const paymentUrl = payment.paymentUrl ?? payment.redirectUrl;
+        if (!paymentUrl) throw new Error('Không nhận được liên kết thanh toán MoMo.');
+        try {
+          await Linking.openURL(paymentUrl);
+        } catch (e) {
+          console.warn('Could not open MoMo payment URL', e);
+          throw new Error('Không thể mở ứng dụng MoMo. Vui lòng kiểm tra ứng dụng MoMo đã được cài đặt.');
+        }
+        return 'momo';
       } else {
+        // Fallback: any other online method
         const payment = await startBookingPayment(booking.id, selectedPaymentMethod);
         const paymentUrl = payment.paymentUrl ?? payment.redirectUrl;
         if (!paymentUrl) throw new Error('Không nhận được liên kết thanh toán.');
-
         setVnpayPaymentUrl(paymentUrl);
         setShowVnpayWebView(true);
         return 'vnpay';
       }
-      return 'wallet';
     },
     onSuccess: (type) => {
       if (type === 'wallet') {
         if (booking) {
-          const updatedBooking = { ...booking, status: 6 };
+          const updatedBooking = { ...booking, status: BookingStatus.Matching };
           queryClient.setQueryData(['booking', bookingId], updatedBooking);
         }
         queryClient.invalidateQueries({ queryKey: ['wallet'] });
         Alert.alert('Thành công', 'Thanh toán hóa đơn hoàn tất. Cảm ơn bạn đã sử dụng Fixy!');
       }
+      // For vnpay, payos, momo: WebView/deep-link handles the rest
     },
     onError: (error) => {
       console.error('Error paying booking:', error);
@@ -496,6 +546,61 @@ export default function BookingDetailScreen() {
     setShowVnpayWebView(false);
     setVnpayPaymentUrl(null);
     Alert.alert('Kết quả thanh toán', errorMsg);
+  };
+
+  const handlePayOSSuccess = async (_transactionId: string, _params: Record<string, string>) => {
+    if (booking) {
+      queryClient.setQueryData(['booking', bookingId], {
+        ...booking,
+        status: BookingStatus.Matching,
+      });
+    }
+    queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+    queryClient.invalidateQueries({ queryKey: ['wallet'] });
+    setShowPayosWebView(false);
+    setPayosPaymentUrl(null);
+    Alert.alert('Thành công', 'Thanh toán hóa đơn hoàn tất. Cảm ơn bạn đã sử dụng Fixy!');
+  };
+
+  const handlePayOSError = (errorMsg: string) => {
+    queryClient.invalidateQueries({ queryKey: ['booking', bookingId] });
+    setShowPayosWebView(false);
+    setPayosPaymentUrl(null);
+    Alert.alert('Kết quả thanh toán', errorMsg);
+  };
+
+  // Helper: get payment button label based on selected method
+  const getPaymentButtonLabel = () => {
+    switch (selectedPaymentMethod) {
+      case PaymentMethod.Vnpay:
+        return 'Thanh toán qua VNPay';
+      case PaymentMethod.PayOS:
+      case PaymentMethod.Card:
+        return 'Thanh toán qua PayOS';
+      case PaymentMethod.Momo:
+        return 'Thanh toán qua MoMo';
+      case PaymentMethod.Wallet:
+        return 'Thanh toán bằng Ví Fixy';
+      default:
+        return 'Tiếp tục thanh toán';
+    }
+  };
+
+  // Helper: get icon name for payment method
+  const getPaymentIcon = (methodValue: number): React.ComponentProps<typeof MaterialIcons>['name'] => {
+    switch (methodValue) {
+      case PaymentMethod.Wallet:
+        return 'account-balance-wallet';
+      case PaymentMethod.Vnpay:
+      case PaymentMethod.Momo:
+      case PaymentMethod.PayOS:
+        return 'qr-code-scanner';
+      case PaymentMethod.Card:
+        return 'credit-card';
+      case PaymentMethod.Cash:
+      default:
+        return 'attach-money';
+    }
   };
 
   const loading = bookingLoading || categoriesLoading;
@@ -830,6 +935,63 @@ export default function BookingDetailScreen() {
           ) : null}
         </View>
 
+        {/* Payment Method Selector (Visible only for PENDING_PAYMENT) */}
+        {Number(booking.status) === BookingStatus.PendingPayment && (
+          <View style={styles.infoCard}>
+            <Text style={styles.infoCardTitle}>Phương thức thanh toán</Text>
+            <View style={{ gap: 8 }}>
+              {paymentMethods
+                .filter((m) => m.value !== PaymentMethod.Cash) // Exclude Cash for online retry
+                .map((method) => {
+                  const isSelected = selectedPaymentMethod === method.value;
+                  return (
+                    <Pressable
+                      key={method.value}
+                      style={[
+                        styles.paymentMethodButton,
+                        isSelected && styles.paymentMethodButtonActive,
+                      ]}
+                      onPress={() => setSelectedPaymentMethod(method.value as PaymentMethod)}>
+                      <MaterialIcons
+                        name={getPaymentIcon(method.value)}
+                        size={22}
+                        color={isSelected ? '#0F382C' : '#818A91'}
+                      />
+                      <View style={styles.paymentMethodTextCol}>
+                        <Text style={styles.paymentMethodTitle}>
+                          {method.description || method.name}
+                        </Text>
+                        {method.value === PaymentMethod.Wallet && wallet && (
+                          <Text
+                            style={[
+                              styles.paymentMethodSubtitle,
+                              wallet.balance < finalTotalAmount && { color: '#BA1A1A' },
+                            ]}>
+                            Số dư: {formatCurrency(wallet.balance)}
+                          </Text>
+                        )}
+                      </View>
+                      {isSelected && (
+                        <MaterialIcons name="check-circle" size={20} color="#0F382C" />
+                      )}
+                    </Pressable>
+                  );
+                })}
+            </View>
+            {selectedPaymentMethod === PaymentMethod.Wallet &&
+              wallet !== null &&
+              wallet.balance < finalTotalAmount && (
+                <View style={styles.paymentWarningBox}>
+                  <MaterialIcons name="warning" size={16} color="#BA1A1A" />
+                  <Text style={styles.paymentWarningText}>
+                    Số dư ví không đủ ({formatCurrency(wallet.balance)}). Vui lòng nạp thêm hoặc chọn
+                    phương thức thanh toán online khác.
+                  </Text>
+                </View>
+              )}
+          </View>
+        )}
+
         {/* Invoice Summary (Visible if PENDING_PAYMENT or COMPLETED) */}
         {(Number(booking.status) === BookingStatus.PendingPayment ||
           Number(booking.status) === BookingStatus.Completed) && (
@@ -943,7 +1105,7 @@ export default function BookingDetailScreen() {
               {actionLoading ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text style={styles.primaryActionText}>Tiếp tục thanh toán qua cổng online</Text>
+                <Text style={styles.primaryActionText}>{getPaymentButtonLabel()}</Text>
               )}
             </Pressable>
             <Pressable style={styles.cancelBtn} onPress={handleCancelBooking}>
@@ -1115,6 +1277,19 @@ export default function BookingDetailScreen() {
           }}
           onSuccess={handleVNPaySuccess}
           onError={handleVNPayError}
+        />
+      )}
+
+      {payosPaymentUrl && (
+        <PayOSWebView
+          visible={showPayosWebView}
+          paymentUrl={payosPaymentUrl}
+          onClose={() => {
+            setShowPayosWebView(false);
+            setPayosPaymentUrl(null);
+          }}
+          onSuccess={handlePayOSSuccess}
+          onError={handlePayOSError}
         />
       )}
     </View>

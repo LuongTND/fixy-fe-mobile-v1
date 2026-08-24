@@ -21,6 +21,7 @@ import { formatDateTime, formatDateOnly } from '@/utils/date';
 import { formatCurrency } from '@/utils/format';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useLocationStore } from '@/store/store';
+import { WorkerDetailSkeleton } from '@/components/skeletons/worker-detail-skeleton';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
@@ -176,38 +177,55 @@ export default function WorkerDetailScreen() {
   const [translatedReviews, setTranslatedReviews] = React.useState<Record<string, boolean>>({});
 
   const { data: worker = null, isLoading: loading } = useQuery<WorkerProfile | null>({
-    queryKey: ['worker', id],
-    queryFn: () => getWorkerDetails(id || ''),
-    enabled: !!id,
-    staleTime: 1000 * 30,
-    initialData: () => {
-      if (!id) return undefined;
-      const cached = queryClient.getQueryData<WorkerProfile>(['worker', id]);
-      if (cached) return cached;
-      const allQueries = queryClient.getQueriesData<any>({ queryKey: [] });
-      for (const [, qData] of allQueries) {
-        if (Array.isArray(qData)) {
-          const found = qData.find((w: any) => w && (w.id === id || w.workerProfileId === id));
-          if (found) return found;
-        } else if (qData && typeof qData === 'object' && Array.isArray(qData.items)) {
-          const found = qData.items.find(
-            (w: any) => w && (w.id === id || w.workerProfileId === id)
-          );
-          if (found) return found;
-        }
-      }
-      return undefined;
-    },
-  });
+  queryKey: ['worker', id],
+  queryFn: () => getWorkerDetails(id || ''),
+  enabled: !!id,
 
-  const targetWorkerId = worker?.workerProfileId || worker?.id || id || '';
+  // Giữ cache 2 phút của DaiLT/FixySpaConvert
+  staleTime: 1000 * 60 * 2,
+
+  // Giữ logic lấy dữ liệu từ cache của dev-v1
+  initialData: () => {
+    if (!id) return undefined;
+
+    // Kiểm tra cache worker trực tiếp
+    const cached = queryClient.getQueryData<WorkerProfile>(['worker', id]);
+    if (cached) return cached;
+
+    // Tìm worker trong các cache list/search đã có
+    const allQueries = queryClient.getQueriesData<any>({
+      queryKey: [],
+    });
+
+    for (const [, qData] of allQueries) {
+      if (Array.isArray(qData)) {
+        const found = qData.find(
+          (w: any) => w && (w.id === id || w.workerProfileId === id)
+        );
+
+        if (found) return found;
+      } else if (
+        qData &&
+        typeof qData === 'object' &&
+        Array.isArray(qData.items)
+      ) {
+        const found = qData.items.find(
+          (w: any) => w && (w.id === id || w.workerProfileId === id)
+        );
+
+        if (found) return found;
+      }
+    }
+
+    return undefined;
+  },
+});
 
   const { data: reviewsData = null } = useQuery({
-    queryKey: ['workerReviews', targetWorkerId],
-    queryFn: () => getWorkerReviews(targetWorkerId),
-    enabled: !!targetWorkerId,
-    staleTime: 1000 * 30,
-    refetchOnMount: 'always',
+    queryKey: ['workerReviews', id],
+    queryFn: () => getWorkerReviews(id || ''),
+    enabled: !!id,
+    staleTime: 1000 * 60 * 2,
   });
 
   const { data: categories = [] } = useQuery({
@@ -348,13 +366,7 @@ export default function WorkerDetailScreen() {
 
   const starBreakdown = React.useMemo(() => {
     if (reviewsList.length === 0) {
-      return [
-        { star: 5, pct: '100%' },
-        { star: 4, pct: '0%' },
-        { star: 3, pct: '0%' },
-        { star: 2, pct: '0%' },
-        { star: 1, pct: '0%' },
-      ];
+      return [5, 4, 3, 2, 1].map((star) => ({ star, pct: '0%' }));
     }
     const counts = { 5: 0, 4: 0, 3: 0, 2: 0, 1: 0 };
     reviewsList.forEach((r) => {
@@ -369,11 +381,19 @@ export default function WorkerDetailScreen() {
     });
   }, [reviewsList]);
 
-  const ktvName = worker?.fullName || 'Kỹ thuật viên';
-  const ktvAvatar = worker?.avatarUrl;
-  const ktvRating =
-    typeof worker?.rating === 'number' && worker.rating > 0 ? worker.rating.toFixed(1) : '5.0';
-  const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
+const ktvName = worker?.fullName || 'Kỹ thuật viên';
+const ktvAvatar = worker?.avatarUrl;
+
+const hasRating =
+  typeof worker?.rating === 'number' && worker.rating > 0;
+
+const ktvRating = hasRating
+  ? worker.rating.toFixed(1)
+  : totalReviewsCount > 0
+    ? '5.0'
+    : '--';
+
+const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
 
   const handleBookNow = (selectedCategoryId?: string, durationMinutes?: number) => {
     const targetCatId =
@@ -401,12 +421,8 @@ export default function WorkerDetailScreen() {
     } as any);
   };
 
-  if (loading) {
-    return (
-      <View style={[styles.screen, styles.centerContainer, { paddingTop: insets.top }]}>
-        <ActivityIndicator size="large" color="#0F382C" />
-      </View>
-    );
+  if (loading || !worker) {
+    return <WorkerDetailSkeleton />;
   }
 
   return (
@@ -439,9 +455,11 @@ export default function WorkerDetailScreen() {
                 'Không xác định'}
             </Text>
             <Text style={styles.dotDivider}>|</Text>
-            <MaterialIcons name="star" size={16} color="#F59E0B" />
+            <MaterialIcons name="star" size={16} color={hasRating ? '#F59E0B' : '#9CA3AF'} />
             <Text style={styles.ratingScore}>{ktvRating}</Text>
-            <Text style={styles.reviewsCount}>({totalReviewsCount} đánh giá)</Text>
+            <Text style={styles.reviewsCount}>
+              {totalReviewsCount > 0 ? `(${totalReviewsCount} đánh giá)` : '(Chưa có đánh giá)'}
+            </Text>
           </View>
 
           {/* Fixy Trust Box */}
@@ -471,8 +489,12 @@ export default function WorkerDetailScreen() {
               <MaterialIcons name="person-outline" size={18} color="#0F382C" />
               <Text style={styles.bioHeadingTitle}>Giới thiệu bản thân</Text>
             </View>
-            <Text style={styles.bioText} numberOfLines={showFullBio ? undefined : 3}>
-              {worker?.bio || 'Kỹ thuật viên chuyên nghiệp đã được xác thực bởi Fixy.'}
+            <Text
+              style={[styles.bioText, !worker?.bio?.trim() && styles.bioTextEmpty]}
+              numberOfLines={showFullBio ? undefined : 3}>
+              {worker?.bio?.trim()
+                ? worker.bio
+                : 'Kỹ thuật viên chưa cập nhật phần giới thiệu bản thân.'}
             </Text>
 
             {worker?.bio && worker.bio.length > 50 ? (
@@ -900,6 +922,10 @@ const styles = StyleSheet.create({
     color: '#374151',
     lineHeight: 20,
     marginBottom: 8,
+  },
+  bioTextEmpty: {
+    fontStyle: 'italic',
+    color: '#9CA3AF',
   },
   multilingualText: {
     fontFamily: 'Montserrat_400Regular',

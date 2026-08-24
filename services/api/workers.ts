@@ -206,7 +206,7 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
     isBusy: w.isBusy ?? w.IsBusy ?? false,
     isPro: w.experienceYears >= 5 || w.isPro || false,
     specialties: w.services?.map((s: any) => getCategorySlug(s.categoryId)) || w.specialties || [],
-    bio: w.bio || 'Kỹ thuật viên chuyên nghiệp đã được xác thực bởi Fixy.',
+    bio: w.bio || '',
     status,
     rejectReason: w.rejectReason || w.reject_reason || '',
     address: w.address
@@ -347,10 +347,12 @@ export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerP
 export async function getWorkerDetails(id: string): Promise<WorkerProfile | null> {
   try {
     if (!id) return null;
+
     try {
       const response = await apiClient.get(`/worker-profiles/${id}/public`);
       const resData = response.data;
       const data = resData?.data ?? resData;
+
       if (data && (data.id || data.userId)) {
         return mapBackendWorkerToProfile(data);
       }
@@ -359,19 +361,27 @@ export async function getWorkerDetails(id: string): Promise<WorkerProfile | null
       const searchRes = await apiClient.get('/worker-profiles/search', {
         params: { PageSize: 50 },
       });
-      const searchData = searchRes.data?.data?.items ?? searchRes.data?.items ?? [];
-      const match = searchData.find((w: any) => w.id === id || w.userId === id);
+
+      const searchData =
+        searchRes.data?.data?.items ??
+        searchRes.data?.items ??
+        [];
+
+      const match = searchData.find(
+        (w: any) => w.id === id || w.userId === id
+      );
+
       if (match) {
         return mapBackendWorkerToProfile(match);
       }
     }
+
     return null;
   } catch (error) {
     console.warn('[workers API] Error getting worker details:', error);
     return null;
   }
 }
-
 // ================= Worker Types =================
 
 export type WorkerScheduleWeekly = {
