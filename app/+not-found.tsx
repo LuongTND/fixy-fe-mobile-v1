@@ -7,7 +7,7 @@ export default function NotFoundScreen() {
     <>
       <Stack.Screen options={{ title: 'Oops!' }} />
       <View className="flex-1 items-center justify-center bg-background p-5">
-        <Text variant="largeTitle">{"Không tìm thấy trang."}</Text>
+        <Text variant="largeTitle">{'Không tìm thấy trang.'}</Text>
 
         <Link href="/" className="m-4 py-4">
           <Text>Trở về trang chủ!</Text>

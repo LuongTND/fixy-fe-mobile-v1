@@ -39,7 +39,7 @@ function normalizeVehicle(vehicle?: string): string {
 /**
  * Fetch Distance Matrix V2 from Goong Maps API
  * Calculates distance & duration between origins and destinations.
- * 
+ *
  * @param origins Single coordinate or array of coordinates { lat, lng }
  * @param destinations Array of destination coordinates [{ lat, lng }]
  * @param vehicle 'bike' | 'car' | 'truck' | 'taxi' | 'hd' (default: 'bike')
@@ -57,11 +57,19 @@ export async function getDistanceMatrix(
 
     const rawOrigins = Array.isArray(origins) ? origins : [origins];
     const originsArr = rawOrigins.filter(
-      (o) => o && !isNaN(Number(o.lat)) && !isNaN(Number(o.lng)) && (Number(o.lat) !== 0 || Number(o.lng) !== 0)
+      (o) =>
+        o &&
+        !isNaN(Number(o.lat)) &&
+        !isNaN(Number(o.lng)) &&
+        (Number(o.lat) !== 0 || Number(o.lng) !== 0)
     );
 
     const destsArr = (destinations || []).filter(
-      (d) => d && !isNaN(Number(d.lat)) && !isNaN(Number(d.lng)) && (Number(d.lat) !== 0 || Number(d.lng) !== 0)
+      (d) =>
+        d &&
+        !isNaN(Number(d.lat)) &&
+        !isNaN(Number(d.lng)) &&
+        (Number(d.lat) !== 0 || Number(d.lng) !== 0)
     );
 
     if (originsArr.length === 0 || destsArr.length === 0) {
@@ -96,7 +104,12 @@ export async function getDistanceAndDuration(
   origin: LatLng,
   destination: LatLng,
   vehicle: DistanceMatrixVehicle = 'motorcycle'
-): Promise<{ distanceText: string; distanceMeters: number; durationText: string; durationSeconds: number } | null> {
+): Promise<{
+  distanceText: string;
+  distanceMeters: number;
+  durationText: string;
+  durationSeconds: number;
+} | null> {
   const result = await getDistanceMatrix(origin, [destination], vehicle);
   const element = result?.rows?.[0]?.elements?.[0];
 
@@ -188,9 +201,12 @@ export async function getDirections(
     }
 
     if (
-      !origin || !destination ||
-      isNaN(origin.lat) || isNaN(origin.lng) ||
-      isNaN(destination.lat) || isNaN(destination.lng)
+      !origin ||
+      !destination ||
+      isNaN(origin.lat) ||
+      isNaN(origin.lng) ||
+      isNaN(destination.lat) ||
+      isNaN(destination.lng)
     ) {
       return null;
     }

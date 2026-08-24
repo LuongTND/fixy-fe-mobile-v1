@@ -17,6 +17,16 @@ export async function getEligibleVouchers(bookingId: string): Promise<EligibleVo
   }
 }
 
+export async function getAvailableVouchers(): Promise<EligibleVoucher[]> {
+  try {
+    const response = await apiClient.get('/vouchers');
+    const data = unwrapData(response.data);
+    return normalizeEligibleVouchers(data);
+  } catch {
+    return [];
+  }
+}
+
 export async function applyVoucher(
   code: string,
   bookingId: string

@@ -16,7 +16,11 @@ import { fetchCategories } from '@/services/api/categories';
 import { getWorkerDetails, WorkerProfile } from '@/services/api/workers';
 import { getWalletOverview, WalletOverview } from '@/services/api/wallet';
 import { applyVoucher, getEligibleVouchers } from '@/services/api/vouchers';
-import { EligibleVoucher, formatVoucherIneligibleReason, getVoucherDiscount } from '@/services/api/voucher-utils';
+import {
+  EligibleVoucher,
+  formatVoucherIneligibleReason,
+  getVoucherDiscount,
+} from '@/services/api/voucher-utils';
 import { formatCurrency, formatFullAddress } from '@/utils/format';
 import { MaterialIcons } from '@expo/vector-icons';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -67,7 +71,9 @@ export default function BookingCheckoutScreen() {
   const [showVoucherModal, setShowVoucherModal] = React.useState(false);
   const [selectedAddress, setSelectedAddress] = React.useState<Address | null>(null);
   const [showAddressModal, setShowAddressModal] = React.useState(false);
-  const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<number>(PaymentMethod.Cash);
+  const [selectedPaymentMethod, setSelectedPaymentMethod] = React.useState<number>(
+    PaymentMethod.Cash
+  );
   const [showPaymentModal, setShowPaymentModal] = React.useState(false);
   const [showPayOSWebView, setShowPayOSWebView] = React.useState(false);
   const [payosUrl, setPayosUrl] = React.useState('');
@@ -141,9 +147,7 @@ export default function BookingCheckoutScreen() {
   });
 
   const activeCategoryId = paramCategoryId || draft?.categoryId;
-  const category = categories.find(
-    (c) => c.id === activeCategoryId || c.code === activeCategoryId
-  );
+  const category = categories.find((c) => c.id === activeCategoryId || c.code === activeCategoryId);
   const categoryName = category?.name || 'Chăm sóc Spa';
 
   // Fetch worker details via dependent useQuery
@@ -156,7 +160,7 @@ export default function BookingCheckoutScreen() {
 
   const durationNum = paramTotalDurationMinutes
     ? Number(paramTotalDurationMinutes)
-    : (draft?.totalDurationMinutes || 60);
+    : draft?.totalDurationMinutes || 60;
 
   // Auto-create draft if activeDraftId is missing and address is selected so eligible vouchers can be fetched
   React.useEffect(() => {
@@ -182,13 +186,22 @@ export default function BookingCheckoutScreen() {
           console.warn('Auto create draft for vouchers error:', e);
         });
     }
-  }, [activeDraftId, selectedAddress, activeCategoryId, category, durationNum, activeWorkerProfileId]);
+  }, [
+    activeDraftId,
+    selectedAddress,
+    activeCategoryId,
+    category,
+    durationNum,
+    activeWorkerProfileId,
+  ]);
 
   const activeWorkerService = worker?.services?.find((s) => s.categoryId === activeCategoryId);
-  const activeOption = activeWorkerService?.options?.find((opt) => opt.durationMinutes === durationNum)
-    || activeWorkerService?.options?.[0];
+  const activeOption =
+    activeWorkerService?.options?.find((opt) => opt.durationMinutes === durationNum) ||
+    activeWorkerService?.options?.[0];
 
-  const servicePrice = activeOption?.price ?? activeWorkerService?.basePrice ?? worker?.basePrice ?? 0;
+  const servicePrice =
+    activeOption?.price ?? activeWorkerService?.basePrice ?? worker?.basePrice ?? 0;
   const finalPrice = Math.max(0, servicePrice - discountAmount);
   const walletInsufficient = walletBalance < finalPrice;
 
@@ -243,7 +256,9 @@ export default function BookingCheckoutScreen() {
       // Route payment by selected method
       if (selectedPaymentMethod === PaymentMethod.Wallet) {
         if (walletBalance < finalPrice) {
-          throw new Error(`Ví không đủ số dư để thanh toán ${formatCurrency(finalPrice)}. Vui lòng nạp thêm hoặc chọn phương thức khác.`);
+          throw new Error(
+            `Ví không đủ số dư để thanh toán ${formatCurrency(finalPrice)}. Vui lòng nạp thêm hoặc chọn phương thức khác.`
+          );
         }
         await payBookingWithWallet(bookingId);
         return { bookingId, type: 'wallet' };
@@ -276,7 +291,10 @@ export default function BookingCheckoutScreen() {
             // VNPay: Open in-app WebView
             setVnpayUrl(data.paymentUrl);
             setShowVnpayWebView(true);
-          } else if (selectedPaymentMethod === PaymentMethod.PayOS || selectedPaymentMethod === PaymentMethod.Card) {
+          } else if (
+            selectedPaymentMethod === PaymentMethod.PayOS ||
+            selectedPaymentMethod === PaymentMethod.Card
+          ) {
             // PayOS: Open in-app WebView
             setPayosUrl(data.paymentUrl);
             setShowPayOSWebView(true);
@@ -304,10 +322,14 @@ export default function BookingCheckoutScreen() {
 
   const handleConfirm = () => {
     if (!selectedAddress && !draft) {
-      Alert.alert('Chưa có địa chỉ', 'Vui lòng chọn hoặc thêm địa chỉ của bạn trước khi đặt dịch vụ.', [
-        { text: 'Thêm địa chỉ', onPress: () => router.push('/saved-addresses' as any) },
-        { text: 'Đóng', style: 'cancel' },
-      ]);
+      Alert.alert(
+        'Chưa có địa chỉ',
+        'Vui lòng chọn hoặc thêm địa chỉ của bạn trước khi đặt dịch vụ.',
+        [
+          { text: 'Thêm địa chỉ', onPress: () => router.push('/saved-addresses' as any) },
+          { text: 'Đóng', style: 'cancel' },
+        ]
+      );
       return;
     }
 
@@ -341,7 +363,7 @@ export default function BookingCheckoutScreen() {
 
   const displayAddressText = selectedAddress
     ? formatFullAddress(selectedAddress)
-    : (draft?.address || '');
+    : draft?.address || '';
 
   const selectedPaymentInfo = paymentMethods.find((m) => m.value === selectedPaymentMethod) || {
     name: 'Cash',
@@ -452,7 +474,11 @@ export default function BookingCheckoutScreen() {
             <View style={styles.userNamePhoneRow}>
               <MaterialIcons name="place" size={18} color="#0F382C" />
               <Text style={styles.userNameText}>
-                {selectedAddress ? (selectedAddress.label || 'Nhà riêng') : (draft?.address ? 'Địa chỉ giao' : 'Chưa chọn địa chỉ')}
+                {selectedAddress
+                  ? selectedAddress.label || 'Nhà riêng'
+                  : draft?.address
+                    ? 'Địa chỉ giao'
+                    : 'Chưa chọn địa chỉ'}
               </Text>
             </View>
             {displayAddressText ? (
@@ -466,17 +492,16 @@ export default function BookingCheckoutScreen() {
           <View style={styles.serviceHeaderRow}>
             <Text style={styles.serviceNameTitle}>{categoryName}</Text>
           </View>
-          <Text style={styles.serviceMetaText}>⏱ {durationNum} phút | {formatCurrency(servicePrice)}</Text>
+          <Text style={styles.serviceMetaText}>
+            ⏱ {durationNum} phút | {formatCurrency(servicePrice)}
+          </Text>
 
           {workerLoading ? (
             <ActivityIndicator size="small" color="#0F382C" style={{ marginVertical: 8 }} />
           ) : worker ? (
             <View style={styles.ktvMiniProfileRow}>
               {worker.avatarUrl ? (
-                <Image
-                  source={{ uri: worker.avatarUrl }}
-                  style={styles.ktvMiniAvatar}
-                />
+                <Image source={{ uri: worker.avatarUrl }} style={styles.ktvMiniAvatar} />
               ) : (
                 <View style={styles.ktvAvatarPlaceholder}>
                   <MaterialIcons name="person" size={26} color="#0F382C" />
@@ -487,14 +512,18 @@ export default function BookingCheckoutScreen() {
                 <View style={styles.ratingRowSmall}>
                   <MaterialIcons name="star" size={14} color="#D4AF37" />
                   <Text style={styles.ratingScoreSmall}>{(worker.rating || 5.0).toFixed(1)}</Text>
-                  <Text style={styles.ratingReviewsMuted}>({worker.reviewsCount ?? 0} đánh giá)</Text>
+                  <Text style={styles.ratingReviewsMuted}>
+                    ({worker.reviewsCount ?? 0} đánh giá)
+                  </Text>
                 </View>
               </View>
             </View>
           ) : (
             <View style={styles.autoMatchRow}>
               <MaterialIcons name="autorenew" size={20} color="#0F382C" />
-              <Text style={styles.autoMatchText}>Ghép kỹ thuật viên uy tín tự động gần bạn nhất</Text>
+              <Text style={styles.autoMatchText}>
+                Ghép kỹ thuật viên uy tín tự động gần bạn nhất
+              </Text>
             </View>
           )}
         </View>
@@ -504,18 +533,25 @@ export default function BookingCheckoutScreen() {
           <View style={styles.paymentHeaderRow}>
             <Text style={styles.cardSectionLabel}>Phương thức thanh toán</Text>
             <Pressable onPress={() => setShowPaymentModal(true)}>
-              <Text style={styles.seeAllText}>Tất cả  &gt;</Text>
+              <Text style={styles.seeAllText}>Tất cả &gt;</Text>
             </Pressable>
           </View>
 
           <Pressable style={styles.selectedPaymentOption} onPress={() => setShowPaymentModal(true)}>
             <View style={styles.cashIconCircle}>
-              <MaterialIcons name={getPaymentIcon(selectedPaymentInfo.value) as any} size={18} color="#0F382C" />
+              <MaterialIcons
+                name={getPaymentIcon(selectedPaymentInfo.value) as any}
+                size={18}
+                color="#0F382C"
+              />
             </View>
             <View style={{ flex: 1 }}>
-              <Text style={styles.paymentOptionName}>{selectedPaymentInfo.description || selectedPaymentInfo.name}</Text>
+              <Text style={styles.paymentOptionName}>
+                {selectedPaymentInfo.description || selectedPaymentInfo.name}
+              </Text>
               {selectedPaymentInfo.value === PaymentMethod.Wallet && (
-                <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 12, color: '#6B7280' }}>
+                <Text
+                  style={{ fontFamily: 'Montserrat_500Medium', fontSize: 12, color: '#6B7280' }}>
                   Số dư: {formatCurrency(walletBalance)}
                 </Text>
               )}
@@ -527,7 +563,8 @@ export default function BookingCheckoutScreen() {
             <View style={styles.paymentWarningBox}>
               <MaterialIcons name="info" size={18} color="#BA1A1A" />
               <Text style={styles.paymentWarningText}>
-                Ví không đủ số dư để thanh toán {formatCurrency(finalPrice)}. Vui lòng nạp thêm hoặc chọn phương thức khác.
+                Ví không đủ số dư để thanh toán {formatCurrency(finalPrice)}. Vui lòng nạp thêm hoặc
+                chọn phương thức khác.
               </Text>
             </View>
           )}
@@ -576,7 +613,10 @@ export default function BookingCheckoutScreen() {
                   editable={!voucherApplying}
                 />
                 <Pressable
-                  style={[styles.applyVoucherBtn, (!voucherCode.trim() || voucherApplying) && styles.smallButtonDisabled]}
+                  style={[
+                    styles.applyVoucherBtn,
+                    (!voucherCode.trim() || voucherApplying) && styles.smallButtonDisabled,
+                  ]}
                   disabled={!voucherCode.trim() || voucherApplying}
                   onPress={async () => {
                     setVoucherApplying(true);
@@ -639,7 +679,9 @@ export default function BookingCheckoutScreen() {
             <View>
               <Text style={styles.totalCountText}>Tổng: 1 dịch vụ</Text>
               {discountAmount > 0 && (
-                <Text style={styles.savedNoticeText}>🎉 Bạn đã tiết kiệm được {formatCurrency(discountAmount)}</Text>
+                <Text style={styles.savedNoticeText}>
+                  🎉 Bạn đã tiết kiệm được {formatCurrency(discountAmount)}
+                </Text>
               )}
             </View>
             <View style={{ alignItems: 'flex-end' }}>
@@ -710,9 +752,7 @@ export default function BookingCheckoutScreen() {
                   <MaterialIcons name="place" size={22} color="#0F382C" />
                   <View style={styles.modalAddressTextCol}>
                     <Text style={styles.modalAddressLabel}>{item.label}</Text>
-                    <Text style={styles.modalAddressBody}>
-                      {formatFullAddress(item)}
-                    </Text>
+                    <Text style={styles.modalAddressBody}>{formatFullAddress(item)}</Text>
                   </View>
                   {selectedAddress?.id === item.id && (
                     <MaterialIcons name="check-circle" size={20} color="#0F382C" />
@@ -752,10 +792,7 @@ export default function BookingCheckoutScreen() {
                 return (
                   <Pressable
                     key={method.value}
-                    style={[
-                      styles.modalAddressItem,
-                      isSelected && styles.modalAddressItemSelected,
-                    ]}
+                    style={[styles.modalAddressItem, isSelected && styles.modalAddressItemSelected]}
                     onPress={() => {
                       setSelectedPaymentMethod(method.value);
                       setShowPaymentModal(false);
@@ -764,11 +801,11 @@ export default function BookingCheckoutScreen() {
                       <MaterialIcons name={iconName as any} size={20} color="#0F382C" />
                     </View>
                     <View style={styles.modalAddressTextCol}>
-                      <Text style={styles.modalAddressLabel}>{method.description || method.name}</Text>
+                      <Text style={styles.modalAddressLabel}>
+                        {method.description || method.name}
+                      </Text>
                     </View>
-                    {isSelected && (
-                      <MaterialIcons name="check-circle" size={20} color="#0F382C" />
-                    )}
+                    {isSelected && <MaterialIcons name="check-circle" size={20} color="#0F382C" />}
                   </Pressable>
                 );
               })}
@@ -809,14 +846,24 @@ export default function BookingCheckoutScreen() {
                       setVoucherCode(voucher.code);
                       setShowVoucherModal(false);
                     }}>
-                    <MaterialIcons name="local-offer" size={24} color={voucher.isEligible ? '#0F382C' : '#9CA3AF'} />
+                    <MaterialIcons
+                      name="local-offer"
+                      size={24}
+                      color={voucher.isEligible ? '#0F382C' : '#9CA3AF'}
+                    />
                     <View style={styles.modalAddressTextCol}>
                       <Text style={styles.modalAddressLabel}>{voucher.code}</Text>
                       {voucher.description ? (
                         <Text style={styles.modalAddressBody}>{voucher.description}</Text>
                       ) : null}
                       {voucher.calculatedDiscount ? (
-                        <Text style={{ fontSize: 12, color: '#059669', marginTop: 2, fontFamily: 'Montserrat_600SemiBold' }}>
+                        <Text
+                          style={{
+                            fontSize: 12,
+                            color: '#059669',
+                            marginTop: 2,
+                            fontFamily: 'Montserrat_600SemiBold',
+                          }}>
                           Giảm {formatCurrency(voucher.calculatedDiscount)}
                         </Text>
                       ) : null}
