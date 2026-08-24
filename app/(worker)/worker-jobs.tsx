@@ -82,7 +82,13 @@ export default function WorkerJobsScreen() {
 
   if (isLoadingProfile) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF9F5' }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#FBF9F5',
+        }}>
         <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
@@ -158,7 +164,13 @@ export default function WorkerJobsScreen() {
                             {job.description || 'Dịch vụ Spa'}
                           </Text>
                           <Text style={styles.jobPrice}>
-                            {formatCurrency(job.finalPrice || job.finalAmount || job.estimatedAmount || job.estimatedPrice || 0)}
+                            {formatCurrency(
+                              job.finalPrice ||
+                                job.finalAmount ||
+                                job.estimatedAmount ||
+                                job.estimatedPrice ||
+                                0
+                            )}
                           </Text>
                         </View>
 

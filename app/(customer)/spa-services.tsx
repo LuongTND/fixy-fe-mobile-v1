@@ -3,15 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as React from 'react';
-import {
-  Image,
-  Pressable,
-  ScrollView,
-  StyleSheet,
-  Text,
-  TextInput,
-  View,
-} from 'react-native';
+import { Image, Pressable, ScrollView, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { fetchSpaServiceCategories, SpaServiceCategory } from '@/services/api/spa-partners';
@@ -229,7 +221,8 @@ export default function SpaServicesScreen() {
 
             <Text style={styles.bannerTitle}>Không Gian Spa Đẳng Cấp</Text>
             <Text style={styles.bannerSubtitle}>
-              Thư giãn tuyệt đối với đội ngũ kỹ thuật viên tay nghề cao & không gian tiêu chuẩn 5 sao
+              Thư giãn tuyệt đối với đội ngũ kỹ thuật viên tay nghề cao & không gian tiêu chuẩn 5
+              sao
             </Text>
 
             {/* Quick Stats Bar */}
@@ -399,7 +392,8 @@ export default function SpaServicesScreen() {
                         </View>
 
                         <Text style={styles.categoryDescText} numberOfLines={2}>
-                          {cat.description || 'Dịch vụ chăm sóc spa chuyên nghiệp & trải nghiệm thư thái.'}
+                          {cat.description ||
+                            'Dịch vụ chăm sóc spa chuyên nghiệp & trải nghiệm thư thái.'}
                         </Text>
 
                         <View style={styles.categoryMetaRow}>
@@ -418,7 +412,8 @@ export default function SpaServicesScreen() {
                       </View>
 
                       {/* Right Action Arrow Circle */}
-                      <View style={[styles.cardRightArrowCircle, { backgroundColor: theme.iconBg }]}>
+                      <View
+                        style={[styles.cardRightArrowCircle, { backgroundColor: theme.iconBg }]}>
                         <MaterialIcons name="chevron-right" size={22} color={theme.iconColor} />
                       </View>
                     </View>

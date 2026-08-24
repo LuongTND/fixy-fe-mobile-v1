@@ -58,13 +58,9 @@ export default function SpaDetailScreen() {
     })();
   }, []);
 
-  const {
-    data: spa,
-    isLoading,
-  } = useQuery<SpaPartnerDetail | null>({
+  const { data: spa, isLoading } = useQuery<SpaPartnerDetail | null>({
     queryKey: ['spa-partner-detail', spaId, customerLocation?.lat],
-    queryFn: () =>
-      getSpaPartnerDetail(spaId!, customerLocation?.lat, customerLocation?.lng),
+    queryFn: () => getSpaPartnerDetail(spaId!, customerLocation?.lat, customerLocation?.lng),
     enabled: !!spaId,
     staleTime: 2 * 60 * 1000,
   });
@@ -95,12 +91,15 @@ export default function SpaDetailScreen() {
   }
 
   // Group services by category
-  const servicesByCategory = (spa.allServices || []).reduce((acc, svc) => {
-    const catName = svc.categoryName || 'Dịch vụ khác';
-    if (!acc[catName]) acc[catName] = [];
-    acc[catName].push(svc);
-    return acc;
-  }, {} as Record<string, SpaPartnerServiceDto[]>);
+  const servicesByCategory = (spa.allServices || []).reduce(
+    (acc, svc) => {
+      const catName = svc.categoryName || 'Dịch vụ khác';
+      if (!acc[catName]) acc[catName] = [];
+      acc[catName].push(svc);
+      return acc;
+    },
+    {} as Record<string, SpaPartnerServiceDto[]>
+  );
 
   const coverUri = spa.coverImageUrl || DEFAULT_DETAIL_COVER;
   const hasCover = !!coverUri;
@@ -127,7 +126,11 @@ export default function SpaDetailScreen() {
           {hasCover ? (
             <Image source={{ uri: coverUri }} style={styles.heroImage} resizeMode="cover" />
           ) : (
-            <View style={[styles.heroImage, { backgroundColor: '#E8E2D8', alignItems: 'center', justifyContent: 'center' }]}>
+            <View
+              style={[
+                styles.heroImage,
+                { backgroundColor: '#E8E2D8', alignItems: 'center', justifyContent: 'center' },
+              ]}>
               <MaterialIcons name="spa" size={56} color="#C4B9A8" />
             </View>
           )}
@@ -224,7 +227,9 @@ export default function SpaDetailScreen() {
                       {svc.discountedPrice != null && svc.discountedPrice < svc.price ? (
                         <>
                           <Text style={styles.serviceOldPrice}>{formatCurrency(svc.price)}</Text>
-                          <Text style={styles.servicePrice}>{formatCurrency(svc.discountedPrice)}</Text>
+                          <Text style={styles.servicePrice}>
+                            {formatCurrency(svc.discountedPrice)}
+                          </Text>
                         </>
                       ) : (
                         <Text style={styles.servicePrice}>{formatCurrency(svc.price)}</Text>
@@ -280,7 +285,10 @@ export default function SpaDetailScreen() {
                   <View key={review.id} style={styles.reviewItem}>
                     <View style={styles.reviewerHeader}>
                       {review.customerAvatar ? (
-                        <Image source={{ uri: review.customerAvatar }} style={styles.reviewerAvatar} />
+                        <Image
+                          source={{ uri: review.customerAvatar }}
+                          style={styles.reviewerAvatar}
+                        />
                       ) : (
                         <View style={styles.reviewerAvatarInitials}>
                           <Text style={styles.reviewerInitialsText}>
@@ -303,17 +311,25 @@ export default function SpaDetailScreen() {
                       </View>
                     </View>
 
-                    {review.comment && <Text style={styles.reviewCommentText}>{review.comment}</Text>}
+                    {review.comment && (
+                      <Text style={styles.reviewCommentText}>{review.comment}</Text>
+                    )}
 
                     {/* Review Actions (Like / Share) */}
                     <View style={styles.reviewActionsRow}>
-                      <Pressable style={styles.reviewActionBtn} onPress={() => toggleLikeReview(review.id)}>
+                      <Pressable
+                        style={styles.reviewActionBtn}
+                        onPress={() => toggleLikeReview(review.id)}>
                         <MaterialIcons
                           name={isLiked ? 'thumb-up' : 'thumb-up-off-alt'}
                           size={15}
                           color={isLiked ? '#0F382C' : '#64748B'}
                         />
-                        <Text style={[styles.reviewActionText, isLiked && styles.reviewActionTextActive]}>
+                        <Text
+                          style={[
+                            styles.reviewActionText,
+                            isLiked && styles.reviewActionTextActive,
+                          ]}>
                           {isLiked ? 'Đã thích' : 'Thích'}
                         </Text>
                       </Pressable>

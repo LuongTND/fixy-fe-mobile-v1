@@ -3,7 +3,16 @@ import { useQuery } from '@tanstack/react-query';
 import { LinearGradient } from 'expo-linear-gradient';
 import { router } from 'expo-router';
 import * as React from 'react';
-import { Image, Pressable, ScrollView, StyleSheet, Switch, Text, View, ActivityIndicator } from 'react-native';
+import {
+  Image,
+  Pressable,
+  ScrollView,
+  StyleSheet,
+  Switch,
+  Text,
+  View,
+  ActivityIndicator,
+} from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
@@ -82,7 +91,13 @@ export default function WorkerHomeScreen() {
 
   if (isLoadingProfile) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF9F5' }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#FBF9F5',
+        }}>
         <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
@@ -96,13 +111,17 @@ export default function WorkerHomeScreen() {
       {/* Top Header */}
       <View style={[styles.header, { paddingTop: insets.top }]}>
         <View style={styles.headerLeft}>
-          {(profile?.avatarUrl || userProfile?.avatarUrl) ? (
+          {profile?.avatarUrl || userProfile?.avatarUrl ? (
             <Image
               source={{ uri: (profile?.avatarUrl || userProfile?.avatarUrl) ?? undefined }}
               style={styles.avatar}
             />
           ) : (
-            <View style={[styles.avatar, { backgroundColor: '#D6CFC4', alignItems: 'center', justifyContent: 'center' }]}>
+            <View
+              style={[
+                styles.avatar,
+                { backgroundColor: '#D6CFC4', alignItems: 'center', justifyContent: 'center' },
+              ]}>
               <Text style={{ fontSize: 16, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
                 {(profile?.fullName || userProfile?.fullName || '').charAt(0).toUpperCase() || '?'}
               </Text>
@@ -145,7 +164,8 @@ export default function WorkerHomeScreen() {
                 </View>
                 <Text style={styles.bannerTitle}>Hoàn thành thiết lập hồ sơ</Text>
                 <Text style={styles.bannerDesc}>
-                  Chào mừng bạn đến với Fixy! Để bắt đầu nhận các yêu cầu dịch vụ spa và nâng cao thu nhập, vui lòng cập nhật thông tin cá nhân, định danh CCCD và dịch vụ cung cấp.
+                  Chào mừng bạn đến với Fixy! Để bắt đầu nhận các yêu cầu dịch vụ spa và nâng cao
+                  thu nhập, vui lòng cập nhật thông tin cá nhân, định danh CCCD và dịch vụ cung cấp.
                 </Text>
                 <Pressable
                   style={styles.bannerBtn}
@@ -162,7 +182,9 @@ export default function WorkerHomeScreen() {
                 </View>
                 <Text style={styles.bannerTitle}>Hồ sơ đang chờ duyệt</Text>
                 <Text style={styles.bannerDesc}>
-                  Đội ngũ quản trị viên của chúng tôi đang kiểm tra và đối chiếu các thông tin của bạn. Quá trình kiểm duyệt này thường mất từ 24 - 48 giờ. Bạn sẽ nhận được thông báo ngay khi hoàn tất.
+                  Đội ngũ quản trị viên của chúng tôi đang kiểm tra và đối chiếu các thông tin của
+                  bạn. Quá trình kiểm duyệt này thường mất từ 24 - 48 giờ. Bạn sẽ nhận được thông
+                  báo ngay khi hoàn tất.
                 </Text>
                 <Pressable
                   style={[styles.bannerBtn, { backgroundColor: '#818A91' }]}
@@ -179,7 +201,8 @@ export default function WorkerHomeScreen() {
                 </View>
                 <Text style={styles.bannerTitle}>Yêu cầu bị từ chối</Text>
                 <Text style={styles.bannerDesc}>
-                  Hồ sơ của bạn không được phê duyệt. Vui lòng kiểm tra lý do và cập nhật lại thông tin để gửi phê duyệt lại.
+                  Hồ sơ của bạn không được phê duyệt. Vui lòng kiểm tra lý do và cập nhật lại thông
+                  tin để gửi phê duyệt lại.
                 </Text>
                 {profile.rejectReason ? (
                   <View style={styles.rejectReasonBox}>
@@ -189,7 +212,12 @@ export default function WorkerHomeScreen() {
                 ) : null}
                 <Pressable
                   style={styles.bannerBtn}
-                  onPress={() => router.push({ pathname: '/(worker)/worker-setup', params: { edit: 'true' } } as any)}>
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(worker)/worker-setup',
+                      params: { edit: 'true' },
+                    } as any)
+                  }>
                   <Text style={styles.bannerBtnText}>Chỉnh sửa & Nộp lại</Text>
                 </Pressable>
               </View>
@@ -202,7 +230,9 @@ export default function WorkerHomeScreen() {
                 </View>
                 <Text style={styles.bannerTitle}>Tài khoản tạm khóa</Text>
                 <Text style={styles.bannerDesc}>
-                  Tài khoản đối tác kỹ thuật viên của bạn hiện đang tạm thời bị khóa. Vui lòng liên hệ với bộ phận CSKH hoặc đường dây nóng hotline để được trợ giúp giải đáp thắc mắc.
+                  Tài khoản đối tác kỹ thuật viên của bạn hiện đang tạm thời bị khóa. Vui lòng liên
+                  hệ với bộ phận CSKH hoặc đường dây nóng hotline để được trợ giúp giải đáp thắc
+                  mắc.
                 </Text>
               </View>
             )}
@@ -230,8 +260,21 @@ export default function WorkerHomeScreen() {
                 <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
                   <Text style={styles.statusTitle}>Trạng thái làm việc</Text>
                   {profile?.isBusy && (
-                    <View style={{ backgroundColor: '#FFF1E8', paddingHorizontal: 6, paddingVertical: 2, borderRadius: 8 }}>
-                      <Text style={{ fontSize: 10, color: '#D97706', fontFamily: 'Montserrat_700Bold' }}>Đang có ca làm</Text>
+                    <View
+                      style={{
+                        backgroundColor: '#FFF1E8',
+                        paddingHorizontal: 6,
+                        paddingVertical: 2,
+                        borderRadius: 8,
+                      }}>
+                      <Text
+                        style={{
+                          fontSize: 10,
+                          color: '#D97706',
+                          fontFamily: 'Montserrat_700Bold',
+                        }}>
+                        Đang có ca làm
+                      </Text>
                     </View>
                   )}
                 </View>
@@ -239,8 +282,8 @@ export default function WorkerHomeScreen() {
                   {profile?.isBusy
                     ? 'Đang bận thực hiện ca làm việc'
                     : isReady
-                    ? 'Sẵn sàng nhận việc tự động'
-                    : 'Tạm nghỉ nhận việc'}
+                      ? 'Sẵn sàng nhận việc tự động'
+                      : 'Tạm nghỉ nhận việc'}
                 </Text>
               </View>
               <Switch
@@ -287,7 +330,13 @@ export default function WorkerHomeScreen() {
                                 {job.description || category?.name || 'Yêu cầu dịch vụ Spa'}
                               </Text>
                               <Text style={styles.jobPrice}>
-                                {formatCurrency(job.finalPrice || job.finalAmount || job.estimatedAmount || job.estimatedPrice || 0)}
+                                {formatCurrency(
+                                  job.finalPrice ||
+                                    job.finalAmount ||
+                                    job.estimatedAmount ||
+                                    job.estimatedPrice ||
+                                    0
+                                )}
                               </Text>
                             </View>
                             <View style={styles.jobMetaRow}>

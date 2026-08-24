@@ -164,24 +164,42 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
 
   // Format distance label from distanceKm
   const distanceKm = typeof w.distanceKm === 'number' ? w.distanceKm : null;
-  const distanceLabel = distanceKm != null
-    ? (distanceKm < 1 ? `${Math.round(distanceKm * 1000)}m` : `${distanceKm.toFixed(1)} km`)
-    : '';
+  const distanceLabel =
+    distanceKm != null
+      ? distanceKm < 1
+        ? `${Math.round(distanceKm * 1000)}m`
+        : `${distanceKm.toFixed(1)} km`
+      : '';
 
   return {
     id: w.userId || w.id,
     workerProfileId: w.id || w.workerProfileId,
     fullName: w.fullName || 'Kỹ thuật viên',
-    avatarUrl: w.avatarUrl || w.AvatarUrl || w.avatar || w.Avatar || w.user?.avatarUrl || w.user?.AvatarUrl || undefined,
+    avatarUrl:
+      w.avatarUrl ||
+      w.AvatarUrl ||
+      w.avatar ||
+      w.Avatar ||
+      w.user?.avatarUrl ||
+      w.user?.AvatarUrl ||
+      undefined,
     phone: w.phone || '',
-    badge: typeof w.badge === 'number' ? w.badge : (typeof w.badge === 'string' ? ({'NewArrival': 0, 'Updated': 1, 'Quality': 2, 'Gold': 3} as Record<string, number>)[w.badge] ?? 0 : 0),
+    badge:
+      typeof w.badge === 'number'
+        ? w.badge
+        : typeof w.badge === 'string'
+          ? (({ NewArrival: 0, Updated: 1, Quality: 2, Gold: 3 } as Record<string, number>)[
+              w.badge
+            ] ?? 0)
+          : 0,
     rating: typeof w.ratingAvg === 'number' && w.ratingAvg > 0 ? w.ratingAvg : 5.0,
     reviewsCount: typeof w.totalReviews === 'number' ? w.totalReviews : 0,
     completedJobs: typeof w.totalOrders === 'number' ? w.totalOrders : 0,
     distance: distanceLabel,
     distanceKm,
     city: w.city || w.address?.city || '',
-    estimatedArrivalMinutes: typeof w.estimatedArrivalMinutes === 'number' ? w.estimatedArrivalMinutes : null,
+    estimatedArrivalMinutes:
+      typeof w.estimatedArrivalMinutes === 'number' ? w.estimatedArrivalMinutes : null,
     basePrice: getWorkerBasePrice(w, categoryId),
     isOnline: w.isOnline ?? w.online ?? w.isAvailableOnline ?? true,
     isAcceptingJobs: w.isAcceptingJobs ?? w.isOnline ?? true,
@@ -241,13 +259,12 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
           faceVerifiedAt: w.user.faceVerifiedAt,
         }
       : undefined,
-    identificationImages:
-      (w.identificationImages || w.identificationMedia || []).map(
-        (img: any, index: number) => ({
-          id: img.id || `id-${w.id ?? w.userId ?? 'worker'}-${index}`,
-          url: img.fileUrl || img.url || img || '',
-        })
-      ),
+    identificationImages: (w.identificationImages || w.identificationMedia || []).map(
+      (img: any, index: number) => ({
+        id: img.id || `id-${w.id ?? w.userId ?? 'worker'}-${index}`,
+        url: img.fileUrl || img.url || img || '',
+      })
+    ),
     services:
       (w.services || w.Services || [])?.map((s: any) => {
         const rawOpts = s.options || s.Options || [];
@@ -258,8 +275,18 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
           options: rawOpts.map((opt: any) => ({
             id: opt.id || opt.Id,
             workerServiceId: opt.workerServiceId || opt.WorkerServiceId,
-            durationMinutes: typeof opt.durationMinutes === 'number' ? opt.durationMinutes : (typeof opt.DurationMinutes === 'number' ? opt.DurationMinutes : 60),
-            price: typeof opt.price === 'number' ? opt.price : (typeof opt.Price === 'number' ? opt.Price : (s.basePrice ?? 0)),
+            durationMinutes:
+              typeof opt.durationMinutes === 'number'
+                ? opt.durationMinutes
+                : typeof opt.DurationMinutes === 'number'
+                  ? opt.DurationMinutes
+                  : 60,
+            price:
+              typeof opt.price === 'number'
+                ? opt.price
+                : typeof opt.Price === 'number'
+                  ? opt.Price
+                  : (s.basePrice ?? 0),
             sortOrder: opt.sortOrder ?? opt.SortOrder ?? 1,
             isActive: opt.isActive ?? opt.IsActive ?? true,
           })),
@@ -320,19 +347,41 @@ export async function searchWorkers(params: WorkerSearchParams): Promise<WorkerP
 export async function getWorkerDetails(id: string): Promise<WorkerProfile | null> {
   try {
     if (!id) return null;
-    const response = await apiClient.get(`/worker-profiles/${id}/public`);
-    const resData = response.data;
-    const data = resData?.data ?? resData;
-    if (data && (data.id || data.userId)) {
-      return mapBackendWorkerToProfile(data);
+
+    try {
+      const response = await apiClient.get(`/worker-profiles/${id}/public`);
+      const resData = response.data;
+      const data = resData?.data ?? resData;
+
+      if (data && (data.id || data.userId)) {
+        return mapBackendWorkerToProfile(data);
+      }
+    } catch {
+      // Fallback: look up in search if endpoint by GUID failed
+      const searchRes = await apiClient.get('/worker-profiles/search', {
+        params: { PageSize: 50 },
+      });
+
+      const searchData =
+        searchRes.data?.data?.items ??
+        searchRes.data?.items ??
+        [];
+
+      const match = searchData.find(
+        (w: any) => w.id === id || w.userId === id
+      );
+
+      if (match) {
+        return mapBackendWorkerToProfile(match);
+      }
     }
+
     return null;
   } catch (error) {
     console.warn('[workers API] Error getting worker details:', error);
     return null;
   }
 }
-
 // ================= Worker Types =================
 
 export type WorkerScheduleWeekly = {
@@ -510,13 +559,22 @@ export async function updateWorkerProfile(profile: Partial<WorkerProfile>): Prom
       formData.append(`Services[${index}].IsPrimary`, s.isPrimary ? 'true' : 'false');
       if (s.options && s.options.length > 0) {
         s.options.forEach((opt, optIndex) => {
-          formData.append(`Services[${index}].Options[${optIndex}].DurationMinutes`, String(opt.durationMinutes));
+          formData.append(
+            `Services[${index}].Options[${optIndex}].DurationMinutes`,
+            String(opt.durationMinutes)
+          );
           formData.append(`Services[${index}].Options[${optIndex}].Price`, String(opt.price));
           if (opt.sortOrder !== undefined) {
-            formData.append(`Services[${index}].Options[${optIndex}].SortOrder`, String(opt.sortOrder));
+            formData.append(
+              `Services[${index}].Options[${optIndex}].SortOrder`,
+              String(opt.sortOrder)
+            );
           }
           if (opt.isActive !== undefined) {
-            formData.append(`Services[${index}].Options[${optIndex}].IsActive`, String(opt.isActive ? 'true' : 'false'));
+            formData.append(
+              `Services[${index}].Options[${optIndex}].IsActive`,
+              String(opt.isActive ? 'true' : 'false')
+            );
           }
         });
       }
@@ -731,7 +789,11 @@ export async function updateIdentificationImages(payload: {
   }
   const fileObjs = await Promise.all(
     payload.localUris.map((uri, index) =>
-      prepareUploadFile(uri, `id_${Date.now()}_${index}.jpg`, { compress: true, resizeWidth: 1600, quality: 0.7 })
+      prepareUploadFile(uri, `id_${Date.now()}_${index}.jpg`, {
+        compress: true,
+        resizeWidth: 1600,
+        quality: 0.7,
+      })
     )
   );
   fileObjs.forEach((fileObj) => {
@@ -843,7 +905,10 @@ export async function searchWorkerProfiles(
 }
 
 /** PATCH /worker-profiles/me/working-status — Update worker online & job accepting status */
-export async function updateWorkingStatus(isAcceptingJobs: boolean, isOnline?: boolean): Promise<void> {
+export async function updateWorkingStatus(
+  isAcceptingJobs: boolean,
+  isOnline?: boolean
+): Promise<void> {
   await apiClient.patch('/worker-profiles/me/working-status', {
     isAcceptingJobs,
     isOnline: isOnline ?? isAcceptingJobs,

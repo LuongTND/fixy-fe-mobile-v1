@@ -174,8 +174,7 @@ async function recognizeWithGemini(imageUri: string): Promise<FptIdentityRecogni
     throw lastError;
   }
 
-  const textContent =
-    response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
+  const textContent = response.data?.candidates?.[0]?.content?.parts?.[0]?.text || '{}';
 
   let parsed: any;
   try {
@@ -217,7 +216,8 @@ export async function recognizeIdentityImage(
   } catch (err: any) {
     console.warn('[Gemini OCR] Recognition error:', err?.response?.data || err?.message);
     throw new Error(
-      err?.message || 'Không thể nhận diện CCCD tự động. Vui lòng kiểm tra ảnh hoặc nhập thông tin thủ công.'
+      err?.message ||
+        'Không thể nhận diện CCCD tự động. Vui lòng kiểm tra ảnh hoặc nhập thông tin thủ công.'
     );
   }
 }
@@ -280,12 +280,7 @@ export async function compareFaces(
   } catch (err: any) {
     console.warn('[Face Recognition API] Face Match error:', err?.response?.data || err?.message);
     const backendMessage =
-      err?.response?.data?.message ||
-      err?.response?.data?.errors?.[0] ||
-      err?.message;
-    throw new Error(
-      backendMessage || 'Không thể so khớp khuôn mặt lúc này. Vui lòng thử lại.'
-    );
+      err?.response?.data?.message || err?.response?.data?.errors?.[0] || err?.message;
+    throw new Error(backendMessage || 'Không thể so khớp khuôn mặt lúc này. Vui lòng thử lại.');
   }
 }
-

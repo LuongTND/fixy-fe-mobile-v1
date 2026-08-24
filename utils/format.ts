@@ -1,7 +1,9 @@
 export function formatNumber(amount?: number | null): string {
   const val = Math.max(0, amount ?? 0);
   try {
-    return Math.round(val).toString().replace(/\B(?=(\d{3})+(?!\d))/g, '.');
+    return Math.round(val)
+      .toString()
+      .replace(/\B(?=(\d{3})+(?!\d))/g, '.');
   } catch (e) {
     return String(val);
   }
@@ -47,12 +49,14 @@ export function formatToIsoDateTime(dateStr: string): string {
   return trimmed;
 }
 
-export function formatFullAddress(addr?: {
-  detail?: string | null;
-  ward?: string | null;
-  district?: string | null;
-  city?: string | null;
-} | null): string {
+export function formatFullAddress(
+  addr?: {
+    detail?: string | null;
+    ward?: string | null;
+    district?: string | null;
+    city?: string | null;
+  } | null
+): string {
   if (!addr) return '';
   const detail = (addr.detail || '').trim();
   const ward = (addr.ward || '').trim();

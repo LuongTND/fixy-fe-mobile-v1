@@ -72,8 +72,7 @@ export default function ChatListScreen() {
     if (!accessToken) return 'customer';
     const payload = parseJwt(accessToken);
     const role =
-      payload?.role ||
-      payload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
+      payload?.role || payload?.['http://schemas.microsoft.com/ws/2008/06/identity/claims/role'];
     return (typeof role === 'string' ? role : 'customer').toLowerCase();
   }, [accessToken]);
 
@@ -133,7 +132,8 @@ export default function ChatListScreen() {
               } else {
                 partnerName = b.worker?.fullName || b.workerName || 'Kỹ thuật viên';
                 partnerPhone = b.worker?.phone || b.workerPhone || '';
-                const rawWorkerAvatar = b.workerAvatarUrl || (b as any).WorkerAvatarUrl || b.worker?.avatarUrl;
+                const rawWorkerAvatar =
+                  b.workerAvatarUrl || (b as any).WorkerAvatarUrl || b.worker?.avatarUrl;
                 partnerAvatar = rawWorkerAvatar
                   ? rawWorkerAvatar.startsWith('http')
                     ? rawWorkerAvatar
@@ -148,7 +148,8 @@ export default function ChatListScreen() {
                 chatHistory = [];
               }
 
-              const lastMessage = chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
+              const lastMessage =
+                chatHistory.length > 0 ? chatHistory[chatHistory.length - 1] : null;
               const unreadCount = chatHistory.filter(
                 (m) => !m.isRead && m.senderId?.toLowerCase() !== currentUserId?.toLowerCase()
               ).length;
@@ -231,7 +232,8 @@ export default function ChatListScreen() {
     const { booking, categoryName, partnerName, partnerAvatar, lastMessage, unreadCount } = item;
     const statusNum = Number(booking.status);
 
-    const isFinished = statusNum === BookingStatus.Completed || statusNum === BookingStatus.Cancelled;
+    const isFinished =
+      statusNum === BookingStatus.Completed || statusNum === BookingStatus.Cancelled;
 
     return (
       <Pressable style={styles.chatCard} onPress={() => handleOpenChat(booking.id)}>
@@ -265,10 +267,7 @@ export default function ChatListScreen() {
 
           <View style={styles.bottomRow}>
             <Text
-              style={[
-                styles.lastMsgText,
-                unreadCount > 0 && styles.lastMsgTextUnread,
-              ]}
+              style={[styles.lastMsgText, unreadCount > 0 && styles.lastMsgTextUnread]}
               numberOfLines={1}>
               {lastMessage
                 ? lastMessage.type === 1 || lastMessage.mediaUrl
@@ -279,9 +278,7 @@ export default function ChatListScreen() {
 
             {unreadCount > 0 && (
               <View style={styles.unreadBadge}>
-                <Text style={styles.unreadBadgeText}>
-                  {unreadCount > 9 ? '9+' : unreadCount}
-                </Text>
+                <Text style={styles.unreadBadgeText}>{unreadCount > 9 ? '9+' : unreadCount}</Text>
               </View>
             )}
           </View>
@@ -378,9 +375,7 @@ export default function ChatListScreen() {
                   : 'Bạn chưa có đơn dịch vụ nào có cuộc trò chuyện. Hãy đặt lịch dịch vụ ngay!'}
               </Text>
               {!isWorker && (
-                <Pressable
-                  style={styles.bookNowBtn}
-                  onPress={() => router.replace('/home' as any)}>
+                <Pressable style={styles.bookNowBtn} onPress={() => router.replace('/home' as any)}>
                   <Text style={styles.bookNowBtnText}>Đặt dịch vụ ngay</Text>
                 </Pressable>
               )}

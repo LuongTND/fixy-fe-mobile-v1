@@ -1,7 +1,15 @@
 import { MaterialIcons } from '@expo/vector-icons';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
-import { Alert, Pressable, StyleSheet, Text, View, TextInput, ActivityIndicator } from 'react-native';
+import {
+  Alert,
+  Pressable,
+  StyleSheet,
+  Text,
+  View,
+  TextInput,
+  ActivityIndicator,
+} from 'react-native';
 
 import { AuthButton } from '@/features/auth/components/auth-button';
 import { AuthScreen } from '@/features/auth/components/auth-screen';
@@ -13,7 +21,13 @@ import {
   WORKER_ROLE_REGISTER,
 } from '@/features/auth/constants';
 import { promptGoogleSignIn } from '@/features/auth/services/google-auth';
-import { register, sendOtp, verifyOtp, login as loginRequest, loginGoogle } from '@/features/auth/services/auth-api';
+import {
+  register,
+  sendOtp,
+  verifyOtp,
+  login as loginRequest,
+  loginGoogle,
+} from '@/features/auth/services/auth-api';
 import { extractAuthTokens } from '@/features/auth/tokens';
 import { FieldErrors, validateRegisterForm } from '@/features/auth/validation';
 import { getApiErrorMessage } from '@/services/api/client';
@@ -158,13 +172,13 @@ export default function RegisterScreen() {
       setIsOtpSent(true);
       setCooldown(60);
       setOtpDigits(Array.from({ length: 6 }, () => ''));
-      
+
       // Navigate immediately to OTP screen
       router.push({
         pathname: '/otp' as any,
         params: {
           selectedRole: selectedRole || '',
-        }
+        },
       });
     } catch (error) {
       const errMsg = getApiErrorMessage(error);
@@ -462,48 +476,63 @@ function RegisterForm({
       {/* Step Indicator */}
       <View style={styles.wizardIndicator}>
         <View style={styles.wizardIndicatorLineContainer}>
-          <View style={[styles.wizardIndicatorLine, step >= 2 && styles.wizardIndicatorLineActive]} />
-          <View style={[styles.wizardIndicatorLine, step >= 3 && styles.wizardIndicatorLineActive]} />
+          <View
+            style={[styles.wizardIndicatorLine, step >= 2 && styles.wizardIndicatorLineActive]}
+          />
+          <View
+            style={[styles.wizardIndicatorLine, step >= 3 && styles.wizardIndicatorLineActive]}
+          />
         </View>
         <View style={styles.wizardStepsRow}>
           <View style={styles.wizardStepCol}>
-            <View style={[
-              styles.wizardStepCircle,
-              step >= 1 && styles.wizardStepCircleActive,
-              step > 1 && styles.wizardStepCircleCompleted
-            ]}>
+            <View
+              style={[
+                styles.wizardStepCircle,
+                step >= 1 && styles.wizardStepCircleActive,
+                step > 1 && styles.wizardStepCircleCompleted,
+              ]}>
               {step > 1 ? (
                 <MaterialIcons name="check" size={14} color="#ffffff" />
               ) : (
-                <Text style={[styles.wizardStepNumber, step >= 1 && styles.wizardStepNumberActive]}>1</Text>
+                <Text style={[styles.wizardStepNumber, step >= 1 && styles.wizardStepNumberActive]}>
+                  1
+                </Text>
               )}
             </View>
-            <Text style={[styles.wizardStepLabel, step >= 1 && styles.wizardStepLabelActive]}>Vai trò</Text>
+            <Text style={[styles.wizardStepLabel, step >= 1 && styles.wizardStepLabelActive]}>
+              Vai trò
+            </Text>
           </View>
 
           <View style={styles.wizardStepCol}>
-            <View style={[
-              styles.wizardStepCircle,
-              step >= 2 && styles.wizardStepCircleActive,
-              step > 2 && styles.wizardStepCircleCompleted
-            ]}>
+            <View
+              style={[
+                styles.wizardStepCircle,
+                step >= 2 && styles.wizardStepCircleActive,
+                step > 2 && styles.wizardStepCircleCompleted,
+              ]}>
               {step > 2 ? (
                 <MaterialIcons name="check" size={14} color="#ffffff" />
               ) : (
-                <Text style={[styles.wizardStepNumber, step >= 2 && styles.wizardStepNumberActive]}>2</Text>
+                <Text style={[styles.wizardStepNumber, step >= 2 && styles.wizardStepNumberActive]}>
+                  2
+                </Text>
               )}
             </View>
-            <Text style={[styles.wizardStepLabel, step >= 2 && styles.wizardStepLabelActive]}>Xác thực</Text>
+            <Text style={[styles.wizardStepLabel, step >= 2 && styles.wizardStepLabelActive]}>
+              Xác thực
+            </Text>
           </View>
 
           <View style={styles.wizardStepCol}>
-            <View style={[
-              styles.wizardStepCircle,
-              step >= 3 && styles.wizardStepCircleActive
-            ]}>
-              <Text style={[styles.wizardStepNumber, step >= 3 && styles.wizardStepNumberActive]}>3</Text>
+            <View style={[styles.wizardStepCircle, step >= 3 && styles.wizardStepCircleActive]}>
+              <Text style={[styles.wizardStepNumber, step >= 3 && styles.wizardStepNumberActive]}>
+                3
+              </Text>
             </View>
-            <Text style={[styles.wizardStepLabel, step >= 3 && styles.wizardStepLabelActive]}>Đăng ký</Text>
+            <Text style={[styles.wizardStepLabel, step >= 3 && styles.wizardStepLabelActive]}>
+              Đăng ký
+            </Text>
           </View>
         </View>
       </View>
@@ -555,7 +584,11 @@ function RegisterForm({
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
                   <Text style={styles.sendOtpBtnText}>
-                    {cooldown > 0 ? `Gửi lại sau (${cooldown}s)` : isOtpSent ? 'Gửi lại mã' : 'Gửi mã OTP'}
+                    {cooldown > 0
+                      ? `Gửi lại sau (${cooldown}s)`
+                      : isOtpSent
+                        ? 'Gửi lại mã'
+                        : 'Gửi mã OTP'}
                   </Text>
                 )}
               </Pressable>
@@ -568,9 +601,7 @@ function RegisterForm({
               <View style={styles.divider} />
             </View>
 
-            <Pressable
-              style={styles.googleButton}
-              onPress={onGoogleSignIn}>
+            <Pressable style={styles.googleButton} onPress={onGoogleSignIn}>
               <GoogleIcon size={24} />
               <Text style={styles.googleText}>Đăng ký với Google</Text>
             </Pressable>
@@ -622,10 +653,13 @@ function RegisterForm({
                 {acceptedTerms ? <MaterialIcons name="check" size={16} color="#FFFFFF" /> : null}
               </View>
               <Text style={styles.termsText}>
-                Tôi đồng ý với <Text style={styles.linkText}>Điều khoản sử dụng</Text> và Chính sách bảo mật.
+                Tôi đồng ý với <Text style={styles.linkText}>Điều khoản sử dụng</Text> và Chính sách
+                bảo mật.
               </Text>
             </Pressable>
-            {errors.acceptedTerms ? <Text style={styles.errorText}>{errors.acceptedTerms}</Text> : null}
+            {errors.acceptedTerms ? (
+              <Text style={styles.errorText}>{errors.acceptedTerms}</Text>
+            ) : null}
             {apiError ? <Text style={styles.apiError}>{apiError}</Text> : null}
 
             <View style={styles.actions}>

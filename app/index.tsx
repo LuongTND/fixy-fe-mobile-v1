@@ -56,7 +56,8 @@ export default function WelcomeScreen() {
             <Text style={[styles.headline, styles.darkText]}>Chăm sóc sắc đẹp</Text>
             <Text style={[styles.headline, styles.goldText]}>Trải nghiệm tại nhà</Text>
             <Text style={styles.subtitle}>
-              Đặt dịch vụ Spa, Massage & Skincare thư giãn chuyên nghiệp tận nơi nhanh chóng, uy tín.
+              Đặt dịch vụ Spa, Massage & Skincare thư giãn chuyên nghiệp tận nơi nhanh chóng, uy
+              tín.
             </Text>
           </View>
 

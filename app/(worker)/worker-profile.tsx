@@ -24,6 +24,38 @@ import { KeyboardAwareScrollView } from 'react-native-keyboard-controller';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { vietnamProvincesApi, matchAddressOption, cleanSearchText } from '@/services/api/provinces';
 
+import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
+import { useAuthStore } from '@/store/store';
+import {
+  addDayOff,
+  deleteDayOff,
+  getExceptions,
+  getWeeklySchedule,
+  getWorkerProfileMe,
+  updateWeeklySchedule,
+  updateWorkerProfile,
+  uploadPortfolioImages,
+  deletePortfolioImage,
+  updateIdentificationImages,
+  updateCertificates,
+  WorkerScheduleException,
+  WorkerScheduleWeekly,
+} from '@/services/api/workers';
+import { getApiErrorMessage } from '@/services/api/client';
+import {
+  FptIdentityRecognitionResult,
+  recognizeIdentityImage,
+  compareFaces,
+} from '@/services/api/fpt';
+import { FaceCaptureModal } from '@/components/camera/FaceCaptureModal';
+import { formatToIsoDateTime } from '@/utils/format';
+import {
+  dateToApiTime,
+  dateToDateOnly,
+  dateToTimeString,
+  timeStringToDate,
+} from '@/utils/schedule-time';
+
 const parseDateString = (str?: string): Date => {
   if (!str) return new Date();
   const trimmed = str.trim().split('T')[0];
@@ -48,34 +80,6 @@ const formatDateToYMD = (date: Date): string => {
 };
 
 const GOONG_API_KEY = Constants.expoConfig?.extra?.goongApiKey || '';
-
-import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
-import { useAuthStore } from '@/store/store';
-import {
-  addDayOff,
-  deleteDayOff,
-  getExceptions,
-  getWeeklySchedule,
-  getWorkerProfileMe,
-  updateWeeklySchedule,
-  updateWorkerProfile,
-  uploadPortfolioImages,
-  deletePortfolioImage,
-  updateIdentificationImages,
-  updateCertificates,
-  WorkerScheduleException,
-  WorkerScheduleWeekly,
-} from '@/services/api/workers';
-import { getApiErrorMessage } from '@/services/api/client';
-import { FptIdentityRecognitionResult, recognizeIdentityImage, compareFaces } from '@/services/api/fpt';
-import { FaceCaptureModal } from '@/components/camera/FaceCaptureModal';
-import { formatToIsoDateTime } from '@/utils/format';
-import {
-  dateToApiTime,
-  dateToDateOnly,
-  dateToTimeString,
-  timeStringToDate,
-} from '@/utils/schedule-time';
 
 type PickerType = 'province' | 'ward';
 type AddressPickerOption = { name: string; code?: number };
@@ -118,24 +122,26 @@ type WeeklyScheduleCardProps = Readonly<{
 
 function WeeklyScheduleCard({ weeklySchedule, onEditSlot, onToggleSlot }: WeeklyScheduleCardProps) {
   return (
-    <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
-      <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">
+    <View className="my-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+      <Text className="flex-shrink px-3 py-2 font-montserrat-bold text-base text-gray-800">
         Lịch làm việc hàng tuần
       </Text>
-      <View className="rounded-lg overflow-hidden">
+      <View className="overflow-hidden rounded-lg">
         {weeklySchedule.map((slot, index) => (
           <View
             key={slot.id ?? `${slot.workerProfileId}-${slot.dayOfWeek}`}
-            className="flex-row items-center justify-between gap-3 py-3 px-3 border-b border-gray-100">
+            className="flex-row items-center justify-between gap-3 border-b border-gray-100 px-3 py-3">
             <Pressable className="flex-1" onPress={() => onEditSlot(slot)}>
               <Text className="font-montserrat-bold text-sm text-gray-800">
                 {WEEKDAY_NAMES[slot.dayOfWeek]}
               </Text>
-              <Text className="font-montserrat text-xs text-gray-500 mt-0.5">
+              <Text className="mt-0.5 font-montserrat text-xs text-gray-500">
                 {formatScheduleSlotTime(slot)}
               </Text>
             </Pressable>
-            <Pressable className="w-8 h-8 items-center justify-center" onPress={() => onEditSlot(slot)}>
+            <Pressable
+              className="h-8 w-8 items-center justify-center"
+              onPress={() => onEditSlot(slot)}>
               <MaterialIcons name="edit" size={18} color="#818A91" />
             </Pressable>
             <Switch
@@ -163,26 +169,26 @@ function DayOffExceptionsCard({
   onDeleteDayOff,
 }: DayOffExceptionsCardProps) {
   return (
-    <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
-      <View className="flex-row justify-between items-center mb-1.5 gap-3">
-        <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">
+    <View className="my-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+      <View className="mb-1.5 flex-row items-center justify-between gap-3">
+        <Text className="flex-shrink px-3 py-2 font-montserrat-bold text-base text-gray-800">
           Đăng ký nghỉ phép (Exception)
         </Text>
         <Pressable className="pr-3" onPress={onAddDayOff}>
-          <Text className="font-montserrat-semibold text-xs text-[#0F382C] flex-shrink-0">
+          <Text className="flex-shrink-0 font-montserrat-semibold text-xs text-[#0F382C]">
             + Thêm ngày nghỉ
           </Text>
         </Pressable>
       </View>
-      <View className="rounded-lg overflow-hidden">
+      <View className="overflow-hidden rounded-lg">
         {exceptions.length > 0 ? (
           exceptions.map((ex) => (
-            <View key={ex.id ?? ex.date} className="flex-row items-center justify-between py-2.5 px-3 border-b border-gray-100">
+            <View
+              key={ex.id ?? ex.date}
+              className="flex-row items-center justify-between border-b border-gray-100 px-3 py-2.5">
               <View className="flex-1">
-                <Text className="font-montserrat-bold text-sm text-gray-800">
-                  {ex.date}
-                </Text>
-                <Text className="font-montserrat text-xs text-gray-500 mt-0.5">
+                <Text className="font-montserrat-bold text-sm text-gray-800">{ex.date}</Text>
+                <Text className="mt-0.5 font-montserrat text-xs text-gray-500">
                   {ex.reason || 'Việc riêng'}
                 </Text>
               </View>
@@ -192,7 +198,7 @@ function DayOffExceptionsCard({
             </View>
           ))
         ) : (
-          <Text className="font-montserrat text-sm text-gray-400 text-center py-2.5">
+          <Text className="py-2.5 text-center font-montserrat text-sm text-gray-400">
             Chưa có lịch đăng ký nghỉ nào.
           </Text>
         )}
@@ -333,8 +339,14 @@ export default function WorkerProfileScreen() {
           setLongitude(lng);
 
           const comps = data.result.address_components || [];
-          const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
-          const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+          const cityComp = comps.find((c: any) =>
+            c.types?.includes('administrative_area_level_1')
+          )?.long_name;
+          const wardComp = comps.find(
+            (c: any) =>
+              c.types?.includes('administrative_area_level_3') ||
+              c.types?.includes('administrative_area_level_2')
+          )?.long_name;
 
           if (cityComp) setAddrCity(cityComp);
           if (wardComp) setAddrWard(wardComp);
@@ -371,8 +383,14 @@ export default function WorkerProfileScreen() {
         setAddrDetail(first.formatted_address || `${lat.toFixed(5)}, ${lng.toFixed(5)}`);
 
         const comps = first.address_components || [];
-        const cityComp = comps.find((c: any) => c.types?.includes('administrative_area_level_1'))?.long_name;
-        const wardComp = comps.find((c: any) => c.types?.includes('administrative_area_level_3') || c.types?.includes('administrative_area_level_2'))?.long_name;
+        const cityComp = comps.find((c: any) =>
+          c.types?.includes('administrative_area_level_1')
+        )?.long_name;
+        const wardComp = comps.find(
+          (c: any) =>
+            c.types?.includes('administrative_area_level_3') ||
+            c.types?.includes('administrative_area_level_2')
+        )?.long_name;
 
         if (cityComp) setAddrCity(cityComp);
         if (wardComp) setAddrWard(wardComp);
@@ -558,7 +576,10 @@ export default function WorkerProfileScreen() {
     try {
       const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Cần quyền truy cập', 'Vui lòng cấp quyền truy cập thư viện ảnh để đổi ảnh đại diện.');
+        Alert.alert(
+          'Cần quyền truy cập',
+          'Vui lòng cấp quyền truy cập thư viện ảnh để đổi ảnh đại diện.'
+        );
         return;
       }
 
@@ -715,7 +736,9 @@ export default function WorkerProfileScreen() {
       const newCert = {
         title: newCertTitle,
         issuedBy: newCertIssuedBy,
-        issuedAt: newCertIssuedAt ? formatToIsoDateTime(newCertIssuedAt) : dateToDateOnly(new Date()),
+        issuedAt: newCertIssuedAt
+          ? formatToIsoDateTime(newCertIssuedAt)
+          : dateToDateOnly(new Date()),
         localUris: newCertLocalUris,
       };
       await updateCertificates({
@@ -929,7 +952,13 @@ export default function WorkerProfileScreen() {
 
   if (isLoadingProfile) {
     return (
-      <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: '#FBF9F5' }}>
+      <View
+        style={{
+          flex: 1,
+          alignItems: 'center',
+          justifyContent: 'center',
+          backgroundColor: '#FBF9F5',
+        }}>
         <ActivityIndicator size="large" color="#0F382C" />
       </View>
     );
@@ -937,72 +966,78 @@ export default function WorkerProfileScreen() {
 
   return (
     <View className="flex-1 bg-[#fbf9f8]">
-      <View className="pb-3 flex-row items-center justify-between px-4 bg-white border-b border-gray-200" style={{ paddingTop: Math.max(insets.top, 12) }}>
-        <View className="w-9 h-9" />
+      <View
+        className="flex-row items-center justify-between border-b border-gray-200 bg-white px-4 pb-3"
+        style={{ paddingTop: Math.max(insets.top, 12) }}>
+        <View className="h-9 w-9" />
         <Text className="font-montserrat-bold text-base text-[#1b1c1c]">Tài khoản</Text>
         <Pressable
-          className="w-9 h-9 rounded-full bg-[#F4F1EA] items-center justify-center"
+          className="h-9 w-9 items-center justify-center rounded-full bg-[#F4F1EA]"
           onPress={() => router.push('/(customer)/support-tickets' as any)}>
           <MaterialIcons name="headset-mic" size={20} color="#0F382C" />
         </Pressable>
       </View>
 
-      <KeyboardAwareScrollView contentContainerStyle={{ padding: 16, paddingBottom: 110 }} showsVerticalScrollIndicator={false} bottomOffset={44}>
+      <KeyboardAwareScrollView
+        contentContainerStyle={{ padding: 16, paddingBottom: 110 }}
+        showsVerticalScrollIndicator={false}
+        bottomOffset={44}>
         {/* Profile Card (styled using NativeWind) */}
-        <View className="bg-white border border-gray-300 rounded-2xl p-5 items-center mb-5 shadow-sm">
+        <View className="mb-5 items-center rounded-2xl border border-gray-300 bg-white p-5 shadow-sm">
           <View className="relative mb-3">
             <Pressable onPress={handlePickAvatar} disabled={isUploadingAvatar}>
               {profile?.avatarUrl ? (
                 <Image
                   source={{ uri: profile.avatarUrl }}
-                  className="w-20 h-20 rounded-full border-2 border-[#0F382C]"
+                  className="h-20 w-20 rounded-full border-2 border-[#0F382C]"
                 />
               ) : (
-                <View className="w-20 h-20 rounded-full border-2 border-[#0F382C] bg-[#D6CFC4] items-center justify-center">
-                  <Text style={{ fontSize: 28, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
+                <View className="h-20 w-20 items-center justify-center rounded-full border-2 border-[#0F382C] bg-[#D6CFC4]">
+                  <Text
+                    style={{ fontSize: 28, fontFamily: 'Montserrat_700Bold', color: '#0F382C' }}>
                     {(profile?.fullName || '').charAt(0).toUpperCase() || '?'}
                   </Text>
                 </View>
               )}
               {isUploadingAvatar ? (
-                <View className="absolute inset-0 rounded-full bg-black/40 items-center justify-center">
+                <View className="absolute inset-0 items-center justify-center rounded-full bg-black/40">
                   <ActivityIndicator size="small" color="#ffffff" />
                 </View>
               ) : (
-                <View className="absolute bottom-0 right-0 w-7 h-7 rounded-full bg-[#0F382C] border-2 border-white items-center justify-center shadow">
+                <View className="absolute bottom-0 right-0 h-7 w-7 items-center justify-center rounded-full border-2 border-white bg-[#0F382C] shadow">
                   <MaterialIcons name="photo-camera" size={14} color="#ffffff" />
                 </View>
               )}
             </Pressable>
           </View>
-          <Text className="text-lg text-gray-800 font-montserrat-bold">
+          <Text className="font-montserrat-bold text-lg text-gray-800">
             {profile?.fullName || 'Kỹ thuật viên'}
           </Text>
-          <Text className="text-xs text-gray-500 mt-0.5 mb-4 font-montserrat">
+          <Text className="mb-4 mt-0.5 font-montserrat text-xs text-gray-500">
             Đối tác kỹ thuật viên
           </Text>
 
-          <View className="flex-row items-center w-full border-t border-gray-200 pt-4">
+          <View className="w-full flex-row items-center border-t border-gray-200 pt-4">
             <View className="flex-1 items-center">
               <View className="flex-row items-center gap-1">
                 <MaterialIcons name="star" size={18} color="#FFB000" />
-                <Text className="text-base text-gray-800 font-montserrat-bold">
+                <Text className="font-montserrat-bold text-base text-gray-800">
                   {profile?.rating ? Number(profile.rating).toFixed(1) : '4.8'}
                 </Text>
               </View>
-              <Text className="text-[11px] text-gray-500 mt-0.5 font-montserrat">
+              <Text className="mt-0.5 font-montserrat text-[11px] text-gray-500">
                 ({profile?.reviewsCount ?? 0} đánh giá)
               </Text>
             </View>
-            <View className="w-px h-7 bg-gray-200" />
+            <View className="h-7 w-px bg-gray-200" />
             <View className="flex-1 items-center">
               <View className="flex-row items-center gap-1">
                 <MaterialIcons name="done-all" size={18} color="#0F382C" />
-                <Text className="text-base text-gray-800 font-montserrat-bold">
+                <Text className="font-montserrat-bold text-base text-gray-800">
                   {profile?.completedJobs ?? 0}
                 </Text>
               </View>
-              <Text className="text-[11px] text-gray-500 mt-0.5 font-montserrat">
+              <Text className="mt-0.5 font-montserrat text-[11px] text-gray-500">
                 Đơn hoàn thành
               </Text>
             </View>
@@ -1010,21 +1045,27 @@ export default function WorkerProfileScreen() {
         </View>
 
         {/* Section 1: Thông tin cá nhân */}
-        <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
-          <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">Thông tin cá nhân</Text>
-          <View className="rounded-lg overflow-hidden">
+        <View className="my-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+          <Text className="flex-shrink px-3 py-2 font-montserrat-bold text-base text-gray-800">
+            Thông tin cá nhân
+          </Text>
+          <View className="overflow-hidden rounded-lg">
             {isEditingProfile ? (
               <View className="gap-2 p-3">
-                <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Số điện thoại:</Text>
+                <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                  Số điện thoại:
+                </Text>
                 <TextInput
-                  className="border border-gray-200 rounded-md h-10 px-2.5 font-montserrat text-sm text-[#383838] mb-2.5"
+                  className="mb-2.5 h-10 rounded-md border border-gray-200 px-2.5 font-montserrat text-sm text-[#383838]"
                   value={editPhone}
                   onChangeText={setEditPhone}
                   keyboardType="phone-pad"
                 />
-                <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Giới thiệu bản thân:</Text>
+                <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                  Giới thiệu bản thân:
+                </Text>
                 <TextInput
-                  className="border border-gray-200 rounded-md px-2.5 py-2 font-montserrat text-sm text-[#383838] mb-3"
+                  className="mb-3 rounded-md border border-gray-200 px-2.5 py-2 font-montserrat text-sm text-[#383838]"
                   value={editBio}
                   onChangeText={setEditBio}
                   multiline
@@ -1033,12 +1074,12 @@ export default function WorkerProfileScreen() {
                 />
                 <View className="flex-row justify-end gap-3">
                   <Pressable
-                    className="py-2 px-4 rounded-md border border-gray-500"
+                    className="rounded-md border border-gray-500 px-4 py-2"
                     onPress={() => setIsEditingProfile(false)}>
-                    <Text className="text-gray-500 font-montserrat-semibold text-xs">Hủy</Text>
+                    <Text className="font-montserrat-semibold text-xs text-gray-500">Hủy</Text>
                   </Pressable>
                   <Pressable
-                    className="py-2 px-4 rounded-md bg-[#0F382C]"
+                    className="rounded-md bg-[#0F382C] px-4 py-2"
                     onPress={() =>
                       updateProfileMutation.mutate({
                         bio: editBio,
@@ -1046,22 +1087,26 @@ export default function WorkerProfileScreen() {
                         address: profile?.address || undefined,
                       })
                     }>
-                    <Text className="text-white font-montserrat-semibold text-xs">Lưu</Text>
+                    <Text className="font-montserrat-semibold text-xs text-white">Lưu</Text>
                   </Pressable>
                 </View>
               </View>
             ) : (
               <View className="px-3 py-2">
-                <Text className="font-montserrat text-sm text-[#383838] leading-5 mb-2">
+                <Text className="mb-2 font-montserrat text-sm leading-5 text-[#383838]">
                   <Text className="font-montserrat-bold">SĐT liên hệ: </Text>
                   {profile?.phone}
                 </Text>
-                <Text className="font-montserrat text-sm text-[#383838] leading-5 mb-2">
+                <Text className="mb-2 font-montserrat text-sm leading-5 text-[#383838]">
                   <Text className="font-montserrat-bold">Giới thiệu: </Text>
                   {profile?.bio || 'Kỹ thuật viên chưa cập nhật giới thiệu.'}
                 </Text>
-                <Pressable className="self-start py-1.5 px-3 rounded-md border border-[#0F382C] mt-1.5" onPress={() => setIsEditingProfile(true)}>
-                  <Text className="text-[#0F382C] font-montserrat-semibold text-xs">Chỉnh sửa thông tin</Text>
+                <Pressable
+                  className="mt-1.5 self-start rounded-md border border-[#0F382C] px-3 py-1.5"
+                  onPress={() => setIsEditingProfile(true)}>
+                  <Text className="font-montserrat-semibold text-xs text-[#0F382C]">
+                    Chỉnh sửa thông tin
+                  </Text>
                 </Pressable>
               </View>
             )}
@@ -1069,47 +1114,65 @@ export default function WorkerProfileScreen() {
         </View>
 
         {/* Section 2: Hồ sơ đối tác & Xác minh */}
-        <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
-          <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">Xác minh & Hồ sơ đối tác</Text>
-          <View className="rounded-lg overflow-hidden">
+        <View className="my-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+          <Text className="flex-shrink px-3 py-2 font-montserrat-bold text-base text-gray-800">
+            Xác minh & Hồ sơ đối tác
+          </Text>
+          <View className="overflow-hidden rounded-lg">
             {/* Địa điểm hoạt động */}
-            <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setAddressModalOpen(true)}>
+            <Pressable
+              className="flex-row items-center justify-between px-3 py-3"
+              onPress={() => setAddressModalOpen(true)}>
               <View className="flex-row items-center gap-3">
                 <MaterialIcons name="my-location" size={22} color="#0F382C" />
-                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Địa điểm hoạt động</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">
+                  Địa điểm hoạt động
+                </Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
 
-            <View className="h-px bg-gray-200 mx-3" />
+            <View className="mx-3 h-px bg-gray-200" />
 
             {/* Hình ảnh hoạt động (Portfolio) */}
-            <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setPortfolioModalOpen(true)}>
+            <Pressable
+              className="flex-row items-center justify-between px-3 py-3"
+              onPress={() => setPortfolioModalOpen(true)}>
               <View className="flex-row items-center gap-3">
                 <MaterialIcons name="photo-library" size={22} color="#0F382C" />
-                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Hình ảnh hoạt động (Portfolio)</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">
+                  Hình ảnh hoạt động (Portfolio)
+                </Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
 
-            <View className="h-px bg-gray-200 mx-3" />
+            <View className="mx-3 h-px bg-gray-200" />
 
             {/* Xác minh danh tính */}
-            <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setIdentificationModalOpen(true)}>
+            <Pressable
+              className="flex-row items-center justify-between px-3 py-3"
+              onPress={() => setIdentificationModalOpen(true)}>
               <View className="flex-row items-center gap-3">
                 <MaterialIcons name="badge" size={22} color="#0F382C" />
-                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Xác minh danh tính (CCCD)</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">
+                  Xác minh danh tính (CCCD)
+                </Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
 
-            <View className="h-px bg-gray-200 mx-3" />
+            <View className="mx-3 h-px bg-gray-200" />
 
             {/* Chứng chỉ & Bằng cấp */}
-            <Pressable className="flex-row items-center justify-between py-3 px-3" onPress={() => setCertificatesModalOpen(true)}>
+            <Pressable
+              className="flex-row items-center justify-between px-3 py-3"
+              onPress={() => setCertificatesModalOpen(true)}>
               <View className="flex-row items-center gap-3">
                 <MaterialIcons name="workspace-premium" size={22} color="#0F382C" />
-                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Chứng chỉ & Bằng cấp</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">
+                  Chứng chỉ & Bằng cấp
+                </Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
@@ -1117,15 +1180,19 @@ export default function WorkerProfileScreen() {
         </View>
 
         {/* Section 3: Hỗ trợ */}
-        <View className="bg-white rounded-2xl p-2 my-2 shadow-sm border border-gray-100">
-          <Text className="font-montserrat-bold text-base text-gray-800 px-3 py-2 flex-shrink">Hỗ trợ</Text>
-          <View className="rounded-lg overflow-hidden">
+        <View className="my-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
+          <Text className="flex-shrink px-3 py-2 font-montserrat-bold text-base text-gray-800">
+            Hỗ trợ
+          </Text>
+          <View className="overflow-hidden rounded-lg">
             <Pressable
-              className="flex-row items-center justify-between py-3 px-3"
+              className="flex-row items-center justify-between px-3 py-3"
               onPress={() => router.push('/(customer)/support-tickets' as any)}>
               <View className="flex-row items-center gap-3">
                 <MaterialIcons name="support-agent" size={20} color="#0F382C" />
-                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">Trung tâm trợ giúp & Khiếu nại</Text>
+                <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">
+                  Trung tâm trợ giúp & Khiếu nại
+                </Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
@@ -1145,8 +1212,10 @@ export default function WorkerProfileScreen() {
         />
 
         {/* Logout Button */}
-        <View className="items-center justify-center my-6">
-          <Pressable className="flex-row items-center gap-2 border border-[#ba1a1a] bg-transparent py-3 px-8 rounded-lg min-h-[44px]" onPress={handleLogout}>
+        <View className="my-6 items-center justify-center">
+          <Pressable
+            className="min-h-[44px] flex-row items-center gap-2 rounded-lg border border-[#ba1a1a] bg-transparent px-8 py-3"
+            onPress={handleLogout}>
             <MaterialIcons name="logout" size={20} color="#ba1a1a" />
             <Text className="font-montserrat-semibold text-sm text-[#ba1a1a]">Đăng xuất</Text>
           </Pressable>
@@ -1156,25 +1225,27 @@ export default function WorkerProfileScreen() {
       <WorkerTabBar activeTab="profile" />
 
       <Modal visible={logoutConfirmOpen} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+        <View className="flex-1 items-center justify-center bg-black/50 px-5">
           <Pressable
             className="absolute inset-0"
             onPress={() => {
               if (!isLoggingOut) setLogoutConfirmOpen(false);
             }}
           />
-          <View className="w-full max-w-[360px] bg-white rounded-2xl p-5">
-            <Text className="font-montserrat-bold text-lg text-[#1b1c1c] mb-2">Đăng xuất</Text>
-            <Text className="font-montserrat text-sm text-[#574237] leading-5 mb-5">Bạn có chắc chắn muốn đăng xuất?</Text>
+          <View className="w-full max-w-[360px] rounded-2xl bg-white p-5">
+            <Text className="mb-2 font-montserrat-bold text-lg text-[#1b1c1c]">Đăng xuất</Text>
+            <Text className="mb-5 font-montserrat text-sm leading-5 text-[#574237]">
+              Bạn có chắc chắn muốn đăng xuất?
+            </Text>
             <View className="flex-row justify-end gap-3">
               <Pressable
-                className="min-h-[44px] px-[18px] rounded-lg border border-gray-200 items-center justify-center"
+                className="min-h-[44px] items-center justify-center rounded-lg border border-gray-200 px-[18px]"
                 onPress={() => setLogoutConfirmOpen(false)}
                 disabled={isLoggingOut}>
                 <Text className="font-montserrat-semibold text-sm text-[#574237]">Hủy</Text>
               </Pressable>
               <Pressable
-                className={`min-h-[44px] min-w-[120px] px-[18px] rounded-lg bg-[#ba1a1a] items-center justify-center ${isLoggingOut ? 'bg-[#EAE5E3]' : ''}`}
+                className={`min-h-[44px] min-w-[120px] items-center justify-center rounded-lg bg-[#ba1a1a] px-[18px] ${isLoggingOut ? 'bg-[#EAE5E3]' : ''}`}
                 onPress={confirmLogout}
                 disabled={isLoggingOut}>
                 {isLoggingOut ? (
@@ -1190,7 +1261,7 @@ export default function WorkerProfileScreen() {
 
       {/* MODAL 1: Working Address */}
       <Modal visible={addressModalOpen} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+        <View className="flex-1 items-center justify-center bg-black/50 px-5">
           <Pressable
             className="absolute inset-0"
             onPress={() => {
@@ -1201,10 +1272,10 @@ export default function WorkerProfileScreen() {
               }
             }}
           />
-          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
+          <View className="w-full max-w-[420px] rounded-2xl bg-white p-5">
             {optionPickerOpen ? (
               <View className="w-full">
-                <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
+                <View className="mb-4 flex-row items-center justify-between border-b border-[#f5f3f2] pb-3">
                   <View className="flex-row items-center gap-2">
                     <Pressable onPress={() => setOptionPickerOpen(false)} className="p-1">
                       <MaterialIcons name="arrow-back" size={24} color="#383838" />
@@ -1223,7 +1294,7 @@ export default function WorkerProfileScreen() {
                   </Pressable>
                 </View>
 
-                <View className="h-11 border border-gray-200 rounded-lg px-3 mb-3 flex-row items-center gap-2">
+                <View className="mb-3 h-11 flex-row items-center gap-2 rounded-lg border border-gray-200 px-3">
                   <MaterialIcons name="search" size={20} color="#818A91" />
                   <TextInput
                     className="flex-1 font-montserrat text-sm text-[#383838]"
@@ -1234,36 +1305,40 @@ export default function WorkerProfileScreen() {
                   />
                 </View>
 
-                <ScrollView
-                  className="max-h-[300px] w-full"
-                  keyboardShouldPersistTaps="handled">
+                <ScrollView className="max-h-[300px] w-full" keyboardShouldPersistTaps="handled">
                   {filteredPickerList.map((item: any) => (
                     <Pressable
                       key={item.code}
-                      className="py-3.5 px-3 border-b border-[#efedec]"
+                      className="border-b border-[#efedec] px-3 py-3.5"
                       onPress={() => handleSelectOption(item)}>
-                      <Text className="font-montserrat-semibold text-sm text-[#383838]">{item.name}</Text>
+                      <Text className="font-montserrat-semibold text-sm text-[#383838]">
+                        {item.name}
+                      </Text>
                     </Pressable>
                   ))}
                   {filteredPickerList.length === 0 && (
-                    <Text className="font-montserrat text-sm text-gray-500 text-center py-2.5">Không tìm thấy kết quả.</Text>
+                    <Text className="py-2.5 text-center font-montserrat text-sm text-gray-500">
+                      Không tìm thấy kết quả.
+                    </Text>
                   )}
                 </ScrollView>
               </View>
             ) : (
               <View className="w-full">
-                <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
-                  <Text className="font-montserrat-bold text-base text-[#383838]">Địa điểm hoạt động</Text>
+                <View className="mb-4 flex-row items-center justify-between border-b border-[#f5f3f2] pb-3">
+                  <Text className="font-montserrat-bold text-base text-[#383838]">
+                    Địa điểm hoạt động
+                  </Text>
                   <Pressable onPress={() => setAddressModalOpen(false)}>
                     <MaterialIcons name="close" size={24} color="#383838" />
                   </Pressable>
                 </View>
 
-                <ScrollView
-                  className="max-h-[420px] w-full"
-                  keyboardShouldPersistTaps="handled">
-                  <View className="flex-row justify-between items-center mb-0.5">
-                    <Text className="font-montserrat-semibold text-xs text-gray-500">Địa chỉ chi tiết (Số nhà, Tên đường):</Text>
+                <ScrollView className="max-h-[420px] w-full" keyboardShouldPersistTaps="handled">
+                  <View className="mb-0.5 flex-row items-center justify-between">
+                    <Text className="font-montserrat-semibold text-xs text-gray-500">
+                      Địa chỉ chi tiết (Số nhà, Tên đường):
+                    </Text>
                     <Pressable
                       className="flex-row items-center gap-1 py-1"
                       onPress={handleGetCurrentGpsLocation}
@@ -1281,7 +1356,7 @@ export default function WorkerProfileScreen() {
 
                   <View className="relative z-50 mb-4">
                     <TextInput
-                      className="border border-gray-200 rounded-lg min-h-[52px] px-3 py-2 font-montserrat text-sm text-[#383838] leading-5"
+                      className="min-h-[52px] rounded-lg border border-gray-200 px-3 py-2 font-montserrat text-sm leading-5 text-[#383838]"
                       placeholder="Ví dụ: 305 Trần Hưng Đạo (Hoặc nhập để gợi ý)"
                       placeholderTextColor="#9A9A9A"
                       multiline={true}
@@ -1294,19 +1369,26 @@ export default function WorkerProfileScreen() {
                     />
 
                     {showAutoCompleteDropdown && autoCompleteResults.length > 0 && (
-                      <View className="absolute top-13 left-0 right-0 bg-white rounded-xl border border-gray-200 shadow-lg z-50 max-h-48">
+                      <View className="top-13 absolute left-0 right-0 z-50 max-h-48 rounded-xl border border-gray-200 bg-white shadow-lg">
                         <ScrollView keyboardShouldPersistTaps="handled">
                           {autoCompleteResults.map((item, idx) => (
                             <Pressable
                               key={item.place_id || idx}
-                              className="flex-row items-start p-2.5 border-b border-gray-100"
+                              className="flex-row items-start border-b border-gray-100 p-2.5"
                               onPress={() => handleSelectAutoCompletePlace(item)}>
-                              <MaterialIcons name="location-on" size={16} color="#0F382C" className="mr-2 mt-0.5" />
+                              <MaterialIcons
+                                name="location-on"
+                                size={16}
+                                color="#0F382C"
+                                className="mr-2 mt-0.5"
+                              />
                               <View className="flex-1">
                                 <Text className="font-montserrat-semibold text-xs text-gray-800">
                                   {item.structured_formatting?.main_text || item.description}
                                 </Text>
-                                <Text className="font-montserrat text-[10px] text-gray-500 mt-0.5" numberOfLines={1}>
+                                <Text
+                                  className="mt-0.5 font-montserrat text-[10px] text-gray-500"
+                                  numberOfLines={1}>
                                   {item.structured_formatting?.secondary_text || item.description}
                                 </Text>
                               </View>
@@ -1317,24 +1399,32 @@ export default function WorkerProfileScreen() {
                     )}
                   </View>
 
-                  <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Tỉnh / Thành phố:</Text>
+                  <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                    Tỉnh / Thành phố:
+                  </Text>
                   <Pressable
-                    className="h-12 border border-gray-200 rounded-lg px-3 flex-row items-center justify-between bg-white mb-4"
+                    className="mb-4 h-12 flex-row items-center justify-between rounded-lg border border-gray-200 bg-white px-3"
                     onPress={() => {
                       setPickerType('province');
                       setPickerSearchQuery('');
                       setOptionPickerOpen(true);
                     }}>
                     <Text
-                      className={addrCity ? 'font-montserrat-semibold text-sm text-[#1b1c1c]' : 'font-montserrat text-sm text-[#9A9A9A]'}>
+                      className={
+                        addrCity
+                          ? 'font-montserrat-semibold text-sm text-[#1b1c1c]'
+                          : 'font-montserrat text-sm text-[#9A9A9A]'
+                      }>
                       {addrCity || 'Chọn Tỉnh / Thành phố'}
                     </Text>
                     <MaterialIcons name="keyboard-arrow-down" size={20} color="#818A91" />
                   </Pressable>
 
-                  <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Phường / Xã:</Text>
+                  <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                    Phường / Xã:
+                  </Text>
                   <Pressable
-                    className={`h-12 border border-gray-200 rounded-lg px-3 flex-row items-center justify-between bg-white mb-4 ${!selectedProvinceCode ? 'bg-[#f5f3f2] border-[#EAE5E3]' : ''}`}
+                    className={`mb-4 h-12 flex-row items-center justify-between rounded-lg border border-gray-200 bg-white px-3 ${!selectedProvinceCode ? 'border-[#EAE5E3] bg-[#f5f3f2]' : ''}`}
                     onPress={() => {
                       if (!selectedProvinceCode) {
                         Alert.alert('Thông báo', 'Vui lòng chọn Tỉnh / Thành phố trước.');
@@ -1346,14 +1436,18 @@ export default function WorkerProfileScreen() {
                     }}
                     disabled={!selectedProvinceCode}>
                     <Text
-                      className={addrWard ? 'font-montserrat-semibold text-sm text-[#1b1c1c]' : 'font-montserrat text-sm text-[#9A9A9A]'}>
+                      className={
+                        addrWard
+                          ? 'font-montserrat-semibold text-sm text-[#1b1c1c]'
+                          : 'font-montserrat text-sm text-[#9A9A9A]'
+                      }>
                       {addrWard || 'Chọn Phường / Xã'}
                     </Text>
                     <MaterialIcons name="keyboard-arrow-down" size={20} color="#818A91" />
                   </Pressable>
 
                   <Pressable
-                    className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center ${(!addrCity || !addrWard || !addrDetail.trim() || updateAddressMutation.isPending) ? 'bg-[#EAE5E3]' : ''}`}
+                    className={`h-12 items-center justify-center rounded-lg bg-[#0F382C] ${!addrCity || !addrWard || !addrDetail.trim() || updateAddressMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
                     onPress={() => updateAddressMutation.mutate()}
                     disabled={
                       !addrCity ||
@@ -1364,7 +1458,9 @@ export default function WorkerProfileScreen() {
                     {updateAddressMutation.isPending ? (
                       <ActivityIndicator size="small" color="#ffffff" />
                     ) : (
-                      <Text className="text-white font-montserrat-bold text-sm">Lưu địa chỉ hoạt động</Text>
+                      <Text className="font-montserrat-bold text-sm text-white">
+                        Lưu địa chỉ hoạt động
+                      </Text>
                     )}
                   </Pressable>
                 </ScrollView>
@@ -1376,11 +1472,13 @@ export default function WorkerProfileScreen() {
 
       {/* MODAL 2: Portfolio Images */}
       <Modal visible={portfolioModalOpen} transparent animationType="slide">
-        <View className="flex-1 bg-black/50 justify-end">
+        <View className="flex-1 justify-end bg-black/50">
           <Pressable className="absolute inset-0" onPress={() => setPortfolioModalOpen(false)} />
-          <View className="bg-white rounded-t-[20px] p-5 pb-[34px]">
-            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
-              <Text className="font-montserrat-bold text-base text-[#383838]">Hình ảnh hoạt động (Portfolio)</Text>
+          <View className="rounded-t-[20px] bg-white p-5 pb-[34px]">
+            <View className="mb-4 flex-row items-center justify-between border-b border-[#f5f3f2] pb-3">
+              <Text className="font-montserrat-bold text-base text-[#383838]">
+                Hình ảnh hoạt động (Portfolio)
+              </Text>
               <Pressable onPress={() => setPortfolioModalOpen(false)}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
@@ -1389,10 +1487,12 @@ export default function WorkerProfileScreen() {
             <ScrollView className="max-h-[400px]">
               <View className="flex-row flex-wrap gap-3 py-2">
                 {profile?.portfolioImages?.map((img: any) => (
-                  <View key={img.id} className="relative w-[30%] aspect-square rounded-lg overflow-hidden">
-                    <Image source={{ uri: img.url }} className="w-full h-full" />
+                  <View
+                    key={img.id}
+                    className="relative aspect-square w-[30%] overflow-hidden rounded-lg">
+                    <Image source={{ uri: img.url }} className="h-full w-full" />
                     <Pressable
-                      className="absolute top-1 right-1 bg-black/60 w-[22px] h-[22px] rounded-full items-center justify-center"
+                      className="absolute right-1 top-1 h-[22px] w-[22px] items-center justify-center rounded-full bg-black/60"
                       onPress={() => {
                         Alert.alert('Xóa ảnh', 'Bạn muốn xóa hình ảnh này khỏi portfolio?', [
                           { text: 'Hủy', style: 'cancel' },
@@ -1411,13 +1511,13 @@ export default function WorkerProfileScreen() {
             </ScrollView>
 
             <Pressable
-              className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center mt-4 ${addPortfolioImageMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
+              className={`mt-4 h-12 items-center justify-center rounded-lg bg-[#0F382C] ${addPortfolioImageMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
               onPress={handlePickPortfolioImages}
               disabled={addPortfolioImageMutation.isPending}>
               {addPortfolioImageMutation.isPending ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text className="text-white font-montserrat-bold text-sm">+ Thêm hình ảnh</Text>
+                <Text className="font-montserrat-bold text-sm text-white">+ Thêm hình ảnh</Text>
               )}
             </Pressable>
           </View>
@@ -1426,20 +1526,27 @@ export default function WorkerProfileScreen() {
 
       {/* MODAL 3: Identification (CCCD) */}
       <Modal visible={identificationModalOpen} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+        <View className="flex-1 items-center justify-center bg-black/50 px-5">
           <Pressable className="absolute inset-0" onPress={handleCloseIdentificationModal} />
-          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
-            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
-              <Text className="font-montserrat-bold text-base text-[#383838]">Xác minh danh tính (CCCD)</Text>
+          <View className="w-full max-w-[420px] rounded-2xl bg-white p-5">
+            <View className="mb-4 flex-row items-center justify-between border-b border-[#f5f3f2] pb-3">
+              <Text className="font-montserrat-bold text-base text-[#383838]">
+                Xác minh danh tính (CCCD)
+              </Text>
               <Pressable onPress={handleCloseIdentificationModal}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
-            <KeyboardAwareScrollView className="max-h-[420px]" keyboardShouldPersistTaps="handled" bottomOffset={24}>
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Số căn cước công dân (CCCD):</Text>
+            <KeyboardAwareScrollView
+              className="max-h-[420px]"
+              keyboardShouldPersistTaps="handled"
+              bottomOffset={24}>
+              <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                Số căn cước công dân (CCCD):
+              </Text>
               <TextInput
-                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
+                className="mb-4 h-12 rounded-lg border border-gray-200 px-3 font-montserrat text-sm text-[#383838]"
                 placeholder="Nhập 12 số CCCD..."
                 placeholderTextColor="#9A9A9A"
                 value={idNumber}
@@ -1447,9 +1554,11 @@ export default function WorkerProfileScreen() {
                 keyboardType="number-pad"
               />
 
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Ngày cấp:</Text>
+              <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                Ngày cấp:
+              </Text>
               <Pressable
-                className="border border-gray-200 rounded-lg h-12 px-3 justify-between flex-row items-center bg-white mb-4"
+                className="mb-4 h-12 flex-row items-center justify-between rounded-lg border border-gray-200 bg-white px-3"
                 onPress={() => {
                   setTempProfileDate(parseDateString(idIssueDate));
                   setActiveProfileDatePicker('idCard');
@@ -1461,26 +1570,28 @@ export default function WorkerProfileScreen() {
                 <MaterialIcons name="calendar-today" size={18} color="#0F382C" />
               </Pressable>
 
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Nơi cấp:</Text>
+              <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                Nơi cấp:
+              </Text>
               <TextInput
-                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
+                className="mb-4 h-12 rounded-lg border border-gray-200 px-3 font-montserrat text-sm text-[#383838]"
                 placeholder="Ví dụ: Cục Cảnh sát QLHC về TTXH"
                 placeholderTextColor="#9A9A9A"
                 value={idIssuePlace}
                 onChangeText={setIdIssuePlace}
               />
 
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Ảnh mặt trước & mặt sau CCCD:</Text>
-              <View className="flex-row gap-3 w-full mb-4">
+              <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                Ảnh mặt trước & mặt sau CCCD:
+              </Text>
+              <View className="mb-4 w-full flex-row gap-3">
                 {idLocalUris.map((uri, idx) => (
-                  <View key={uri} className="flex-1 h-[100px] relative rounded-lg overflow-hidden">
-                    <Pressable
-                      className="w-full h-full"
-                      onPress={() => setActivePreviewImage(uri)}>
-                      <Image source={{ uri }} className="w-full h-full resize-cover" />
+                  <View key={uri} className="relative h-[100px] flex-1 overflow-hidden rounded-lg">
+                    <Pressable className="h-full w-full" onPress={() => setActivePreviewImage(uri)}>
+                      <Image source={{ uri }} className="resize-cover h-full w-full" />
                     </Pressable>
                     <Pressable
-                      className="absolute top-1 right-1 bg-white/90 rounded-full p-0.5 z-10 shadow-sm"
+                      className="absolute right-1 top-1 z-10 rounded-full bg-white/90 p-0.5 shadow-sm"
                       onPress={() => setIdLocalUris((prev) => prev.filter((_, i) => i !== idx))}>
                       <MaterialIcons name="cancel" size={20} color="#BA1A1A" />
                     </Pressable>
@@ -1489,7 +1600,11 @@ export default function WorkerProfileScreen() {
 
                 {idLocalUris.length < 2 && (
                   <Pressable
-                    className={idLocalUris.length === 0 ? "flex-1 h-[100px] border border-dashed border-[#0F382C] rounded-lg items-center justify-center bg-[#F2F7F2]" : "flex-1 h-[100px] border border-dashed border-[#0F382C] rounded-lg items-center justify-center bg-[#F2F7F2]"}
+                    className={
+                      idLocalUris.length === 0
+                        ? 'h-[100px] flex-1 items-center justify-center rounded-lg border border-dashed border-[#0F382C] bg-[#F2F7F2]'
+                        : 'h-[100px] flex-1 items-center justify-center rounded-lg border border-dashed border-[#0F382C] bg-[#F2F7F2]'
+                    }
                     onPress={handleSelectCccdSource}
                     disabled={cccdRecognitionLoading}>
                     <MaterialIcons
@@ -1512,18 +1627,18 @@ export default function WorkerProfileScreen() {
               </View>
 
               {idLocalUris.length > 0 && (
-                <View className="min-h-[42px] rounded-lg border border-[#C6DFC6] bg-[#F2F7F2] flex-row items-center gap-2 px-3 py-2 mb-2.5">
+                <View className="mb-2.5 min-h-[42px] flex-row items-center gap-2 rounded-lg border border-[#C6DFC6] bg-[#F2F7F2] px-3 py-2">
                   {cccdRecognitionLoading ? (
                     <>
                       <ActivityIndicator size="small" color="#0F382C" />
-                      <Text className="flex-1 font-montserrat text-xs text-[#574237] leading-4">
+                      <Text className="flex-1 font-montserrat text-xs leading-4 text-[#574237]">
                         Đang nhận diện thông tin CCCD...
                       </Text>
                     </>
                   ) : (
                     <>
                       <MaterialIcons name="document-scanner" size={18} color="#0F382C" />
-                      <Text className="flex-1 font-montserrat text-xs text-[#574237] leading-4">
+                      <Text className="flex-1 font-montserrat text-xs leading-4 text-[#574237]">
                         Thông tin đã nhận diện có thể chỉnh sửa trước khi gửi.
                       </Text>
                     </>
@@ -1532,19 +1647,28 @@ export default function WorkerProfileScreen() {
               )}
 
               {idLocalUris.length > 0 && !cccdRecognitionLoading && (
-                <Pressable className="h-[38px] rounded-lg border border-[#0F382C] bg-white flex-row items-center justify-center gap-1.5 mb-3" onPress={handleRecognizeCccdImages}>
+                <Pressable
+                  className="mb-3 h-[38px] flex-row items-center justify-center gap-1.5 rounded-lg border border-[#0F382C] bg-white"
+                  onPress={handleRecognizeCccdImages}>
                   <MaterialIcons name="refresh" size={16} color="#0F382C" />
-                  <Text className="font-montserrat-semibold text-xs text-[#0F382C]">Quét lại thông tin CCCD</Text>
+                  <Text className="font-montserrat-semibold text-xs text-[#0F382C]">
+                    Quét lại thông tin CCCD
+                  </Text>
                 </Pressable>
               )}
 
               {/* Face ID Verification Section */}
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-1.5">Xác thực khuôn mặt (eKYC) *:</Text>
-              <View className="border border-gray-200 rounded-xl p-3.5 bg-white mb-2">
+              <Text className="mb-1.5 font-montserrat-semibold text-xs text-gray-500">
+                Xác thực khuôn mặt (eKYC) *:
+              </Text>
+              <View className="mb-2 rounded-xl border border-gray-200 bg-white p-3.5">
                 {idFaceSelfieUri ? (
                   <View className="flex-row items-center gap-3">
                     <Pressable onPress={() => setActivePreviewImage(idFaceSelfieUri)}>
-                      <Image source={{ uri: idFaceSelfieUri }} className="w-16 h-16 rounded-full border-2 border-[#0F382C]" />
+                      <Image
+                        source={{ uri: idFaceSelfieUri }}
+                        className="h-16 w-16 rounded-full border-2 border-[#0F382C]"
+                      />
                     </Pressable>
                     <View className="flex-1 gap-1">
                       <View className="flex-row items-center gap-1.5">
@@ -1561,28 +1685,35 @@ export default function WorkerProfileScreen() {
                         </Text>
                       </View>
                       <Text className="font-montserrat text-[11px] text-gray-500">
-                        {isIdFaceMatched ? 'Ảnh chân dung đã đối soát thành công.' : 'Khuôn mặt chưa trùng khớp, vui lòng chụp lại.'}
+                        {isIdFaceMatched
+                          ? 'Ảnh chân dung đã đối soát thành công.'
+                          : 'Khuôn mặt chưa trùng khớp, vui lòng chụp lại.'}
                       </Text>
                       <Pressable
-                        className="flex-row items-center gap-1 mt-0.5"
+                        className="mt-0.5 flex-row items-center gap-1"
                         onPress={() => setIdFaceCaptureModalOpen(true)}
                         disabled={isComparingIdFace}>
                         <MaterialIcons name="camera-alt" size={12} color="#0F382C" />
-                        <Text className="font-montserrat-semibold text-[11px] text-[#0F382C] underline">Chụp lại</Text>
+                        <Text className="font-montserrat-semibold text-[11px] text-[#0F382C] underline">
+                          Chụp lại
+                        </Text>
                       </Pressable>
                     </View>
                   </View>
                 ) : (
-                  <View className="items-center py-2 gap-2">
+                  <View className="items-center gap-2 py-2">
                     <MaterialIcons name="face" size={28} color="#0F382C" />
-                    <Text className="font-montserrat-bold text-xs text-[#1b1c1c] text-center">
+                    <Text className="text-center font-montserrat-bold text-xs text-[#1b1c1c]">
                       Chụp ảnh khuôn mặt để đối soát CCCD
                     </Text>
                     <Pressable
-                      className={`h-9 px-4 rounded-lg bg-[#0F382C] flex-row items-center justify-center gap-1.5 w-full ${(!idLocalUris[0] || isComparingIdFace) ? 'bg-[#9A9A9A]' : ''}`}
+                      className={`h-9 w-full flex-row items-center justify-center gap-1.5 rounded-lg bg-[#0F382C] px-4 ${!idLocalUris[0] || isComparingIdFace ? 'bg-[#9A9A9A]' : ''}`}
                       onPress={() => {
                         if (!idLocalUris[0]) {
-                          Alert.alert('Chưa có ảnh CCCD', 'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước.');
+                          Alert.alert(
+                            'Chưa có ảnh CCCD',
+                            'Vui lòng tải hoặc chụp ảnh Mặt trước CCCD trước.'
+                          );
                           return;
                         }
                         setIdFaceCaptureModalOpen(true);
@@ -1604,13 +1735,15 @@ export default function WorkerProfileScreen() {
               </View>
 
               <Pressable
-                className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center mt-3 ${!canSubmitIdentification ? 'bg-[#EAE5E3]' : ''}`}
+                className={`mt-3 h-12 items-center justify-center rounded-lg bg-[#0F382C] ${!canSubmitIdentification ? 'bg-[#EAE5E3]' : ''}`}
                 onPress={() => updateCccdMutation.mutate()}
                 disabled={!canSubmitIdentification}>
                 {updateCccdMutation.isPending ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text className="text-white font-montserrat-bold text-sm">Gửi yêu cầu xác minh</Text>
+                  <Text className="font-montserrat-bold text-sm text-white">
+                    Gửi yêu cầu xác minh
+                  </Text>
                 )}
               </Pressable>
             </KeyboardAwareScrollView>
@@ -1620,66 +1753,83 @@ export default function WorkerProfileScreen() {
 
       {/* MODAL 4: Certificates */}
       <Modal visible={certificatesModalOpen} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center px-5">
-          <Pressable
-            className="absolute inset-0"
-            onPress={() => setCertificatesModalOpen(false)}
-          />
-          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
-            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
-              <Text className="font-montserrat-bold text-base text-[#383838]">Chứng chỉ & Bằng cấp</Text>
+        <View className="flex-1 items-center justify-center bg-black/50 px-5">
+          <Pressable className="absolute inset-0" onPress={() => setCertificatesModalOpen(false)} />
+          <View className="w-full max-w-[420px] rounded-2xl bg-white p-5">
+            <View className="mb-4 flex-row items-center justify-between border-b border-[#f5f3f2] pb-3">
+              <Text className="font-montserrat-bold text-base text-[#383838]">
+                Chứng chỉ & Bằng cấp
+              </Text>
               <Pressable onPress={() => setCertificatesModalOpen(false)}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
-            <KeyboardAwareScrollView className="max-h-[420px]" keyboardShouldPersistTaps="handled" bottomOffset={24}>
+            <KeyboardAwareScrollView
+              className="max-h-[420px]"
+              keyboardShouldPersistTaps="handled"
+              bottomOffset={24}>
               {/* Render current certificates */}
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-2">Danh sách hiện tại:</Text>
+              <Text className="mb-2 font-montserrat-semibold text-xs text-gray-500">
+                Danh sách hiện tại:
+              </Text>
               {profile?.certificates?.map((c: any) => (
-                <View key={c.id} className="flex-row items-center gap-3 py-2.5 border-b border-[#efedec]">
+                <View
+                  key={c.id}
+                  className="flex-row items-center gap-3 border-b border-[#efedec] py-2.5">
                   {c.imageUrl ? (
                     <Pressable onPress={() => setActivePreviewImage(c.imageUrl)}>
-                      <Image source={{ uri: c.imageUrl }} className="w-11 h-11 rounded bg-gray-100" />
+                      <Image
+                        source={{ uri: c.imageUrl }}
+                        className="h-11 w-11 rounded bg-gray-100"
+                      />
                     </Pressable>
                   ) : (
                     <MaterialIcons name="workspace-premium" size={28} color="#0F382C" />
                   )}
                   <View style={{ flex: 1 }}>
                     <Text className="font-montserrat-bold text-sm text-[#1b1c1c]">{c.title}</Text>
-                    <Text className="font-montserrat text-xs text-gray-500 mt-0.5">Cấp bởi: {c.issuedBy}</Text>
+                    <Text className="mt-0.5 font-montserrat text-xs text-gray-500">
+                      Cấp bởi: {c.issuedBy}
+                    </Text>
                   </View>
                 </View>
               ))}
 
-              <View className="h-px bg-gray-200 mx-3 my-4" />
+              <View className="mx-3 my-4 h-px bg-gray-200" />
 
               {/* Add New Certificate Form */}
-              <Text className="font-montserrat-bold text-xs text-[#1b1c1c] mb-0.5">
+              <Text className="mb-0.5 font-montserrat-bold text-xs text-[#1b1c1c]">
                 Thêm chứng chỉ mới
               </Text>
 
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5 mt-2">Tên chứng chỉ:</Text>
+              <Text className="mb-0.5 mt-2 font-montserrat-semibold text-xs text-gray-500">
+                Tên chứng chỉ:
+              </Text>
               <TextInput
-                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
+                className="mb-4 h-12 rounded-lg border border-gray-200 px-3 font-montserrat text-sm text-[#383838]"
                 placeholder="Ví dụ: Chứng chỉ kỹ thuật viên Spa"
                 placeholderTextColor="#9A9A9A"
                 value={newCertTitle}
                 onChangeText={setNewCertTitle}
               />
 
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Nơi cấp chứng chỉ:</Text>
+              <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                Nơi cấp chứng chỉ:
+              </Text>
               <TextInput
-                className="border border-gray-200 rounded-lg h-12 px-3 font-montserrat text-sm text-[#383838] mb-4"
+                className="mb-4 h-12 rounded-lg border border-gray-200 px-3 font-montserrat text-sm text-[#383838]"
                 placeholder="Ví dụ: Trường Đào tạo Spa & Thẩm mỹ"
                 placeholderTextColor="#9A9A9A"
                 value={newCertIssuedBy}
                 onChangeText={setNewCertIssuedBy}
               />
 
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Ngày nhận chứng chỉ:</Text>
+              <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                Ngày nhận chứng chỉ:
+              </Text>
               <Pressable
-                className="border border-gray-200 rounded-lg h-12 px-3 justify-between flex-row items-center bg-white mb-4"
+                className="mb-4 h-12 flex-row items-center justify-between rounded-lg border border-gray-200 bg-white px-3"
                 onPress={() => {
                   setTempProfileDate(parseDateString(newCertIssuedAt));
                   setActiveProfileDatePicker('newCert');
@@ -1691,30 +1841,37 @@ export default function WorkerProfileScreen() {
                 <MaterialIcons name="calendar-today" size={18} color="#0F382C" />
               </Pressable>
 
-              <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Tài liệu chứng chỉ (Hình ảnh):</Text>
+              <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+                Tài liệu chứng chỉ (Hình ảnh):
+              </Text>
               {newCertLocalUris.length > 0 ? (
-                <View className="flex-row gap-3 my-3">
+                <View className="my-3 flex-row gap-3">
                   <Pressable onPress={() => setActivePreviewImage(newCertLocalUris[0])}>
-                    <Image source={{ uri: newCertLocalUris[0] }} className="w-[100px] h-[100px] rounded-lg bg-[#efedec]" />
+                    <Image
+                      source={{ uri: newCertLocalUris[0] }}
+                      className="h-[100px] w-[100px] rounded-lg bg-[#efedec]"
+                    />
                   </Pressable>
                   <Pressable
-                    className="h-13 rounded-lg border border-dashed border-[#0F382C] flex-row items-center justify-center bg-[#F2F7F2] gap-2 px-4 flex-1"
+                    className="h-13 flex-1 flex-row items-center justify-center gap-2 rounded-lg border border-dashed border-[#0F382C] bg-[#F2F7F2] px-4"
                     onPress={() => setNewCertLocalUris([])}>
                     <MaterialIcons name="delete" size={20} color="#BA1A1A" />
-                    <Text className="font-montserrat-semibold text-sm text-[#BA1A1A]">
-                      Xóa ảnh
-                    </Text>
+                    <Text className="font-montserrat-semibold text-sm text-[#BA1A1A]">Xóa ảnh</Text>
                   </Pressable>
                 </View>
               ) : (
-                <Pressable className="h-13 rounded-lg border border-dashed border-[#0F382C] flex-row items-center justify-center bg-[#F2F7F2] gap-2 px-4 my-2" onPress={handlePickCertImage}>
+                <Pressable
+                  className="h-13 my-2 flex-row items-center justify-center gap-2 rounded-lg border border-dashed border-[#0F382C] bg-[#F2F7F2] px-4"
+                  onPress={handlePickCertImage}>
                   <MaterialIcons name="add-photo-alternate" size={24} color="#0F382C" />
-                  <Text className="font-montserrat-semibold text-sm text-[#0F382C]">Chọn ảnh chứng chỉ</Text>
+                  <Text className="font-montserrat-semibold text-sm text-[#0F382C]">
+                    Chọn ảnh chứng chỉ
+                  </Text>
                 </Pressable>
               )}
 
               <Pressable
-                className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center mt-4 ${(!newCertTitle.trim() || !newCertIssuedBy.trim() || newCertLocalUris.length === 0 || addCertificateMutation.isPending) ? 'bg-[#EAE5E3]' : ''}`}
+                className={`mt-4 h-12 items-center justify-center rounded-lg bg-[#0F382C] ${!newCertTitle.trim() || !newCertIssuedBy.trim() || newCertLocalUris.length === 0 || addCertificateMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
                 onPress={() => addCertificateMutation.mutate()}
                 disabled={
                   !newCertTitle.trim() ||
@@ -1725,7 +1882,7 @@ export default function WorkerProfileScreen() {
                 {addCertificateMutation.isPending ? (
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
-                  <Text className="text-white font-montserrat-bold text-sm">Thêm chứng chỉ</Text>
+                  <Text className="font-montserrat-bold text-sm text-white">Thêm chứng chỉ</Text>
                 )}
               </Pressable>
             </KeyboardAwareScrollView>
@@ -1735,22 +1892,28 @@ export default function WorkerProfileScreen() {
 
       {/* Modal Add Day Off Exception */}
       <Modal visible={addDayOffModalOpen} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+        <View className="flex-1 items-center justify-center bg-black/50 px-5">
           <Pressable className="absolute inset-0" onPress={() => setAddDayOffModalOpen(false)} />
-          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
-            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
-              <Text className="font-montserrat-bold text-base text-[#383838]">Đăng ký nghỉ phép</Text>
+          <View className="w-full max-w-[420px] rounded-2xl bg-white p-5">
+            <View className="mb-4 flex-row items-center justify-between border-b border-[#f5f3f2] pb-3">
+              <Text className="font-montserrat-bold text-base text-[#383838]">
+                Đăng ký nghỉ phép
+              </Text>
               <Pressable onPress={() => setAddDayOffModalOpen(false)}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
-            <Text className="font-montserrat-semibold text-xs text-gray-500 mb-0.5">Chọn ngày nghỉ:</Text>
-            <View className="min-h-[48px] border border-[#0F382C] rounded-lg px-3 mb-2.5 flex-row items-center gap-2.5 bg-[#F2F7F2]">
+            <Text className="mb-0.5 font-montserrat-semibold text-xs text-gray-500">
+              Chọn ngày nghỉ:
+            </Text>
+            <View className="mb-2.5 min-h-[48px] flex-row items-center gap-2.5 rounded-lg border border-[#0F382C] bg-[#F2F7F2] px-3">
               <MaterialIcons name="event" size={20} color="#0F382C" />
-              <Text className="font-montserrat-bold text-base text-[#383838]">{dateToDateOnly(dayOffDate)}</Text>
+              <Text className="font-montserrat-bold text-base text-[#383838]">
+                {dateToDateOnly(dayOffDate)}
+              </Text>
             </View>
-            <View className="items-center min-h-[180px] mb-3">
+            <View className="mb-3 min-h-[180px] items-center">
               <DateTimePicker
                 value={dayOffDate}
                 mode="date"
@@ -1764,9 +1927,11 @@ export default function WorkerProfileScreen() {
               />
             </View>
 
-            <Text className="font-montserrat-semibold text-xs text-gray-500 mt-2 mb-2">Lý do nghỉ:</Text>
+            <Text className="mb-2 mt-2 font-montserrat-semibold text-xs text-gray-500">
+              Lý do nghỉ:
+            </Text>
             <TextInput
-              className="border border-gray-200 rounded-lg h-13 px-3.5 font-montserrat text-base text-[#383838] mb-4"
+              className="h-13 mb-4 rounded-lg border border-gray-200 px-3.5 font-montserrat text-base text-[#383838]"
               placeholder="Nhập lý do xin nghỉ..."
               placeholderTextColor="#9A9A9A"
               value={dayOffReason}
@@ -1774,7 +1939,7 @@ export default function WorkerProfileScreen() {
             />
 
             <Pressable
-              className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center ${addDayOffMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
+              className={`h-12 items-center justify-center rounded-lg bg-[#0F382C] ${addDayOffMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
               onPress={() => {
                 addDayOffMutation.mutate({
                   workerProfileId,
@@ -1787,7 +1952,7 @@ export default function WorkerProfileScreen() {
               {addDayOffMutation.isPending ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text className="text-white font-montserrat-bold text-sm">Xác nhận ngày nghỉ</Text>
+                <Text className="font-montserrat-bold text-sm text-white">Xác nhận ngày nghỉ</Text>
               )}
             </Pressable>
           </View>
@@ -1796,38 +1961,40 @@ export default function WorkerProfileScreen() {
 
       {/* Modal Edit Weekly Schedule */}
       <Modal visible={!!editingScheduleSlot} transparent animationType="fade">
-        <View className="flex-1 bg-black/50 justify-center items-center px-5">
+        <View className="flex-1 items-center justify-center bg-black/50 px-5">
           <Pressable className="absolute inset-0" onPress={Keyboard.dismiss} />
-          <View className="w-full max-w-[420px] bg-white rounded-2xl p-5">
-            <View className="flex-row justify-between items-center border-b border-[#f5f3f2] pb-3 mb-4">
-              <Text className="font-montserrat-bold text-base text-[#383838]">Cập nhật giờ làm việc</Text>
+          <View className="w-full max-w-[420px] rounded-2xl bg-white p-5">
+            <View className="mb-4 flex-row items-center justify-between border-b border-[#f5f3f2] pb-3">
+              <Text className="font-montserrat-bold text-base text-[#383838]">
+                Cập nhật giờ làm việc
+              </Text>
               <Pressable onPress={closeScheduleEditor}>
                 <MaterialIcons name="close" size={24} color="#383838" />
               </Pressable>
             </View>
 
-            <View className="flex-row gap-2.5 mb-3.5">
+            <View className="mb-3.5 flex-row gap-2.5">
               <Pressable
-                className={`flex-1 min-h-[68px] border border-gray-200 rounded-lg px-3 py-2.5 justify-center bg-white ${schedulePickerTarget === 'start' ? 'border-[#0F382C] bg-[#F2F7F2]' : ''}`}
+                className={`min-h-[68px] flex-1 justify-center rounded-lg border border-gray-200 bg-white px-3 py-2.5 ${schedulePickerTarget === 'start' ? 'border-[#0F382C] bg-[#F2F7F2]' : ''}`}
                 onPress={() => setSchedulePickerTarget('start')}>
                 <Text className="font-montserrat-semibold text-[11px] text-gray-500">Bắt đầu</Text>
                 <Text
-                  className={`font-montserrat-bold text-lg text-[#383838] mt-1 ${schedulePickerTarget === 'start' ? 'text-[#0F382C]' : ''}`}>
+                  className={`mt-1 font-montserrat-bold text-lg text-[#383838] ${schedulePickerTarget === 'start' ? 'text-[#0F382C]' : ''}`}>
                   {dateToTimeString(scheduleStartTime)}
                 </Text>
               </Pressable>
               <Pressable
-                className={`flex-1 min-h-[68px] border border-gray-200 rounded-lg px-3 py-2.5 justify-center bg-white ${schedulePickerTarget === 'end' ? 'border-[#0F382C] bg-[#F2F7F2]' : ''}`}
+                className={`min-h-[68px] flex-1 justify-center rounded-lg border border-gray-200 bg-white px-3 py-2.5 ${schedulePickerTarget === 'end' ? 'border-[#0F382C] bg-[#F2F7F2]' : ''}`}
                 onPress={() => setSchedulePickerTarget('end')}>
                 <Text className="font-montserrat-semibold text-[11px] text-gray-500">Kết thúc</Text>
                 <Text
-                  className={`font-montserrat-bold text-lg text-[#383838] mt-1 ${schedulePickerTarget === 'end' ? 'text-[#0F382C]' : ''}`}>
+                  className={`mt-1 font-montserrat-bold text-lg text-[#383838] ${schedulePickerTarget === 'end' ? 'text-[#0F382C]' : ''}`}>
                   {dateToTimeString(scheduleEndTime)}
                 </Text>
               </Pressable>
             </View>
 
-            <View className="items-center min-h-[190px] mb-4">
+            <View className="mb-4 min-h-[190px] items-center">
               <DateTimePicker
                 value={schedulePickerTarget === 'start' ? scheduleStartTime : scheduleEndTime}
                 mode="time"
@@ -1847,13 +2014,13 @@ export default function WorkerProfileScreen() {
               />
             </View>
             <Pressable
-              className={`h-12 rounded-lg bg-[#0F382C] items-center justify-center ${updateWeeklyScheduleMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
+              className={`h-12 items-center justify-center rounded-lg bg-[#0F382C] ${updateWeeklyScheduleMutation.isPending ? 'bg-[#EAE5E3]' : ''}`}
               onPress={submitScheduleEditor}
               disabled={updateWeeklyScheduleMutation.isPending}>
               {updateWeeklyScheduleMutation.isPending ? (
                 <ActivityIndicator size="small" color="#ffffff" />
               ) : (
-                <Text className="text-white font-montserrat-bold text-sm">Lưu giờ làm việc</Text>
+                <Text className="font-montserrat-bold text-sm text-white">Lưu giờ làm việc</Text>
               )}
             </Pressable>
           </View>
@@ -1863,15 +2030,15 @@ export default function WorkerProfileScreen() {
       {activePreviewImage ? (
         <Modal visible={activePreviewImage !== null} transparent animationType="fade">
           <Pressable
-            className="absolute inset-0 bg-black/90 justify-center items-center z-50"
+            className="absolute inset-0 z-50 items-center justify-center bg-black/90"
             onPress={() => setActivePreviewImage(null)}>
             <Image
               source={{ uri: activePreviewImage }}
-              className="w-[90%] h-[80%]"
+              className="h-[80%] w-[90%]"
               resizeMode="contain"
             />
             <Pressable
-              className="absolute top-11 right-5 w-11 h-11 rounded-full bg-white/25 justify-center items-center z-10"
+              className="absolute right-5 top-11 z-10 h-11 w-11 items-center justify-center rounded-full bg-white/25"
               onPress={() => setActivePreviewImage(null)}>
               <MaterialIcons name="close" size={24} color="#ffffff" />
             </Pressable>
@@ -1882,18 +2049,16 @@ export default function WorkerProfileScreen() {
       {/* Profile Date Picker Modal (iOS) */}
       {activeProfileDatePicker !== null && Platform.OS === 'ios' && (
         <Modal transparent animationType="slide" visible={true}>
-          <View className="flex-1 bg-black/50 justify-end">
+          <View className="flex-1 justify-end bg-black/50">
             <Pressable
               className="absolute inset-0"
               onPress={() => setActiveProfileDatePicker(null)}
             />
             <View
-              className="bg-white rounded-t-3xl px-4 pt-3"
+              className="rounded-t-3xl bg-white px-4 pt-3"
               style={{ paddingBottom: Math.max(insets.bottom, 16) }}>
-              <View className="flex-row items-center justify-between py-3 border-b border-gray-200">
-                <Pressable
-                  onPress={() => setActiveProfileDatePicker(null)}
-                  className="px-2 py-1">
+              <View className="flex-row items-center justify-between border-b border-gray-200 py-3">
+                <Pressable onPress={() => setActiveProfileDatePicker(null)} className="px-2 py-1">
                   <Text className="font-montserrat-semibold text-sm text-[#818A91]">Hủy</Text>
                 </Pressable>
                 <Text className="font-montserrat-bold text-base text-[#1b1c1c]">
@@ -1963,13 +2128,13 @@ export default function WorkerProfileScreen() {
       {/* Fullscreen Comparing Face Loading Overlay */}
       {isComparingIdFace && (
         <Modal visible transparent animationType="fade">
-          <View className="flex-1 bg-black/75 justify-center items-center px-7">
-            <View className="w-full max-w-xs bg-slate-800 rounded-3xl p-6 items-center gap-3 border border-white/10 shadow-2xl">
+          <View className="flex-1 items-center justify-center bg-black/75 px-7">
+            <View className="w-full max-w-xs items-center gap-3 rounded-3xl border border-white/10 bg-slate-800 p-6 shadow-2xl">
               <ActivityIndicator size="large" color="#4ADE80" />
-              <Text className="font-montserrat-bold text-base text-white text-center">
+              <Text className="text-center font-montserrat-bold text-base text-white">
                 Đang đối soát khuôn mặt...
               </Text>
-              <Text className="font-montserrat text-xs text-slate-400 text-center leading-relaxed">
+              <Text className="text-center font-montserrat text-xs leading-relaxed text-slate-400">
                 Hệ thống đang so khớp ảnh chân dung với CCCD. Vui lòng chờ trong giây lát.
               </Text>
             </View>

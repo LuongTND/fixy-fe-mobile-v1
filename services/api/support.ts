@@ -93,11 +93,11 @@ export async function createSupportTicket(payload: {
     category:
       typeof payload.category === 'number'
         ? payload.category
-        : categoryMap[payload.category] ?? payload.category,
+        : (categoryMap[payload.category] ?? payload.category),
     priority:
       typeof payload.priority === 'number'
         ? payload.priority
-        : priorityMap[payload.priority] ?? payload.priority,
+        : (priorityMap[payload.priority] ?? payload.priority),
   };
 
   const response = await apiClient.post('/support/tickets', body);

@@ -310,7 +310,10 @@ export default function WorkerJobDetailScreen() {
       queryClient.invalidateQueries({ queryKey: ['workerBookings'] });
       // Start GPS tracking so location is broadcast to customer
       startLocationTracking();
-      Alert.alert('Bắt đầu di chuyển', 'Chúc bạn thượng lộ bình an! Vị trí của bạn đang được chia sẻ với khách hàng.');
+      Alert.alert(
+        'Bắt đầu di chuyển',
+        'Chúc bạn thượng lộ bình an! Vị trí của bạn đang được chia sẻ với khách hàng.'
+      );
     },
     onError: (err) => {
       queryClient.invalidateQueries({ queryKey: ['booking', id] });
@@ -412,7 +415,9 @@ export default function WorkerJobDetailScreen() {
 
   const openMapDirections = () => {
     if (!job) return;
-    const hasCoords = Boolean(job.lat && job.lng && (Number(job.lat) !== 0 || Number(job.lng) !== 0));
+    const hasCoords = Boolean(
+      job.lat && job.lng && (Number(job.lat) !== 0 || Number(job.lng) !== 0)
+    );
     const dest = hasCoords ? `${job.lat},${job.lng}` : encodeURIComponent(job.address || '');
 
     if (!dest) {
@@ -488,7 +493,11 @@ export default function WorkerJobDetailScreen() {
   return (
     <View style={styles.screen}>
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 12), justifyContent: 'space-between' }]}>
+      <View
+        style={[
+          styles.header,
+          { paddingTop: Math.max(insets.top, 12), justifyContent: 'space-between' },
+        ]}>
         <View style={{ flexDirection: 'row', alignItems: 'center' }}>
           <Pressable style={styles.backButton} onPress={() => router.back()}>
             <MaterialIcons name="arrow-back" size={24} color="#1B1C1C" />
@@ -655,8 +664,6 @@ export default function WorkerJobDetailScreen() {
               })()}
             </Text>
           </View>
-
-
 
           {(job.requestImages && job.requestImages.length > 0) ||
           (job.mediaIds && job.mediaIds.length > 0) ? (

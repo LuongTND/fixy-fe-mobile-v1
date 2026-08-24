@@ -63,7 +63,9 @@ function logApiResponseError(error: any) {
 
   // Suppress expected 404 when checking profile status of a first-time logged-in worker.
   if (originalRequest?.url?.includes('/worker-profiles/me') && status === 404) {
-    console.log(`[API RESPONSE INFO] 404 ${originalRequest.url} - Profile not yet created (needs setup).`);
+    console.log(
+      `[API RESPONSE INFO] 404 ${originalRequest.url} - Profile not yet created (needs setup).`
+    );
     return;
   }
 
@@ -191,7 +193,12 @@ function getAxiosMessage(error: AxiosError) {
       }
     }
 
-    if (!message && record.errors && typeof record.errors === 'object' && !Array.isArray(record.errors)) {
+    if (
+      !message &&
+      record.errors &&
+      typeof record.errors === 'object' &&
+      !Array.isArray(record.errors)
+    ) {
       const errorValues = Object.values(record.errors);
       if (errorValues.length > 0 && Array.isArray(errorValues[0]) && errorValues[0].length > 0) {
         message = String(errorValues[0][0]);
@@ -207,21 +214,42 @@ function getAxiosMessage(error: AxiosError) {
       if (msgLower.includes('invalid credentials') || msgLower.includes('incorrect password')) {
         return 'Tên đăng nhập hoặc mật khẩu không chính xác.';
       }
-      if (msgLower.includes('worker profile not found') || msgLower.includes('worker register request not found')) {
+      if (
+        msgLower.includes('worker profile not found') ||
+        msgLower.includes('worker register request not found')
+      ) {
         return 'Không tìm thấy hồ sơ kỹ thuật viên.';
       }
-      if (msgLower.includes('already registered as worker') || msgLower.includes('already registered')) {
+      if (
+        msgLower.includes('already registered as worker') ||
+        msgLower.includes('already registered')
+      ) {
         return 'Tài khoản này đã đăng ký hồ sơ kỹ thuật viên trước đó.';
       }
-      if (msgLower.includes('citizen id') || msgLower.includes('cccd') || msgLower.includes('identification')) {
-        if (msgLower.includes('already') || msgLower.includes('duplicate') || msgLower.includes('exist')) {
+      if (
+        msgLower.includes('citizen id') ||
+        msgLower.includes('cccd') ||
+        msgLower.includes('identification')
+      ) {
+        if (
+          msgLower.includes('already') ||
+          msgLower.includes('duplicate') ||
+          msgLower.includes('exist')
+        ) {
           return 'Số CCCD này đã được đăng ký bởi một tài khoản khác.';
         }
-        if (msgLower.includes('front and back') || msgLower.includes('2') || msgLower.includes('two')) {
+        if (
+          msgLower.includes('front and back') ||
+          msgLower.includes('2') ||
+          msgLower.includes('two')
+        ) {
           return 'Vui lòng tải đủ 2 mặt (Mặt trước và Mặt sau) của CCCD.';
         }
       }
-      if (msgLower.includes('maximum of 10 services') || msgLower.includes('minimum of 1 service')) {
+      if (
+        msgLower.includes('maximum of 10 services') ||
+        msgLower.includes('minimum of 1 service')
+      ) {
         return 'Kĩ thuật viên chỉ được chọn từ 1 đến tối đa 10 dịch vụ.';
       }
       if (msgLower.includes('one primary service')) {
@@ -233,13 +261,19 @@ function getAxiosMessage(error: AxiosError) {
       if (msgLower.includes('maximum of 10 image')) {
         return 'Chỉ được tải lên tối đa 10 hình ảnh hoạt động (Portfolio).';
       }
-      if (msgLower.includes('outside working hours') || msgLower.includes('outside custom working hours')) {
+      if (
+        msgLower.includes('outside working hours') ||
+        msgLower.includes('outside custom working hours')
+      ) {
         return 'Kỹ thuật viên đang ngoài khung giờ làm việc.';
       }
       if (msgLower.includes('not working this day') || msgLower.includes('is on day off')) {
         return 'Kỹ thuật viên không làm việc hoặc đang nghỉ làm vào ngày này.';
       }
-      if (msgLower.includes('schedule not found') || msgLower.includes('schedule time is invalid')) {
+      if (
+        msgLower.includes('schedule not found') ||
+        msgLower.includes('schedule time is invalid')
+      ) {
         return 'Lịch làm việc của Kỹ thuật viên không hợp lệ hoặc chưa được thiết lập.';
       }
       if (msgLower.includes('max file size exceeded') || msgLower.includes('limit')) {
