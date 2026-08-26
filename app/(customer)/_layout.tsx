@@ -27,6 +27,7 @@ export default function CustomerLayout() {
         <Stack.Screen name="support-tickets" options={{ animation: 'none' }} />
         <Stack.Screen name="create-support-ticket" options={{ animation: 'slide_from_right' }} />
         <Stack.Screen name="support-ticket-detail" options={{ animation: 'slide_from_right' }} />
+        <Stack.Screen name="about-us" options={{ animation: 'slide_from_right' }} />
       </Stack>
     </ProtectedScreen>
   );

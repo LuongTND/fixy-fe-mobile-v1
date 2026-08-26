@@ -244,12 +244,7 @@ export default function ProfileScreen() {
 
             <Pressable
               style={styles.menuItemRow}
-              onPress={() =>
-                Alert.alert(
-                  'Về Fixy',
-                  'FIXY – SPA TẠI NHÀ\nNền tảng kết nối Kỹ thuật viên Spa & Khách hàng.\nPhiên bản 1.0 (2026)'
-                )
-              }>
+              onPress={() => router.push('/(customer)/about-us' as any)}>
               <View style={styles.menuLeft}>
                 <MaterialIcons name="info-outline" size={22} color="#0F382C" />
                 <Text style={styles.menuItemText}>Về chúng tôi</Text>
