@@ -14,6 +14,7 @@ import {
   Text,
   TextInput,
   View,
+  Linking,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -31,10 +32,16 @@ import {
   PayoutAccount,
   PayoutRequest,
   getWorkerProfileMe,
+  getDepositStatus,
+  createWorkerDepositPayment,
+  requestOffboarding,
+  WorkerDepositStatus,
 } from '@/services/api/workers';
 import { getPayoutStatus, getPayoutStatusLabel } from '@/utils/payout';
 import { formatCurrency } from '@/utils/format';
 import { getWalletTransactionIcon, getWalletTransactionLabel } from '@/utils/wallet-transactions';
+import { PaymentMethod } from '@/services/api/bookings';
+import PayOSWebView from '@/components/PayOSWebView';
 
 const TOP_BANKS = [
   { name: 'Vietcombank', code: 'VCB' },
@@ -104,6 +111,18 @@ export default function WorkerWalletScreen() {
   );
   const [accountNumber, setAccountNumber] = React.useState('');
   const [accountHolder, setAccountHolder] = React.useState('');
+
+  const [offboardingModalOpen, setOffboardingModalOpen] = React.useState(false);
+  const [offboardingReason, setOffboardingReason] = React.useState('');
+  const [isPayingDeposit, setIsPayingDeposit] = React.useState(false);
+  const [payosPaymentUrl, setPayosPaymentUrl] = React.useState<string | null>(null);
+  const [showPayosWebView, setShowPayosWebView] = React.useState(false);
+
+  const { data: depositStatus = null, refetch: refetchDeposit } = useQuery<WorkerDepositStatus | null>({
+    queryKey: ['workerDepositStatus'],
+    queryFn: getDepositStatus,
+    enabled: hasApprovedProfile,
+  });
 
   const { data: vietqrBanks = [] } = useQuery<VietQrBank[]>({
     queryKey: ['vietqrBanks'],
@@ -180,6 +199,60 @@ export default function WorkerWalletScreen() {
       Alert.alert('Lỗi', err?.message || 'Không thể thêm tài khoản ngân hàng.');
     },
   });
+
+  const offboardingMutation = useMutation({
+    mutationFn: requestOffboarding,
+    onSuccess: (res: any) => {
+      queryClient.invalidateQueries({ queryKey: ['workerDepositStatus'] });
+      queryClient.invalidateQueries({ queryKey: ['workerProfileMe'] });
+      queryClient.invalidateQueries({ queryKey: ['payoutRequests'] });
+      fetchWallet(true);
+      setOffboardingModalOpen(false);
+      setOffboardingReason('');
+      Alert.alert(
+        'Đã gửi yêu cầu',
+        res?.message || 'Yêu cầu ngừng hợp tác và hoàn 100% tiền cọc đã được gửi. Ban quản trị sẽ chuyển khoản về tài khoản ngân hàng của bạn.'
+      );
+    },
+    onError: (err: any) => {
+      Alert.alert('Lỗi', err?.message || 'Không thể gửi yêu cầu ngừng hợp tác.');
+    },
+  });
+
+  const handlePayDeposit = async () => {
+    setIsPayingDeposit(true);
+    try {
+      const paymentUrl = await createWorkerDepositPayment(PaymentMethod.PayOS);
+      if (paymentUrl) {
+        setPayosPaymentUrl(paymentUrl);
+        setShowPayosWebView(true);
+      }
+    } catch (error: any) {
+      Alert.alert('Lỗi', getApiErrorMessage(error) || 'Không thể tạo mã thanh toán cọc.');
+    } finally {
+      setIsPayingDeposit(false);
+    }
+  };
+
+  const handlePayOSSuccess = async (_transactionId: string, _params: Record<string, string>) => {
+    setShowPayosWebView(false);
+    setPayosPaymentUrl(null);
+    queryClient.invalidateQueries({ queryKey: ['workerDepositStatus'] });
+    queryClient.invalidateQueries({ queryKey: ['workerProfileMe'] });
+    fetchWallet(true);
+    Alert.alert('Thành công', 'Đã hoàn tất nạp cọc ký quỹ. Bạn có thể bật trạng thái nhận việc ngay bây giờ!');
+  };
+
+  const handlePayOSError = (errorMsg: string) => {
+    setShowPayosWebView(false);
+    setPayosPaymentUrl(null);
+    queryClient.invalidateQueries({ queryKey: ['workerDepositStatus'] });
+    queryClient.invalidateQueries({ queryKey: ['workerProfileMe'] });
+    fetchWallet(true);
+    if (errorMsg) {
+      Alert.alert('Thông báo', errorMsg);
+    }
+  };
 
   const displayBanks = vietqrBanks.length > 0 ? vietqrBanks : TOP_BANKS;
   const selectedBankLabel = getBankDisplayName(selectedBank) || 'Chọn ngân hàng';
@@ -322,6 +395,78 @@ export default function WorkerWalletScreen() {
               </Pressable>
             </View>
           </LinearGradient>
+        </View>
+
+        {/* Security Deposit Card (Bảo toàn 100% - Tách biệt hoàn toàn với Thu nhập) */}
+        <View style={styles.depositCardWrapper}>
+          <View style={styles.depositCard}>
+            <View style={styles.depositHeaderRow}>
+              <View style={styles.depositTitleGroup}>
+                <View style={styles.depositShieldIcon}>
+                  <MaterialIcons name="shield" size={20} color="#0F382C" />
+                </View>
+                <View style={{ flex: 1, paddingRight: 8 }}>
+                  <Text style={styles.depositCardTitle}>Tiền cọc ký quỹ nhận ca</Text>
+                  <Text style={styles.depositCardSubtitle}>Bảo đảm dịch vụ Spa • Hoàn 100% khi thôi việc</Text>
+                </View>
+              </View>
+              <View
+                style={[
+                  styles.depositBadge,
+                  depositStatus?.isDepositPaid ? styles.depositBadgePaid : styles.depositBadgeUnpaid,
+                ]}>
+                <Text
+                  style={[
+                    styles.depositBadgeText,
+                    depositStatus?.isDepositPaid ? styles.depositBadgeTextPaid : styles.depositBadgeTextUnpaid,
+                  ]}>
+                  {depositStatus?.isDepositPaid ? 'Đã kích hoạt' : 'Chưa nạp'}
+                </Text>
+              </View>
+            </View>
+
+            <View style={styles.depositDivider} />
+
+            <View style={styles.depositInfoRow}>
+              <Text style={styles.depositInfoLabel}>Mức cọc bảo đảm:</Text>
+              <Text style={styles.depositInfoValue}>
+                {formatCurrency(wallet?.lockedBalance ?? depositStatus?.lockedBalance ?? depositStatus?.depositRequiredAmount ?? 0)}
+              </Text>
+            </View>
+
+            {depositStatus?.primaryServiceName ? (
+              <Text style={styles.depositServiceDetail}>
+                Dịch vụ chính: <Text style={{ fontFamily: 'Montserrat_600SemiBold', color: '#0F382C' }}>{depositStatus.primaryServiceName}</Text>
+              </Text>
+            ) : null}
+
+            <Text style={styles.depositGuaranteedNotice}>
+              🛡️ Khoản cọc này được giữ bảo toàn riêng biệt trong tài khoản ký quỹ và sẽ được hoàn trả 100% về tài khoản ngân hàng khi bạn gửi yêu cầu thôi việc.
+            </Text>
+
+            {!depositStatus?.isDepositPaid ? (
+              <Pressable
+                style={[styles.depositActionBtn, isPayingDeposit && { opacity: 0.7 }]}
+                disabled={isPayingDeposit}
+                onPress={handlePayDeposit}>
+                {isPayingDeposit ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <>
+                    <MaterialIcons name="qr-code-scanner" size={18} color="#ffffff" />
+                    <Text style={styles.depositActionBtnText}>Nạp cọc kích hoạt nhận việc</Text>
+                  </>
+                )}
+              </Pressable>
+            ) : (
+              <Pressable
+                style={styles.offboardingTriggerBtn}
+                onPress={() => setOffboardingModalOpen(true)}>
+                <MaterialIcons name="logout" size={16} color="#BA1A1A" />
+                <Text style={styles.offboardingTriggerBtnText}>Ngừng hợp tác & Hoàn lại tiền cọc</Text>
+              </Pressable>
+            )}
+          </View>
         </View>
 
         {/* Stats Row */}
@@ -598,14 +743,22 @@ export default function WorkerWalletScreen() {
                     (!accountNumber.trim() || !accountHolder.trim() || addBankMutation.isPending) &&
                       styles.modalSubmitBtnDisabled,
                   ]}
-                  onPress={() =>
+                  onPress={() => {
+                    if (!accountNumber.trim() || !accountHolder.trim()) {
+                      Alert.alert('Thông báo', 'Vui lòng nhập đầy đủ số tài khoản và tên chủ tài khoản.');
+                      return;
+                    }
+                    const bankName = getBankDisplayName(selectedBank) || selectedBank.name;
+                    const bankCode = selectedBank.code || '';
                     addBankMutation.mutate({
-                      bankName: getBankDisplayName(selectedBank),
-                      bankCode: selectedBank.code,
-                      accountNumber,
-                      accountHolderName: accountHolder,
-                    })
-                  }
+                      accountNumber: accountNumber.trim(),
+                      accountHolderName: accountHolder.trim().toUpperCase(),
+                      bankName: bankName,
+                      bankCode: bankCode,
+                      isDefault: payoutAccounts.length === 0,
+                      isVerified: false,
+                    });
+                  }}
                   disabled={
                     !accountNumber.trim() || !accountHolder.trim() || addBankMutation.isPending
                   }>
@@ -759,6 +912,94 @@ export default function WorkerWalletScreen() {
           </View>
         </View>
       </Modal>
+
+      {/* Modal Yêu cầu thôi việc & Hoàn cọc */}
+      <Modal visible={offboardingModalOpen} transparent animationType="fade">
+        <View style={styles.centeredModalOverlay}>
+          <Pressable style={StyleSheet.absoluteFill} onPress={() => setOffboardingModalOpen(false)} />
+          <View style={styles.withdrawModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Yêu cầu thôi việc & Hoàn cọc</Text>
+              <Pressable onPress={() => setOffboardingModalOpen(false)}>
+                <MaterialIcons name="close" size={24} color="#383838" />
+              </Pressable>
+            </View>
+
+            <Text style={styles.offboardingNotice}>
+              Khoản tiền cọc ký quỹ {formatCurrency(wallet?.lockedBalance ?? depositStatus?.lockedBalance ?? 0)} sẽ được bảo toàn và hoàn trả 100% về tài khoản ngân hàng sau khi bạn gửi yêu cầu thôi việc.
+            </Text>
+
+            <Text style={styles.fieldLabel}>Tài khoản nhận hoàn cọc:</Text>
+            {payoutAccounts.length > 0 ? (
+              <View style={styles.offboardingAccountCard}>
+                <MaterialIcons name="account-balance" size={24} color="#0F382C" />
+                <View style={{ flex: 1 }}>
+                  <Text style={{ fontFamily: 'Montserrat_700Bold', fontSize: 13, color: '#0F382C' }} numberOfLines={1}>
+                    {selectedPayoutAccount?.bankName ?? payoutAccounts[0].bankName} ({selectedPayoutAccount?.bankCode ?? payoutAccounts[0].bankCode})
+                  </Text>
+                  <Text style={{ fontFamily: 'Montserrat_500Medium', fontSize: 12, color: '#3F4945' }}>
+                    {selectedPayoutAccount?.accountNumber ?? payoutAccounts[0].accountNumber} - {selectedPayoutAccount?.accountHolderName ?? payoutAccounts[0].accountHolderName}
+                  </Text>
+                </View>
+              </View>
+            ) : (
+              <Pressable
+                style={styles.addBankPromptBtn}
+                onPress={() => {
+                  setOffboardingModalOpen(false);
+                  setAddBankModalOpen(true);
+                }}>
+                <Text style={styles.addBankPromptBtnText}>+ Thêm tài khoản ngân hàng nhận cọc</Text>
+              </Pressable>
+            )}
+
+            <Text style={[styles.fieldLabel, { marginTop: 12 }]}>Lý do thôi việc (không bắt buộc):</Text>
+            <TextInput
+              style={[styles.modalInput, { height: 80, textAlignVertical: 'top' }]}
+              multiline
+              numberOfLines={3}
+              placeholder="Nhập lý do thôi việc nếu có..."
+              placeholderTextColor="#9A9A9A"
+              value={offboardingReason}
+              onChangeText={setOffboardingReason}
+            />
+
+            <Pressable
+              style={[
+                styles.offboardingConfirmBtn,
+                (offboardingMutation.isPending || payoutAccounts.length === 0) && styles.modalSubmitBtnDisabled,
+              ]}
+              disabled={offboardingMutation.isPending || payoutAccounts.length === 0}
+              onPress={() => {
+                const targetAccountId = selectedPayoutAccountId || payoutAccounts[0]?.id;
+                if (!targetAccountId) {
+                  Alert.alert('Chưa có tài khoản', 'Vui lòng liên kết tài khoản ngân hàng để nhận lại tiền cọc.');
+                  return;
+                }
+                offboardingMutation.mutate({ payoutAccountId: targetAccountId, reason: offboardingReason });
+              }}>
+              {offboardingMutation.isPending ? (
+                <ActivityIndicator size="small" color="#ffffff" />
+              ) : (
+                <Text style={styles.modalSubmitBtnText}>Xác nhận gửi yêu cầu thôi việc</Text>
+              )}
+            </Pressable>
+          </View>
+        </View>
+      </Modal>
+
+      {payosPaymentUrl && (
+        <PayOSWebView
+          visible={showPayosWebView}
+          paymentUrl={payosPaymentUrl}
+          onClose={() => {
+            setShowPayosWebView(false);
+            setPayosPaymentUrl(null);
+          }}
+          onSuccess={handlePayOSSuccess}
+          onError={handlePayOSError}
+        />
+      )}
     </View>
   );
 }
@@ -1380,5 +1621,185 @@ const styles = StyleSheet.create({
     fontSize: 12,
     color: '#818A91',
     marginTop: 2,
+  },
+  // Deposit Card Styles
+  depositCardWrapper: {
+    paddingHorizontal: 20,
+    marginTop: 14,
+  },
+  depositCard: {
+    backgroundColor: '#ffffff',
+    borderRadius: 16,
+    padding: 16,
+    borderWidth: 1.5,
+    borderColor: '#D4E8DF',
+    shadowColor: '#0F382C',
+    shadowOpacity: 0.06,
+    shadowRadius: 10,
+    shadowOffset: { width: 0, height: 4 },
+    elevation: 3,
+  },
+  depositHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  depositTitleGroup: {
+    flexDirection: 'row',
+    alignItems: 'flex-start',
+    gap: 10,
+    flex: 1,
+  },
+  depositShieldIcon: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#E8F5EE',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  depositCardTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#0F382C',
+  },
+  depositCardSubtitle: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 11,
+    color: '#707974',
+    marginTop: 2,
+    lineHeight: 15,
+  },
+  depositBadge: {
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 20,
+  },
+  depositBadgePaid: {
+    backgroundColor: '#E8F5EE',
+  },
+  depositBadgeUnpaid: {
+    backgroundColor: '#FFF4E5',
+  },
+  depositBadgeText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 11,
+  },
+  depositBadgeTextPaid: {
+    color: '#006E46',
+  },
+  depositBadgeTextUnpaid: {
+    color: '#B25E00',
+  },
+  depositDivider: {
+    height: 1,
+    backgroundColor: '#EFF3F1',
+    marginVertical: 12,
+  },
+  depositInfoRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  depositInfoLabel: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    color: '#3F4945',
+  },
+  depositInfoValue: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 17,
+    color: '#0F382C',
+  },
+  depositServiceDetail: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#5B6661',
+    marginTop: 4,
+  },
+  depositGuaranteedNotice: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 11.5,
+    color: '#52605B',
+    lineHeight: 16,
+    backgroundColor: '#F7FAF8',
+    padding: 10,
+    borderRadius: 8,
+    marginTop: 10,
+  },
+  depositActionBtn: {
+    backgroundColor: '#0F382C',
+    borderRadius: 10,
+    height: 44,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    marginTop: 12,
+  },
+  depositActionBtnText: {
+    color: '#ffffff',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+  },
+  offboardingTriggerBtn: {
+    borderWidth: 1,
+    borderColor: '#FFDAD6',
+    backgroundColor: '#FFF8F7',
+    borderRadius: 8,
+    height: 38,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    marginTop: 12,
+  },
+  offboardingTriggerBtnText: {
+    color: '#BA1A1A',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
+  },
+  // Offboarding Modal Styles
+  offboardingNotice: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 13,
+    color: '#3F4945',
+    lineHeight: 18,
+    backgroundColor: '#F2F7F4',
+    padding: 12,
+    borderRadius: 8,
+    marginBottom: 10,
+  },
+  offboardingAccountCard: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    backgroundColor: '#F8FAF9',
+    borderWidth: 1,
+    borderColor: '#D4E8DF',
+    borderRadius: 8,
+    padding: 12,
+  },
+  addBankPromptBtn: {
+    borderWidth: 1,
+    borderColor: '#0F382C',
+    borderStyle: 'dashed',
+    borderRadius: 8,
+    padding: 14,
+    alignItems: 'center',
+  },
+  addBankPromptBtnText: {
+    color: '#0F382C',
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+  },
+  offboardingConfirmBtn: {
+    height: 48,
+    borderRadius: 8,
+    backgroundColor: '#BA1A1A',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 16,
   },
 });

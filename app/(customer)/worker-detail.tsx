@@ -32,141 +32,135 @@ const BADGE_CONFIG: Record<number, { text: string; color: string }> = {
   3: { text: 'KTV Vàng', color: '#D97706' },
 };
 
-const HeroImageCarousel = React.memo(
-  ({
-    imagesList,
-    ktvAvatar,
-    badge,
-    insets,
-    onBack,
-  }: {
-    imagesList: string[];
-    ktvAvatar?: string;
-    badge: { text: string; color: string };
-    insets: any;
-    onBack: () => void;
-  }) => {
-    const [activeIndex, setActiveIndex] = React.useState(0);
-    const scrollViewRef = React.useRef<ScrollView>(null);
+const HeroImageCarousel = React.memo(({
+  imagesList,
+  ktvAvatar,
+  badge,
+  insets,
+  onBack,
+}: {
+  imagesList: string[];
+  ktvAvatar?: string;
+  badge: { text: string; color: string };
+  insets: any;
+  onBack: () => void;
+}) => {
+  const [activeIndex, setActiveIndex] = React.useState(0);
+  const scrollViewRef = React.useRef<ScrollView>(null);
 
-    const displayImages = React.useMemo(() => {
-      const list: string[] = [];
-      if (ktvAvatar && !list.includes(ktvAvatar)) {
-        list.push(ktvAvatar);
-      }
-      if (imagesList && imagesList.length > 0) {
-        imagesList.forEach((img) => {
-          if (img && !list.includes(img)) {
-            list.push(img);
-          }
-        });
-      }
-      return list;
-    }, [imagesList, ktvAvatar]);
-
-    const handleScroll = React.useCallback(
-      (e: any) => {
-        const offsetX = e.nativeEvent.contentOffset.x;
-        if (SCREEN_WIDTH > 0) {
-          const newIndex = Math.round(offsetX / SCREEN_WIDTH);
-          if (newIndex >= 0 && newIndex < displayImages.length) {
-            setActiveIndex((prev) => (prev !== newIndex ? newIndex : prev));
-          }
+  const displayImages = React.useMemo(() => {
+    const list: string[] = [];
+    if (ktvAvatar && !list.includes(ktvAvatar)) {
+      list.push(ktvAvatar);
+    }
+    if (imagesList && imagesList.length > 0) {
+      imagesList.forEach((img) => {
+        if (img && !list.includes(img)) {
+          list.push(img);
         }
-      },
-      [displayImages.length]
-    );
+      });
+    }
+    return list;
+  }, [imagesList, ktvAvatar]);
 
-    return (
-      <View style={styles.heroContainer}>
-        {displayImages.length > 1 ? (
-          <>
-            <ScrollView
-              ref={scrollViewRef}
-              horizontal
-              pagingEnabled
-              nestedScrollEnabled={true}
-              directionalLockEnabled={true}
-              showsHorizontalScrollIndicator={false}
-              scrollEventThrottle={16}
-              decelerationRate="fast"
-              snapToInterval={SCREEN_WIDTH}
-              snapToAlignment="center"
-              disableIntervalMomentum={true}
-              onScroll={handleScroll}
-              onMomentumScrollEnd={handleScroll}
-              style={{ width: SCREEN_WIDTH, height: 380 }}>
-              {displayImages.map((imgUri, index) => (
-                <Image
-                  key={`hero-img-${index}`}
-                  source={{ uri: imgUri }}
-                  style={[styles.heroImage, { width: SCREEN_WIDTH, height: 380 }]}
-                />
-              ))}
-            </ScrollView>
+  const handleScroll = React.useCallback(
+    (e: any) => {
+      const offsetX = e.nativeEvent.contentOffset.x;
+      if (SCREEN_WIDTH > 0) {
+        const newIndex = Math.round(offsetX / SCREEN_WIDTH);
+        if (newIndex >= 0 && newIndex < displayImages.length) {
+          setActiveIndex((prev) => (prev !== newIndex ? newIndex : prev));
+        }
+      }
+    },
+    [displayImages.length]
+  );
 
-            {/* Chevron Navigation Controls for Instant Photo Switching */}
-            {activeIndex > 0 ? (
-              <Pressable
-                style={styles.carouselChevronLeft}
-                hitSlop={12}
-                onPress={() => {
-                  const prev = activeIndex - 1;
-                  setActiveIndex(prev);
-                  scrollViewRef.current?.scrollTo({ x: prev * SCREEN_WIDTH, animated: true });
-                }}>
-                <MaterialIcons name="chevron-left" size={24} color="#ffffff" />
-              </Pressable>
-            ) : null}
+  return (
+    <View style={styles.heroContainer}>
+      {displayImages.length > 1 ? (
+        <>
+          <ScrollView
+            ref={scrollViewRef}
+            horizontal
+            pagingEnabled
+            nestedScrollEnabled={true}
+            directionalLockEnabled={true}
+            showsHorizontalScrollIndicator={false}
+            scrollEventThrottle={16}
+            decelerationRate="fast"
+            snapToInterval={SCREEN_WIDTH}
+            snapToAlignment="center"
+            disableIntervalMomentum={true}
+            onScroll={handleScroll}
+            onMomentumScrollEnd={handleScroll}
+            style={{ width: SCREEN_WIDTH, height: 380 }}>
+            {displayImages.map((imgUri, index) => (
+              <Image
+                key={`hero-img-${index}`}
+                source={{ uri: imgUri }}
+                style={[styles.heroImage, { width: SCREEN_WIDTH, height: 380 }]}
+              />
+            ))}
+          </ScrollView>
 
-            {activeIndex < displayImages.length - 1 ? (
-              <Pressable
-                style={styles.carouselChevronRight}
-                hitSlop={12}
-                onPress={() => {
-                  const next = activeIndex + 1;
-                  setActiveIndex(next);
-                  scrollViewRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
-                }}>
-                <MaterialIcons name="chevron-right" size={24} color="#ffffff" />
-              </Pressable>
-            ) : null}
-          </>
-        ) : displayImages.length === 1 ? (
-          <Image source={{ uri: displayImages[0] }} style={styles.heroImage} />
-        ) : (
-          <View style={[styles.heroImage, styles.heroPlaceholder]}>
-            <MaterialIcons name="person" size={80} color="#A0AEC0" />
-          </View>
-        )}
+          {/* Chevron Navigation Controls for Instant Photo Switching */}
+          {activeIndex > 0 ? (
+            <Pressable
+              style={styles.carouselChevronLeft}
+              hitSlop={12}
+              onPress={() => {
+                const prev = activeIndex - 1;
+                setActiveIndex(prev);
+                scrollViewRef.current?.scrollTo({ x: prev * SCREEN_WIDTH, animated: true });
+              }}>
+              <MaterialIcons name="chevron-left" size={24} color="#ffffff" />
+            </Pressable>
+          ) : null}
 
-        {/* Floating Actions Header */}
-        <View
-          style={[styles.topActionsRow, { paddingTop: insets.top + 8 }]}
-          pointerEvents="box-none">
-          <Pressable style={styles.floatingCircleBtn} onPress={onBack} hitSlop={12}>
-            <MaterialIcons name="chevron-left" size={26} color="#1C2526" />
-          </Pressable>
+          {activeIndex < displayImages.length - 1 ? (
+            <Pressable
+              style={styles.carouselChevronRight}
+              hitSlop={12}
+              onPress={() => {
+                const next = activeIndex + 1;
+                setActiveIndex(next);
+                scrollViewRef.current?.scrollTo({ x: next * SCREEN_WIDTH, animated: true });
+              }}>
+              <MaterialIcons name="chevron-right" size={24} color="#ffffff" />
+            </Pressable>
+          ) : null}
+        </>
+      ) : displayImages.length === 1 ? (
+        <Image source={{ uri: displayImages[0] }} style={styles.heroImage} />
+      ) : (
+        <View style={[styles.heroImage, styles.heroPlaceholder]}>
+          <MaterialIcons name="person" size={80} color="#A0AEC0" />
         </View>
+      )}
 
-        {/* Badge & Carousel Page Indicator */}
-        <View
-          style={[styles.badgeQualityOverlay, { backgroundColor: badge.color }]}
-          pointerEvents="none">
-          <Text style={styles.badgeQualityText}>{badge.text}</Text>
-        </View>
-
-        {displayImages.length > 1 ? (
-          <View style={styles.pageIndicatorPill} pointerEvents="none">
-            <Text style={styles.pageIndicatorText}>
-              {activeIndex + 1}/{displayImages.length}
-            </Text>
-          </View>
-        ) : null}
+      {/* Floating Actions Header */}
+      <View style={[styles.topActionsRow, { paddingTop: insets.top + 8 }]} pointerEvents="box-none">
+        <Pressable style={styles.floatingCircleBtn} onPress={onBack} hitSlop={12}>
+          <MaterialIcons name="chevron-left" size={26} color="#1C2526" />
+        </Pressable>
       </View>
-    );
-  }
-);
+
+      {/* Badge & Carousel Page Indicator */}
+      <View style={[styles.badgeQualityOverlay, { backgroundColor: badge.color }]} pointerEvents="none">
+        <Text style={styles.badgeQualityText}>{badge.text}</Text>
+      </View>
+
+      {displayImages.length > 1 ? (
+        <View style={styles.pageIndicatorPill} pointerEvents="none">
+          <Text style={styles.pageIndicatorText}>
+            {activeIndex + 1}/{displayImages.length}
+          </Text>
+        </View>
+      ) : null}
+    </View>
+  );
+});
 
 export default function WorkerDetailScreen() {
   const insets = useSafeAreaInsets();
@@ -177,49 +171,11 @@ export default function WorkerDetailScreen() {
   const [translatedReviews, setTranslatedReviews] = React.useState<Record<string, boolean>>({});
 
   const { data: worker = null, isLoading: loading } = useQuery<WorkerProfile | null>({
-  queryKey: ['worker', id],
-  queryFn: () => getWorkerDetails(id || ''),
-  enabled: !!id,
-
-  // Giữ cache 2 phút của DaiLT/FixySpaConvert
-  staleTime: 1000 * 60 * 2,
-
-  // Giữ logic lấy dữ liệu từ cache của dev-v1
-  initialData: () => {
-    if (!id) return undefined;
-
-    // Kiểm tra cache worker trực tiếp
-    const cached = queryClient.getQueryData<WorkerProfile>(['worker', id]);
-    if (cached) return cached;
-
-    // Tìm worker trong các cache list/search đã có
-    const allQueries = queryClient.getQueriesData<any>({
-      queryKey: [],
-    });
-
-    for (const [, qData] of allQueries) {
-      if (Array.isArray(qData)) {
-        const found = qData.find(
-          (w: any) => w && (w.id === id || w.workerProfileId === id)
-        );
-
-        if (found) return found;
-      } else if (
-        qData &&
-        typeof qData === 'object' &&
-        Array.isArray(qData.items)
-      ) {
-        const found = qData.items.find(
-          (w: any) => w && (w.id === id || w.workerProfileId === id)
-        );
-
-        if (found) return found;
-      }
-    }
-
-    return undefined;
-  },
-});
+    queryKey: ['worker', id],
+    queryFn: () => getWorkerDetails(id || ''),
+    enabled: !!id,
+    staleTime: 1000 * 60 * 2,
+  });
 
   const { data: reviewsData = null } = useQuery({
     queryKey: ['workerReviews', id],
@@ -273,14 +229,11 @@ export default function WorkerDetailScreen() {
       const name = matchedCat?.name || `Dịch vụ ${index + 1}`;
 
       const rawOptions = (srv.options || []).filter((opt: any) => opt.isActive !== false);
-      const sortedOptions = [...rawOptions].sort(
-        (a: any, b: any) => a.durationMinutes - b.durationMinutes
-      );
+      const sortedOptions = [...rawOptions].sort((a: any, b: any) => a.durationMinutes - b.durationMinutes);
 
-      const prices =
-        sortedOptions.length > 0
-          ? sortedOptions.map((o: any) => o.price)
-          : [srv.basePrice || worker?.basePrice || 0];
+      const prices = sortedOptions.length > 0
+        ? sortedOptions.map((o: any) => o.price)
+        : [srv.basePrice || worker?.basePrice || 0];
 
       const minPrice = prices.length > 0 ? Math.min(...prices) : 0;
 
@@ -306,7 +259,7 @@ export default function WorkerDetailScreen() {
       const isSelected = selectedServiceIds.includes(srv.categoryId);
       const dur = selectedDurationMap[srv.categoryId] || srv.options[0]?.durationMinutes || 60;
       const activeOpt = srv.options.find((o) => o.durationMinutes === dur);
-      const price = activeOpt ? activeOpt.price : srv.minPrice || srv.basePrice || 0;
+      const price = activeOpt ? activeOpt.price : (srv.minPrice || srv.basePrice || 0);
 
       if (isSelected) {
         totalCount += 1;
@@ -381,33 +334,16 @@ export default function WorkerDetailScreen() {
     });
   }, [reviewsList]);
 
-const ktvName = worker?.fullName || 'Kỹ thuật viên';
-const ktvAvatar = worker?.avatarUrl;
-
-const hasRating =
-  typeof worker?.rating === 'number' && worker.rating > 0;
-
-const ktvRating = hasRating
-  ? worker.rating.toFixed(1)
-  : totalReviewsCount > 0
-    ? '5.0'
-    : '--';
-
-const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
+  const ktvName = worker?.fullName || 'Kỹ thuật viên';
+  const ktvAvatar = worker?.avatarUrl;
+  const hasRating = typeof worker?.rating === 'number' && worker.rating > 0;
+  const ktvRating = hasRating ? (worker?.rating ?? 5).toFixed(1) : (totalReviewsCount > 0 ? '5.0' : '--');
+  const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
 
   const handleBookNow = (selectedCategoryId?: string, durationMinutes?: number) => {
-    const targetCatId =
-      selectedCategoryId ||
-      selectedSummary.mainCategory ||
-      worker?.services?.[0]?.categoryId ||
-      categories[0]?.id ||
-      'dien';
+    const targetCatId = selectedCategoryId || selectedSummary.mainCategory || worker?.services?.[0]?.categoryId || categories[0]?.id || 'dien';
     const targetSrv = servicesList.find((s) => s.categoryId === targetCatId);
-    const duration =
-      durationMinutes ||
-      (targetSrv ? selectedDurationMap[targetSrv.categoryId] : undefined) ||
-      targetSrv?.options?.[0]?.durationMinutes ||
-      60;
+    const duration = durationMinutes || (targetSrv ? selectedDurationMap[targetSrv.categoryId] : undefined) || targetSrv?.options?.[0]?.durationMinutes || 60;
 
     router.push({
       pathname: '/booking-checkout',
@@ -448,11 +384,7 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
           <View style={styles.subInfoRow}>
             <MaterialIcons name="near-me" size={14} color="#818A91" />
             <Text style={styles.distanceText}>
-              {worker?.distance ||
-                worker?.city ||
-                worker?.address?.city ||
-                selectedCity ||
-                'Không xác định'}
+              {worker?.distance || worker?.city || worker?.address?.city || selectedCity || 'Không xác định'}
             </Text>
             <Text style={styles.dotDivider}>|</Text>
             <MaterialIcons name="star" size={16} color={hasRating ? '#F59E0B' : '#9CA3AF'} />
@@ -497,7 +429,7 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
                 : 'Kỹ thuật viên chưa cập nhật phần giới thiệu bản thân.'}
             </Text>
 
-            {worker?.bio && worker.bio.length > 50 ? (
+            {(worker?.bio && worker.bio.length > 50) ? (
               <Pressable style={styles.expandBioBtn} onPress={() => setShowFullBio(!showFullBio)}>
                 <Text style={styles.expandBioText}>{showFullBio ? 'Thu gọn' : 'Xem thêm'}</Text>
                 <MaterialIcons
@@ -516,18 +448,13 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
               {servicesList.map((srv) => {
                 const isServiceSelected = selectedServiceIds.includes(srv.categoryId);
                 const selectedDur = selectedDurationMap[srv.categoryId];
-                const activeOpt = selectedDur
-                  ? srv.options.find((o) => o.durationMinutes === selectedDur)
-                  : srv.options[0];
+                const activeOpt = selectedDur ? srv.options.find((o) => o.durationMinutes === selectedDur) : srv.options[0];
                 const currentPrice = activeOpt ? activeOpt.price : srv.minPrice;
 
                 return (
                   <View
                     key={srv.id}
-                    style={[
-                      styles.serviceCardContainer,
-                      isServiceSelected && styles.serviceCardContainerActive,
-                    ]}>
+                    style={[styles.serviceCardContainer, isServiceSelected && styles.serviceCardContainerActive]}>
                     <View style={styles.serviceHeaderRow}>
                       <Text style={styles.serviceCardTitle}>{srv.name}</Text>
                     </View>
@@ -536,55 +463,27 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
                     <View style={styles.durationPillRow}>
                       {srv.options.length > 0 ? (
                         srv.options.map((opt) => {
-                          const isPillSelected =
-                            isServiceSelected && selectedDur === opt.durationMinutes;
+                          const isPillSelected = isServiceSelected && selectedDur === opt.durationMinutes;
                           return (
                             <Pressable
                               key={opt.id || `dur-${opt.durationMinutes}`}
-                              style={[
-                                styles.durationPill,
-                                isPillSelected && styles.durationPillActive,
-                              ]}
-                              onPress={() =>
-                                handleSelectDuration(srv.categoryId, opt.durationMinutes)
-                              }>
+                              style={[styles.durationPill, isPillSelected && styles.durationPillActive]}
+                              onPress={() => handleSelectDuration(srv.categoryId, opt.durationMinutes)}>
                               {isPillSelected ? (
-                                <MaterialIcons
-                                  name="check"
-                                  size={14}
-                                  color="#ffffff"
-                                  style={{ marginRight: 4 }}
-                                />
+                                <MaterialIcons name="check" size={14} color="#ffffff" style={{ marginRight: 4 }} />
                               ) : null}
-                              <Text
-                                style={[
-                                  styles.durationPillText,
-                                  isPillSelected && styles.durationPillTextActive,
-                                ]}>
+                              <Text style={[styles.durationPillText, isPillSelected && styles.durationPillTextActive]}>
                                 {opt.durationMinutes} phút
                               </Text>
                             </Pressable>
                           );
                         })
                       ) : (
-                        <View
-                          style={[
-                            styles.durationPill,
-                            isServiceSelected && styles.durationPillActive,
-                          ]}>
+                        <View style={[styles.durationPill, isServiceSelected && styles.durationPillActive]}>
                           {isServiceSelected ? (
-                            <MaterialIcons
-                              name="check"
-                              size={14}
-                              color="#ffffff"
-                              style={{ marginRight: 4 }}
-                            />
+                            <MaterialIcons name="check" size={14} color="#ffffff" style={{ marginRight: 4 }} />
                           ) : null}
-                          <Text
-                            style={[
-                              styles.durationPillText,
-                              isServiceSelected && styles.durationPillTextActive,
-                            ]}>
+                          <Text style={[styles.durationPillText, isServiceSelected && styles.durationPillTextActive]}>
                             60 phút
                           </Text>
                         </View>
@@ -599,25 +498,14 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
                         </Text>
                       </View>
                       <Pressable
-                        style={[
-                          styles.bookServiceBtn,
-                          isServiceSelected && styles.bookServiceBtnActive,
-                        ]}
+                        style={[styles.bookServiceBtn, isServiceSelected && styles.bookServiceBtnActive]}
                         onPress={() => {
                           handleToggleService(srv.categoryId);
                         }}>
                         {isServiceSelected ? (
                           <>
-                            <MaterialIcons
-                              name="check"
-                              size={18}
-                              color="#ffffff"
-                              style={{ marginRight: 4 }}
-                            />
-                            <Text
-                              style={[styles.bookServiceBtnText, styles.bookServiceBtnTextActive]}>
-                              Đã chọn
-                            </Text>
+                            <MaterialIcons name="check" size={18} color="#ffffff" style={{ marginRight: 4 }} />
+                            <Text style={[styles.bookServiceBtnText, styles.bookServiceBtnTextActive]}>Đã chọn</Text>
                           </>
                         ) : (
                           <Text style={styles.bookServiceBtnText}>Đặt</Text>
@@ -668,10 +556,7 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
                     <View key={rev.id} style={styles.reviewItem}>
                       <View style={styles.reviewerHeader}>
                         {rev.customer?.avatarUrl ? (
-                          <Image
-                            source={{ uri: rev.customer.avatarUrl }}
-                            style={styles.avatarPlaceholderCircle}
-                          />
+                          <Image source={{ uri: rev.customer.avatarUrl }} style={styles.avatarPlaceholderCircle} />
                         ) : (
                           <View style={styles.avatarPlaceholderCircle}>
                             <MaterialIcons name="person" size={20} color="#818A91" />
@@ -680,19 +565,17 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
                         <View style={styles.reviewerMeta}>
                           <Text style={styles.reviewerName}>{reviewerName}</Text>
                           <View style={styles.starRowSmall}>
-                            {[...Array(Math.min(5, Math.max(1, Math.round(rev.rating || 5))))].map(
-                              (_, i) => (
-                                <MaterialIcons key={i} name="star" size={14} color="#F59E0B" />
-                              )
-                            )}
+                            {[...Array(Math.min(5, Math.max(1, Math.round(rev.rating || 5))))].map((_, i) => (
+                              <MaterialIcons key={i} name="star" size={14} color="#F59E0B" />
+                            ))}
                           </View>
                         </View>
-                        <Text style={styles.reviewDate}>
-                          {rev.createdAt ? formatDateTime(rev.createdAt) : ''}
-                        </Text>
+                        <Text style={styles.reviewDate}>{rev.createdAt ? formatDateTime(rev.createdAt) : ''}</Text>
                       </View>
 
-                      <Text style={styles.reviewComment}>{rev.comment}</Text>
+                      <Text style={styles.reviewComment}>
+                        {rev.comment}
+                      </Text>
 
                       {rev.workerReply ? (
                         <View style={styles.workerReplyBox}>
@@ -720,7 +603,9 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
           <View style={styles.bottomBarLeftInfo}>
             <View style={styles.bottomBarCountBadge}>
               <MaterialIcons name="shopping-bag" size={14} color="#0F382C" />
-              <Text style={styles.bottomBarCountText}>{selectedSummary.count} dịch vụ đã chọn</Text>
+              <Text style={styles.bottomBarCountText}>
+                {selectedSummary.count} dịch vụ đã chọn
+              </Text>
             </View>
             <Text style={styles.bottomBarPriceText}>
               {formatCurrency(selectedSummary.totalPrice)}
@@ -729,16 +614,9 @@ const badge = BADGE_CONFIG[worker?.badge ?? 0] || BADGE_CONFIG[2];
 
           <Pressable
             style={styles.primaryBookBtn}
-            onPress={() =>
-              handleBookNow(selectedSummary.mainCategory, selectedSummary.mainDuration)
-            }>
+            onPress={() => handleBookNow(selectedSummary.mainCategory, selectedSummary.mainDuration)}>
             <Text style={styles.primaryBookBtnText}>Đặt ngay</Text>
-            <MaterialIcons
-              name="arrow-forward"
-              size={18}
-              color="#ffffff"
-              style={{ marginLeft: 6 }}
-            />
+            <MaterialIcons name="arrow-forward" size={18} color="#ffffff" style={{ marginLeft: 6 }} />
           </Pressable>
         </View>
       ) : null}

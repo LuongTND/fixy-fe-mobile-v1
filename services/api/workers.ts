@@ -1,6 +1,7 @@
 import { apiClient } from './client';
 import { prepareUploadFile } from './media';
 import { getCategoryGuid, getCategorySlug } from './categories';
+import { PaymentMethod } from './bookings';
 import { formatToIsoDateTime } from '@/utils/format';
 import {
   normalizeAvailabilityResponse,
@@ -34,6 +35,7 @@ export type WorkerProfile = {
   basePrice: number;
   isOnline?: boolean;
   isAcceptingJobs?: boolean;
+  isDepositPaid?: boolean;
   isBusy?: boolean;
   isPro: boolean;
   specialties: string[];
@@ -201,8 +203,9 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
     estimatedArrivalMinutes:
       typeof w.estimatedArrivalMinutes === 'number' ? w.estimatedArrivalMinutes : null,
     basePrice: getWorkerBasePrice(w, categoryId),
-    isOnline: w.isOnline ?? w.online ?? w.isAvailableOnline ?? true,
-    isAcceptingJobs: w.isAcceptingJobs ?? w.isOnline ?? true,
+    isOnline: w.isOnline ?? w.online ?? w.isAvailableOnline ?? false,
+    isAcceptingJobs: w.isAcceptingJobs ?? w.isOnline ?? false,
+    isDepositPaid: w.isDepositPaid ?? w.depositPaid ?? false,
     isBusy: w.isBusy ?? w.IsBusy ?? false,
     isPro: w.experienceYears >= 5 || w.isPro || false,
     specialties: w.services?.map((s: any) => getCategorySlug(s.categoryId)) || w.specialties || [],
@@ -914,3 +917,40 @@ export async function updateWorkingStatus(
     isOnline: isOnline ?? isAcceptingJobs,
   });
 }
+
+export type WorkerDepositStatus = {
+  primaryServiceId?: string;
+  primaryServiceName?: string;
+  serviceCategoryName?: string;
+  depositRequiredAmount: number;
+  lockedBalance: number;
+  availableBalance: number;
+  isDepositPaid: boolean;
+  depositPaidAt?: string;
+  canRequestRefund: boolean;
+};
+
+/** GET /worker-profiles/me/deposit-status — Lấy trạng thái tiền cọc ký quỹ KTV Spa */
+export async function getDepositStatus(): Promise<WorkerDepositStatus> {
+  const response = await apiClient.get('/worker-profiles/me/deposit-status');
+  const resData = response.data;
+  return resData?.data ?? resData;
+}
+
+/** POST /payment/worker/deposit — Tạo mã VietQR nạp cọc ký quỹ kích hoạt nhận ca (mặc định PayOS) */
+export async function createWorkerDepositPayment(method: number = PaymentMethod.PayOS): Promise<string> {
+  const response = await apiClient.post('/payment/worker/deposit', { method });
+  const resData = response.data;
+  return resData?.data ?? resData;
+}
+
+/** POST /worker-profiles/me/request-offboarding — Gửi yêu cầu ngừng hợp tác và hoàn 100% tiền cọc */
+export async function requestOffboarding(data: {
+  payoutAccountId: string;
+  reason?: string;
+}): Promise<any> {
+  const response = await apiClient.post('/worker-profiles/me/request-offboarding', data);
+  const resData = response.data;
+  return resData?.data ?? resData;
+}
+
