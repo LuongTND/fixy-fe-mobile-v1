@@ -12,21 +12,23 @@ import {
   Text,
   View,
   ActivityIndicator,
+  Alert,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
 import { Booking, getWorkerBookings, getWallet } from '@/services/api/bookings';
 import { fetchCategories } from '@/services/api/categories';
-import { getWorkerProfileMe, updateWorkingStatus } from '@/services/api/workers';
+import { getWorkerProfileMe, updateWorkingStatus, getDepositStatus, WorkerDepositStatus } from '@/services/api/workers';
 import { getUserProfile } from '@/services/api/user';
 import { getWorkerCategoryIcon } from '@/utils/category-ui';
 import { formatCurrency } from '@/utils/format';
 import { getUnreadCount } from '@/services/api/notifications';
+import { getApiErrorMessage } from '@/services/api/client';
 
 export default function WorkerHomeScreen() {
   const insets = useSafeAreaInsets();
-  const [isReady, setIsReady] = React.useState(true);
+  const [isReady, setIsReady] = React.useState(false);
 
   // Queries
   const { data: profile = null, isLoading: isLoadingProfile } = useQuery({
@@ -42,18 +44,44 @@ export default function WorkerHomeScreen() {
     }
   }, [isLoadingProfile, profile]);
 
+  const hasApprovedProfile = profile !== null && profile.status === 1;
+
+  const { data: depositStatus = null } = useQuery<WorkerDepositStatus | null>({
+    queryKey: ['workerDepositStatus'],
+    queryFn: getDepositStatus,
+    enabled: hasApprovedProfile,
+  });
+
   React.useEffect(() => {
     if (profile) {
-      setIsReady(profile.isAcceptingJobs ?? profile.isOnline ?? true);
+      const isDepositPaid =
+        depositStatus !== null ? depositStatus.isDepositPaid : (profile.isDepositPaid ?? false);
+      const isWorking = profile.isAcceptingJobs ?? profile.isOnline ?? false;
+      setIsReady(isDepositPaid ? isWorking : false);
     }
-  }, [profile]);
+  }, [profile, depositStatus]);
 
   const handleToggleStatus = async (value: boolean) => {
+    const isDepositPaid =
+      depositStatus !== null ? depositStatus.isDepositPaid : (profile?.isDepositPaid ?? false);
+    if (value && (!isDepositPaid || (depositStatus && !depositStatus.isDepositPaid))) {
+      const requiredAmount = depositStatus?.depositRequiredAmount ?? profile?.basePrice ?? 0;
+      Alert.alert(
+        'Chưa nạp tiền cọc ký quỹ',
+        `Bạn cần nạp cọc ký quỹ ${formatCurrency(requiredAmount)} để kích hoạt nhận lịch hẹn Spa. Tiền cọc được hoàn lại 100% khi thôi việc.`,
+        [
+          { text: 'Để sau', style: 'cancel' },
+          { text: 'Đến Ví nạp cọc', onPress: () => router.push('/(worker)/worker-wallet' as any) },
+        ]
+      );
+      return;
+    }
     setIsReady(value);
     try {
       await updateWorkingStatus(value);
-    } catch (err) {
-      console.warn('[worker-home] Failed to update working status:', err);
+    } catch (err: any) {
+      setIsReady(!value);
+      Alert.alert('Không thể cập nhật', getApiErrorMessage(err) || 'Lỗi cập nhật trạng thái làm việc.');
     }
   };
 
@@ -63,8 +91,6 @@ export default function WorkerHomeScreen() {
     retry: false,
   });
   const userProfile = userProfileResponse?.data ?? null;
-
-  const hasApprovedProfile = profile !== null && profile.status === 1;
 
   const { data: wallet = null } = useQuery({
     queryKey: ['walletSummary'],
@@ -239,6 +265,24 @@ export default function WorkerHomeScreen() {
           </View>
         ) : (
           <>
+            {/* Deposit Alert Banner (nếu chưa nạp cọc) */}
+            {depositStatus && !depositStatus.isDepositPaid ? (
+              <Pressable
+                style={styles.depositAlertBanner}
+                onPress={() => router.push('/(worker)/worker-wallet' as any)}>
+                <View style={styles.depositAlertIconBox}>
+                  <MaterialIcons name="shield" size={22} color="#B25E00" />
+                </View>
+                <View style={{ flex: 1 }}>
+                  <Text style={styles.depositAlertTitle}>Chưa kích hoạt nhận ca Spa</Text>
+                  <Text style={styles.depositAlertSubtitle}>
+                    Nạp cọc {formatCurrency(depositStatus.depositRequiredAmount)} để bắt đầu nhận khách. Hoàn lại 100% khi thôi việc.
+                  </Text>
+                </View>
+                <MaterialIcons name="chevron-right" size={24} color="#B25E00" />
+              </Pressable>
+            ) : null}
+
             {/* Earnings Summary */}
             <View style={styles.earningsCardWrapper}>
               <LinearGradient
@@ -675,5 +719,41 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#383838',
     lineHeight: 18,
+  },
+  depositAlertBanner: {
+    backgroundColor: '#FFF8F0',
+    borderWidth: 1.5,
+    borderColor: '#FFD9AA',
+    borderRadius: 16,
+    padding: 14,
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 16,
+    shadowColor: '#B25E00',
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    shadowOffset: { width: 0, height: 3 },
+    elevation: 2,
+  },
+  depositAlertIconBox: {
+    width: 40,
+    height: 40,
+    borderRadius: 20,
+    backgroundColor: '#FFECCC',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  depositAlertTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13.5,
+    color: '#B25E00',
+  },
+  depositAlertSubtitle: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 11.5,
+    color: '#6E4400',
+    marginTop: 2,
+    lineHeight: 16,
   },
 });

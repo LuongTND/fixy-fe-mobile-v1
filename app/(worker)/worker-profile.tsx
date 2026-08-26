@@ -1176,6 +1176,26 @@ export default function WorkerProfileScreen() {
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
             </Pressable>
+
+            <View className="mx-3 h-px bg-gray-200" />
+
+            {/* Ví & Tiền cọc ký quỹ */}
+            <Pressable
+              className="flex-row items-center justify-between px-3 py-3"
+              onPress={() => router.push('/(worker)/worker-wallet' as any)}>
+              <View className="flex-row items-center gap-3">
+                <MaterialIcons name="shield" size={22} color="#0F382C" />
+                <View>
+                  <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">
+                    Ví & Tiền cọc ký quỹ
+                  </Text>
+                  <Text className="font-montserrat text-xs text-gray-500">
+                    Bảo toàn 100% • Hoàn cọc khi thôi việc
+                  </Text>
+                </View>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#574237" />
+            </Pressable>
           </View>
         </View>
 
