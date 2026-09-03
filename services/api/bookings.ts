@@ -637,31 +637,36 @@ export async function fetchPaymentMethodsApi(): Promise<ApiPaymentMethodOption[]
     const data = unwrapData(response.data);
     const items = Array.isArray(data) ? data : (data?.items ?? []);
     if (Array.isArray(items) && items.length > 0) {
-      return items.map((item: any) => {
-        const val = typeof item.value === 'number' ? item.value : (item.Value ?? 5);
-        const label =
-          item.displayName ??
-          item.DisplayName ??
-          item.description ??
-          item.Description ??
-          PAYMENT_METHOD_LABELS[val as PaymentMethod] ??
-          item.name;
-        return {
-          name: item.name ?? item.Name ?? String(val),
-          value: val,
-          description: label,
-        };
-      });
+      return items
+        .filter((item: any) => {
+          const val = typeof item.value === 'number' ? item.value : (item.Value ?? 5);
+          const nameStr = (item.name ?? item.Name ?? '').toLowerCase();
+          return val !== PaymentMethod.Wallet && nameStr !== 'wallet';
+        })
+        .map((item: any) => {
+          const val = typeof item.value === 'number' ? item.value : (item.Value ?? 5);
+          const label =
+            item.displayName ??
+            item.DisplayName ??
+            item.description ??
+            item.Description ??
+            PAYMENT_METHOD_LABELS[val as PaymentMethod] ??
+            item.name;
+          return {
+            name: item.name ?? item.Name ?? String(val),
+            value: val,
+            description: label,
+          };
+        });
     }
   } catch (err) {
     // Silent catch if offline or fallback
   }
   return [
     { name: 'Cash', value: PaymentMethod.Cash, description: 'Tiền mặt' },
-    { name: 'Wallet', value: PaymentMethod.Wallet, description: 'Ví Fixy' },
+    { name: 'PayOS', value: PaymentMethod.PayOS, description: 'PayOS' },
     { name: 'Vnpay', value: PaymentMethod.Vnpay, description: 'VNPay' },
     { name: 'Momo', value: PaymentMethod.Momo, description: 'MoMo' },
-    { name: 'PayOS', value: PaymentMethod.PayOS, description: 'PayOS' },
     { name: 'Card', value: PaymentMethod.Card, description: 'Thẻ ngân hàng' },
   ];
 }

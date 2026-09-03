@@ -212,7 +212,6 @@ export default function BookingCheckoutScreen() {
   const servicePrice =
     activeOption?.price ?? activeWorkerService?.basePrice ?? worker?.basePrice ?? 0;
   const finalPrice = Math.max(0, servicePrice - discountAmount);
-  const walletInsufficient = walletBalance < finalPrice;
 
   // Confirm booking & pay mutation (creates draft if needed, confirms, applies voucher, then pays)
   const confirmMutation = useMutation({
@@ -263,15 +262,7 @@ export default function BookingCheckoutScreen() {
       }
 
       // Route payment by selected method
-      if (selectedPaymentMethod === PaymentMethod.Wallet) {
-        if (walletBalance < finalPrice) {
-          throw new Error(
-            `Ví không đủ số dư để thanh toán ${formatCurrency(finalPrice)}. Vui lòng nạp thêm hoặc chọn phương thức khác.`
-          );
-        }
-        await payBookingWithWallet(bookingId);
-        return { bookingId, type: 'wallet' };
-      } else if (selectedPaymentMethod === PaymentMethod.Cash) {
+      if (selectedPaymentMethod === PaymentMethod.Cash) {
         await startBookingPayment(bookingId, PaymentMethod.Cash);
         return { bookingId, type: 'cash' };
       } else {
@@ -282,13 +273,7 @@ export default function BookingCheckoutScreen() {
     onSuccess: async (data) => {
       const targetUrl = `/booking-detail?bookingId=${data.bookingId}` as any;
       setConfirmedBookingId(data.bookingId);
-      if (data.type === 'wallet') {
-        Alert.alert(
-          'Đặt lịch & Thanh toán thành công',
-          'Đơn dịch vụ Spa của bạn đã được thanh toán bằng ví và đang chờ Kỹ thuật viên xác nhận.'
-        );
-        router.replace(targetUrl);
-      } else if (data.type === 'cash') {
+      if (data.type === 'cash') {
         Alert.alert(
           'Đặt lịch thành công',
           'Yêu cầu dịch vụ Spa của bạn đã được gửi tới Kỹ thuật viên. Quý khách vui lòng thanh toán bằng tiền mặt sau khi hoàn thành dịch vụ.'
@@ -558,25 +543,9 @@ export default function BookingCheckoutScreen() {
               <Text style={styles.paymentOptionName}>
                 {selectedPaymentInfo.description || selectedPaymentInfo.name}
               </Text>
-              {selectedPaymentInfo.value === PaymentMethod.Wallet && (
-                <Text
-                  style={{ fontFamily: 'Montserrat_500Medium', fontSize: 12, color: '#6B7280' }}>
-                  Số dư: {formatCurrency(walletBalance)}
-                </Text>
-              )}
             </View>
             <MaterialIcons name="chevron-right" size={20} color="#6B7280" />
           </Pressable>
-
-          {selectedPaymentMethod === PaymentMethod.Wallet && walletInsufficient && (
-            <View style={styles.paymentWarningBox}>
-              <MaterialIcons name="info" size={18} color="#BA1A1A" />
-              <Text style={styles.paymentWarningText}>
-                Ví không đủ số dư để thanh toán {formatCurrency(finalPrice)}. Vui lòng nạp thêm hoặc
-                chọn phương thức khác.
-              </Text>
-            </View>
-          )}
         </View>
 
         {/* Block 4: Voucher Card */}

@@ -42,6 +42,8 @@ import {
   WorkerScheduleWeekly,
 } from '@/services/api/workers';
 import { getApiErrorMessage } from '@/services/api/client';
+import { fetchCategories, ServiceCategory } from '@/services/api/categories';
+import { deleteAccount } from '@/services/api/user';
 import {
   FptIdentityRecognitionResult,
   recognizeIdentityImage,
@@ -268,6 +270,8 @@ export default function WorkerProfileScreen() {
   const [editPhone, setEditPhone] = React.useState('');
   const [logoutConfirmOpen, setLogoutConfirmOpen] = React.useState(false);
   const [isLoggingOut, setIsLoggingOut] = React.useState(false);
+  const [deleteConfirmOpen, setDeleteConfirmOpen] = React.useState(false);
+  const [isDeletingAccount, setIsDeletingAccount] = React.useState(false);
 
   React.useEffect(() => {
     if (profile) {
@@ -554,6 +558,209 @@ export default function WorkerProfileScreen() {
   const [activeProfileDatePicker, setActiveProfileDatePicker] =
     React.useState<ProfileDatePickerTarget>(null);
   const [tempProfileDate, setTempProfileDate] = React.useState<Date>(() => new Date());
+
+  // ===== Services Management States =====
+  const [servicesModalOpen, setServicesModalOpen] = React.useState(false);
+  const [draftServices, setDraftServices] = React.useState<
+    {
+      categoryId: string;
+      basePrice: number;
+      isPrimary: boolean;
+      options: { durationMinutes: number; price: number; sortOrder: number; isActive: boolean }[];
+    }[]
+  >([]);
+  const [isSavingServices, setIsSavingServices] = React.useState(false);
+
+  const { data: categories = [] } = useQuery({
+    queryKey: ['categories'],
+    queryFn: fetchCategories,
+  });
+
+  // Init draft services when modal opens
+  React.useEffect(() => {
+    if (servicesModalOpen && profile?.services) {
+      setDraftServices(
+        profile.services.map((s: any) => ({
+          categoryId: s.categoryId,
+          basePrice: s.basePrice || 0,
+          isPrimary: !!s.isPrimary,
+          options:
+            s.options && s.options.length > 0
+              ? s.options.map((o: any, idx: number) => ({
+                  durationMinutes: o.durationMinutes,
+                  price: o.price,
+                  sortOrder: o.sortOrder ?? idx + 1,
+                  isActive: o.isActive ?? true,
+                }))
+              : [{ durationMinutes: 60, price: s.basePrice || 500000, sortOrder: 1, isActive: true }],
+        }))
+      );
+    }
+  }, [servicesModalOpen, profile]);
+
+  const getCategoryName = (catId: string) => {
+    const cat = categories.find((c: ServiceCategory) => c.id === catId);
+    return cat?.name || catId;
+  };
+
+  const handleAddServiceFromCategory = (catId: string) => {
+    if (draftServices.length >= 10) {
+      Alert.alert('Giới hạn dịch vụ', 'Kỹ thuật viên chỉ được chọn tối đa 10 dịch vụ.');
+      return;
+    }
+    if (draftServices.some((s) => s.categoryId === catId)) {
+      Alert.alert('Đã tồn tại', 'Dịch vụ này đã có trong danh sách của bạn.');
+      return;
+    }
+    const isFirst = draftServices.length === 0;
+    setDraftServices((prev) => [
+      ...prev,
+      {
+        categoryId: catId,
+        basePrice: 500000,
+        isPrimary: isFirst,
+        options: [
+          { durationMinutes: 60, price: 500000, sortOrder: 1, isActive: true },
+          { durationMinutes: 90, price: 650000, sortOrder: 2, isActive: true },
+          { durationMinutes: 120, price: 800000, sortOrder: 3, isActive: true },
+        ],
+      },
+    ]);
+  };
+
+  const handleRemoveService = (catId: string) => {
+    const svc = draftServices.find((s) => s.categoryId === catId);
+    Alert.alert(
+      'Xác nhận xóa',
+      `Bạn muốn bỏ dịch vụ "${getCategoryName(catId)}" khỏi danh sách?`,
+      [
+        { text: 'Hủy', style: 'cancel' },
+        {
+          text: 'Xóa',
+          style: 'destructive',
+          onPress: () => {
+            setDraftServices((prev) => {
+              const next = prev.filter((s) => s.categoryId !== catId);
+              // Re-assign primary if removed service was primary
+              if (svc?.isPrimary && next.length > 0) {
+                next[0] = { ...next[0], isPrimary: true };
+              }
+              return next;
+            });
+          },
+        },
+      ]
+    );
+  };
+
+  const handleSetPrimary = (catId: string) => {
+    setDraftServices((prev) =>
+      prev.map((s) => ({ ...s, isPrimary: s.categoryId === catId }))
+    );
+  };
+
+  const handleServiceOptionChange = (
+    catId: string,
+    optIndex: number,
+    field: 'durationMinutes' | 'price',
+    value: string
+  ) => {
+    const numValue = parseInt(value.replace(/\D/g, ''), 10) || 0;
+    setDraftServices((prev) =>
+      prev.map((s) => {
+        if (s.categoryId !== catId) return s;
+        const newOpts = [...s.options];
+        newOpts[optIndex] = { ...newOpts[optIndex], [field]: numValue };
+        const minPrice = Math.min(...newOpts.filter((o) => o.price > 0).map((o) => o.price));
+        return { ...s, options: newOpts, basePrice: minPrice > 0 ? minPrice : s.basePrice };
+      })
+    );
+  };
+
+  const handleAddServiceOption = (catId: string) => {
+    setDraftServices((prev) =>
+      prev.map((s) => {
+        if (s.categoryId !== catId) return s;
+        const lastOpt = s.options[s.options.length - 1];
+        return {
+          ...s,
+          options: [
+            ...s.options,
+            {
+              durationMinutes: lastOpt ? lastOpt.durationMinutes + 30 : 60,
+              price: lastOpt ? lastOpt.price + 150000 : 500000,
+              sortOrder: s.options.length + 1,
+              isActive: true,
+            },
+          ],
+        };
+      })
+    );
+  };
+
+  const handleRemoveServiceOption = (catId: string, optIndex: number) => {
+    setDraftServices((prev) =>
+      prev.map((s) => {
+        if (s.categoryId !== catId) return s;
+        if (s.options.length <= 1) {
+          Alert.alert('Lưu ý', 'Mỗi dịch vụ cần ít nhất 1 gói thời gian & giá.');
+          return s;
+        }
+        const newOpts = s.options.filter((_, i) => i !== optIndex);
+        const minPrice = Math.min(...newOpts.filter((o) => o.price > 0).map((o) => o.price));
+        return { ...s, options: newOpts, basePrice: minPrice > 0 ? minPrice : s.basePrice };
+      })
+    );
+  };
+
+  const handleSaveServices = async () => {
+    if (draftServices.length === 0) {
+      Alert.alert('Chưa có dịch vụ', 'Vui lòng chọn ít nhất 1 dịch vụ.');
+      return;
+    }
+    if (!draftServices.some((s) => s.isPrimary)) {
+      Alert.alert('Thiếu dịch vụ chính', 'Vui lòng chọn 1 dịch vụ làm dịch vụ chính.');
+      return;
+    }
+    for (const svc of draftServices) {
+      for (const opt of svc.options) {
+        if (opt.durationMinutes <= 0 || opt.price <= 0) {
+          Alert.alert(
+            'Dữ liệu không hợp lệ',
+            `Dịch vụ "${getCategoryName(svc.categoryId)}" có gói chưa nhập đầy đủ thời lượng hoặc giá.`
+          );
+          return;
+        }
+      }
+    }
+    setIsSavingServices(true);
+    try {
+      await updateWorkerProfile({
+        services: draftServices.map((s) => ({
+          categoryId: s.categoryId,
+          basePrice: s.basePrice,
+          isPrimary: s.isPrimary,
+          options: s.options.map((o) => ({
+            durationMinutes: o.durationMinutes,
+            price: o.price,
+            sortOrder: o.sortOrder,
+            isActive: o.isActive,
+          })),
+        })),
+      });
+      queryClient.invalidateQueries({ queryKey: ['workerProfileMe'] });
+      setServicesModalOpen(false);
+      Alert.alert('Thành công', 'Dịch vụ & bảng giá đã được cập nhật.');
+    } catch (err: any) {
+      Alert.alert('Lỗi', getApiErrorMessage(err) || 'Không thể cập nhật dịch vụ.');
+    } finally {
+      setIsSavingServices(false);
+    }
+  };
+
+  const formatVND = (value: number) => {
+    return value.toLocaleString('vi-VN');
+  };
 
   // Day off exception states
   const [addDayOffModalOpen, setAddDayOffModalOpen] = React.useState(false);
@@ -938,6 +1145,35 @@ export default function WorkerProfileScreen() {
     }
   }
 
+  function handleDeleteAccount() {
+    setDeleteConfirmOpen(true);
+  }
+
+  async function confirmDeleteAccount() {
+    if (isDeletingAccount) return;
+    setIsDeletingAccount(true);
+    try {
+      const res = await deleteAccount();
+      if (!res.isSuccess && res.message && res.message !== 'Chức năng đang được cập nhật trên hệ thống.') {
+        Alert.alert('Thông báo', res.message);
+        return;
+      }
+      setDeleteConfirmOpen(false);
+      await logout();
+      Alert.alert(
+        'Đã xóa tài khoản',
+        'Tài khoản đối tác của bạn đã được xóa và đăng xuất khỏi ứng dụng.'
+      );
+      router.replace('/login' as any);
+    } catch {
+      setDeleteConfirmOpen(false);
+      await logout();
+      router.replace('/login' as any);
+    } finally {
+      setIsDeletingAccount(false);
+    }
+  }
+
   const cccdRecognitionLoading = recognizeCccdMutation.isPending;
   const canSubmitIdentification =
     idNumber.trim().length === 12 &&
@@ -1179,6 +1415,28 @@ export default function WorkerProfileScreen() {
 
             <View className="mx-3 h-px bg-gray-200" />
 
+            {/* Dịch vụ & Gói dịch vụ */}
+            <Pressable
+              className="flex-row items-center justify-between px-3 py-3"
+              onPress={() => setServicesModalOpen(true)}>
+              <View className="flex-row items-center gap-3">
+                <MaterialIcons name="design-services" size={22} color="#0F382C" />
+                <View>
+                  <Text className="font-montserrat-semibold text-[15px] text-[#1b1c1c]">
+                    Dịch vụ & Gói dịch vụ
+                  </Text>
+                  <Text className="font-montserrat text-xs text-gray-500">
+                    {profile?.services?.length
+                      ? `Đang phục vụ ${profile.services.length} dịch vụ`
+                      : 'Chưa có dịch vụ nào'}
+                  </Text>
+                </View>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#574237" />
+            </Pressable>
+
+            <View className="mx-3 h-px bg-gray-200" />
+
             {/* Ví & Tiền cọc ký quỹ */}
             <Pressable
               className="flex-row items-center justify-between px-3 py-3"
@@ -1199,10 +1457,10 @@ export default function WorkerProfileScreen() {
           </View>
         </View>
 
-        {/* Section 3: Hỗ trợ */}
+        {/* Section 3: Hỗ trợ & Tài khoản */}
         <View className="my-2 rounded-2xl border border-gray-100 bg-white p-2 shadow-sm">
           <Text className="flex-shrink px-3 py-2 font-montserrat-bold text-base text-gray-800">
-            Hỗ trợ
+            Hỗ trợ & Tài khoản
           </Text>
           <View className="overflow-hidden rounded-lg">
             <Pressable
@@ -1215,6 +1473,21 @@ export default function WorkerProfileScreen() {
                 </Text>
               </View>
               <MaterialIcons name="chevron-right" size={22} color="#574237" />
+            </Pressable>
+
+            <View className="mx-3 h-px bg-gray-200" />
+
+            {/* Xóa tài khoản */}
+            <Pressable
+              className="flex-row items-center justify-between px-3 py-3"
+              onPress={handleDeleteAccount}>
+              <View className="flex-row items-center gap-3">
+                <MaterialIcons name="person-remove" size={20} color="#DC2626" />
+                <Text className="font-montserrat-semibold text-[15px] text-[#DC2626]">
+                  Xóa tài khoản
+                </Text>
+              </View>
+              <MaterialIcons name="chevron-right" size={22} color="#818A91" />
             </Pressable>
           </View>
         </View>
@@ -1272,6 +1545,52 @@ export default function WorkerProfileScreen() {
                   <ActivityIndicator size="small" color="#ffffff" />
                 ) : (
                   <Text className="font-montserrat-bold text-sm text-white">Đăng xuất</Text>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* Modal xác nhận xóa tài khoản */}
+      <Modal visible={deleteConfirmOpen} transparent animationType="fade">
+        <View className="flex-1 items-center justify-center bg-black/50 px-5">
+          <Pressable
+            className="absolute inset-0"
+            onPress={() => {
+              if (!isDeletingAccount) setDeleteConfirmOpen(false);
+            }}
+          />
+          <View className="w-full max-w-[360px] rounded-2xl bg-white p-5">
+            <View className="mb-2 flex-row items-center gap-2">
+              <MaterialIcons name="warning" size={22} color="#DC2626" />
+              <Text className="font-montserrat-bold text-lg text-[#DC2626]">
+                Xác nhận xóa tài khoản
+              </Text>
+            </View>
+            <Text className="mb-3 font-montserrat text-sm leading-5 text-[#574237]">
+              Bạn có chắc chắn muốn xóa tài khoản đối tác? Toàn bộ dữ liệu hồ sơ cá nhân của bạn sẽ bị vô hiệu hóa và không thể khôi phục.
+            </Text>
+            <View className="mb-5 rounded-lg border border-amber-200 bg-amber-50 p-3">
+              <Text className="font-montserrat text-xs leading-4 text-amber-800">
+                ⚠️ Lưu ý: Hãy đảm bảo bạn đã hoàn tất các ca hẹn và rút hết số dư ví / hoàn tất tiền cọc ký quỹ trước khi xóa tài khoản.
+              </Text>
+            </View>
+            <View className="flex-row justify-end gap-3">
+              <Pressable
+                className="min-h-[44px] items-center justify-center rounded-lg border border-gray-200 px-[18px]"
+                onPress={() => setDeleteConfirmOpen(false)}
+                disabled={isDeletingAccount}>
+                <Text className="font-montserrat-semibold text-sm text-[#574237]">Hủy</Text>
+              </Pressable>
+              <Pressable
+                className={`min-h-[44px] min-w-[130px] items-center justify-center rounded-lg bg-[#DC2626] px-[18px] ${isDeletingAccount ? 'bg-[#EAE5E3]' : ''}`}
+                onPress={confirmDeleteAccount}
+                disabled={isDeletingAccount}>
+                {isDeletingAccount ? (
+                  <ActivityIndicator size="small" color="#ffffff" />
+                ) : (
+                  <Text className="font-montserrat-bold text-sm text-white">Xóa tài khoản</Text>
                 )}
               </Pressable>
             </View>
@@ -2144,6 +2463,199 @@ export default function WorkerProfileScreen() {
         onClose={() => setIdFaceCaptureModalOpen(false)}
         onCapture={handleIdFaceCaptured}
       />
+
+      {/* ===== Modal Quản lý Dịch vụ & Gói dịch vụ ===== */}
+      <Modal visible={servicesModalOpen} transparent animationType="slide">
+        <View className="flex-1 bg-black/50">
+          <Pressable className="h-8" onPress={() => setServicesModalOpen(false)} />
+          <View
+            className="flex-1 rounded-t-3xl bg-white"
+            style={{ paddingTop: insets.top > 0 ? 12 : 16 }}>
+            {/* Header */}
+            <View className="flex-row items-center justify-between border-b border-gray-100 px-5 pb-3">
+              <Pressable onPress={() => setServicesModalOpen(false)}>
+                <MaterialIcons name="close" size={24} color="#383838" />
+              </Pressable>
+              <View className="items-center">
+                <Text className="font-montserrat-bold text-base text-[#0F382C]">
+                  Dịch vụ & Bảng giá
+                </Text>
+                <Text className="font-montserrat text-xs text-gray-500">
+                  {draftServices.length}/10 dịch vụ
+                </Text>
+              </View>
+              <Pressable
+                onPress={handleSaveServices}
+                disabled={isSavingServices}
+                className="rounded-lg bg-[#0F382C] px-4 py-2">
+                {isSavingServices ? (
+                  <ActivityIndicator size="small" color="#fff" />
+                ) : (
+                  <Text className="font-montserrat-bold text-xs text-white">Lưu</Text>
+                )}
+              </Pressable>
+            </View>
+
+            <ScrollView
+              className="flex-1 px-4"
+              contentContainerStyle={{ paddingBottom: 40 }}
+              keyboardShouldPersistTaps="handled">
+              {/* Active Services */}
+              {draftServices.length > 0 ? (
+                draftServices.map((svc, svcIdx) => (
+                  <View
+                    key={svc.categoryId}
+                    className="mt-4 rounded-2xl border border-gray-200 bg-gray-50 p-3">
+                    {/* Service Header */}
+                    <View className="mb-2 flex-row items-center justify-between">
+                      <View className="flex-1 flex-row items-center gap-2">
+                        <MaterialIcons name="home-repair-service" size={20} color="#0F382C" />
+                        <Text
+                          className="flex-shrink font-montserrat-bold text-sm text-[#1b1c1c]"
+                          numberOfLines={1}>
+                          {getCategoryName(svc.categoryId)}
+                        </Text>
+                        {svc.isPrimary && (
+                          <View className="rounded-full bg-[#0F382C] px-2 py-0.5">
+                            <Text className="font-montserrat-bold text-[10px] text-white">
+                              Chính
+                            </Text>
+                          </View>
+                        )}
+                      </View>
+                      <View className="flex-row items-center gap-1">
+                        {!svc.isPrimary && (
+                          <Pressable
+                            className="rounded-md border border-[#0F382C] px-2 py-1"
+                            onPress={() => handleSetPrimary(svc.categoryId)}>
+                            <Text className="font-montserrat-semibold text-[10px] text-[#0F382C]">
+                              Đặt chính
+                            </Text>
+                          </Pressable>
+                        )}
+                        <Pressable
+                          className="ml-1 rounded-md p-1"
+                          onPress={() => handleRemoveService(svc.categoryId)}>
+                          <MaterialIcons name="delete-outline" size={20} color="#BA1A1A" />
+                        </Pressable>
+                      </View>
+                    </View>
+
+                    {/* Service Options (Packages) */}
+                    <View className="mb-1 flex-row items-center px-1">
+                      <Text className="w-[38%] font-montserrat-semibold text-xs text-gray-500">
+                        Thời lượng (phút)
+                      </Text>
+                      <Text className="w-[45%] font-montserrat-semibold text-xs text-gray-500">
+                        Đơn giá (VNĐ)
+                      </Text>
+                    </View>
+
+                    {svc.options.map((opt, optIdx) => (
+                      <View
+                        key={`${svc.categoryId}-opt-${optIdx}`}
+                        className="mb-1.5 flex-row items-center gap-1 px-1">
+                        <View className="w-[38%] rounded-lg border border-gray-300 bg-white px-2 py-1.5">
+                          <TextInput
+                            className="font-montserrat text-sm text-[#1b1c1c]"
+                            keyboardType="numeric"
+                            value={String(opt.durationMinutes)}
+                            onChangeText={(text) =>
+                              handleServiceOptionChange(
+                                svc.categoryId,
+                                optIdx,
+                                'durationMinutes',
+                                text
+                              )
+                            }
+                            placeholder="60"
+                            placeholderTextColor="#aaa"
+                          />
+                        </View>
+                        <View className="w-[45%] rounded-lg border border-gray-300 bg-white px-2 py-1.5">
+                          <TextInput
+                            className="font-montserrat text-sm text-[#1b1c1c]"
+                            keyboardType="numeric"
+                            value={formatVND(opt.price)}
+                            onChangeText={(text) =>
+                              handleServiceOptionChange(
+                                svc.categoryId,
+                                optIdx,
+                                'price',
+                                text
+                              )
+                            }
+                            placeholder="500,000"
+                            placeholderTextColor="#aaa"
+                          />
+                        </View>
+                        <Pressable
+                          className="items-center justify-center rounded-md p-1"
+                          onPress={() => handleRemoveServiceOption(svc.categoryId, optIdx)}>
+                          <MaterialIcons name="remove-circle-outline" size={20} color="#BA1A1A" />
+                        </Pressable>
+                      </View>
+                    ))}
+
+                    <Pressable
+                      className="mt-1 flex-row items-center gap-1 self-start rounded-md border border-dashed border-[#0F382C] px-3 py-1.5"
+                      onPress={() => handleAddServiceOption(svc.categoryId)}>
+                      <MaterialIcons name="add" size={16} color="#0F382C" />
+                      <Text className="font-montserrat-semibold text-xs text-[#0F382C]">
+                        Thêm gói
+                      </Text>
+                    </Pressable>
+                  </View>
+                ))
+              ) : (
+                <View className="mt-8 items-center">
+                  <MaterialIcons name="inbox" size={40} color="#ccc" />
+                  <Text className="mt-2 font-montserrat text-sm text-gray-400">
+                    Chưa có dịch vụ nào. Hãy thêm dịch vụ bên dưới.
+                  </Text>
+                </View>
+              )}
+
+              {/* Add New Service Section */}
+              {categories.length > 0 && (
+                <View className="mt-6">
+                  <Text className="mb-2 font-montserrat-bold text-sm text-gray-700">
+                    Thêm dịch vụ mới
+                  </Text>
+                  <View className="flex-row flex-wrap gap-2">
+                    {categories
+                      .filter(
+                        (cat: ServiceCategory) =>
+                          cat.isActive &&
+                          !draftServices.some((s) => s.categoryId === cat.id)
+                      )
+                      .map((cat: ServiceCategory) => (
+                        <Pressable
+                          key={cat.id}
+                          className="flex-row items-center gap-1.5 rounded-full border border-[#0F382C] bg-white px-3 py-2"
+                          onPress={() => handleAddServiceFromCategory(cat.id)}>
+                          <MaterialIcons name="add-circle-outline" size={16} color="#0F382C" />
+                          <Text className="font-montserrat-semibold text-xs text-[#0F382C]">
+                            {cat.name}
+                          </Text>
+                        </Pressable>
+                      ))}
+                    {categories.filter(
+                      (cat: ServiceCategory) =>
+                        cat.isActive &&
+                        !draftServices.some((s) => s.categoryId === cat.id)
+                    ).length === 0 && (
+                      <Text className="font-montserrat text-xs text-gray-400">
+                        Bạn đã chọn tất cả dịch vụ có sẵn.
+                      </Text>
+                    )}
+                  </View>
+                </View>
+              )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
 
       {/* Fullscreen Comparing Face Loading Overlay */}
       {isComparingIdFace && (

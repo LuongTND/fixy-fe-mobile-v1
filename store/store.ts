@@ -1,3 +1,4 @@
+import * as Location from 'expo-location';
 import * as SecureStore from 'expo-secure-store';
 import { create } from 'zustand';
 
@@ -93,12 +94,37 @@ export const useAuthStore = create<AuthState>((set) => ({
   },
 }));
 
+export type UserCoordinates = { lat: number; lng: number };
+
 export type LocationState = {
   selectedCity: string;
   setSelectedCity: (city: string) => void;
+  userLocation: UserCoordinates | null;
+  setUserLocation: (loc: UserCoordinates | null) => void;
+  fetchUserLocation: () => Promise<UserCoordinates | null>;
 };
 
-export const useLocationStore = create<LocationState>((set) => ({
+export const useLocationStore = create<LocationState>((set, get) => ({
   selectedCity: 'Đà Nẵng',
   setSelectedCity: (city: string) => set({ selectedCity: city }),
+  userLocation: null,
+  setUserLocation: (loc) => set({ userLocation: loc }),
+  fetchUserLocation: async () => {
+    const existing = get().userLocation;
+    if (existing) return existing;
+    try {
+      const { status } = await Location.requestForegroundPermissionsAsync();
+      if (status === 'granted') {
+        const pos = await Location.getCurrentPositionAsync({
+          accuracy: Location.Accuracy.Balanced,
+        });
+        const loc = { lat: pos.coords.latitude, lng: pos.coords.longitude };
+        set({ userLocation: loc });
+        return loc;
+      }
+    } catch (err) {
+      console.warn('[useLocationStore] GPS location error:', err);
+    }
+    return null;
+  },
 }));

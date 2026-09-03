@@ -168,12 +168,14 @@ function mapBackendWorkerToProfile(w: any, categoryId?: string): WorkerProfile {
 
   // Format distance label from distanceKm
   const distanceKm = typeof w.distanceKm === 'number' ? w.distanceKm : null;
-  const distanceLabel =
-    distanceKm != null
-      ? distanceKm < 1
-        ? `${Math.round(distanceKm * 1000)}m`
-        : `${distanceKm.toFixed(1)} km`
-      : '';
+  let distanceLabel = '';
+  if (distanceKm != null) {
+    if (distanceKm < 1) {
+      distanceLabel = `${Math.round(distanceKm * 1000)}m`;
+    } else {
+      distanceLabel = `${distanceKm.toFixed(1)} km`;
+    }
+  }
 
   return {
     id: w.userId || w.id,

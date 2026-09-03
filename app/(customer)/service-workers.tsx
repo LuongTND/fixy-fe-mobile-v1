@@ -125,7 +125,8 @@ export default function ServiceWorkersScreen() {
     max: number;
   } | null>(null);
   const [minRating, setMinRating] = React.useState<number | null>(null);
-  const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
+  const { selectedCity, userLocation, fetchUserLocation } = useLocationStore();
+  const [cityModalVisible, setCityModalVisible] = React.useState(false);
 
   // Fetch all system categories
   const { data: categories = [] } = useQuery({
@@ -136,23 +137,8 @@ export default function ServiceWorkersScreen() {
 
   // Get device GPS coordinates for distance calculations
   React.useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const pos = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        }
-      } catch (err) {
-        console.warn('[service-workers] GPS location error:', err);
-      }
-    })();
-  }, []);
-
-  const { selectedCity } = useLocationStore();
-  const [cityModalVisible, setCityModalVisible] = React.useState(false);
+    fetchUserLocation();
+  }, [fetchUserLocation]);
 
   const activeCategoryId = selectedCategory?.id || serviceId;
 

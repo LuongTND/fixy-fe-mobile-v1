@@ -7,6 +7,7 @@ import * as React from 'react';
 import { FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useLocationStore } from '@/store/store';
 import { searchSpaPartners, SpaPartner, SearchSpaPartnerParams } from '@/services/api/spa-partners';
 
 function getSpaFallbackThumbnail(_index: number): string | null {
@@ -30,27 +31,11 @@ export default function SpaListScreen() {
 
   const [searchTerm, setSearchTerm] = React.useState('');
   const [activeFilter, setActiveFilter] = React.useState('all');
-  const [customerLocation, setCustomerLocation] = React.useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
+  const { userLocation: customerLocation, fetchUserLocation } = useLocationStore();
 
   React.useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const loc = await Location.getCurrentPositionAsync({});
-          setCustomerLocation({
-            lat: loc.coords.latitude,
-            lng: loc.coords.longitude,
-          });
-        }
-      } catch (err) {
-        console.warn('[SpaListScreen] Location request error', err);
-      }
-    })();
-  }, []);
+    fetchUserLocation();
+  }, [fetchUserLocation]);
 
   const searchParams: SearchSpaPartnerParams = {
     spaServiceCategoryId: categoryId,

@@ -212,11 +212,6 @@ export default function NotificationsScreen() {
           <Pressable className="items-center justify-center p-2" onPress={handleDeleteAll}>
             <MaterialIcons name="delete-sweep" size={22} color="#0F382C" />
           </Pressable>
-          <Pressable
-            className="items-center justify-center p-2"
-            onPress={() => router.push('/(customer)/notifications-settings' as any)}>
-            <MaterialIcons name="settings" size={22} color="#0F382C" />
-          </Pressable>
         </View>
       </View>
 

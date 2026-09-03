@@ -41,3 +41,17 @@ export async function updateUserProfile(data: {
   });
   return response.data;
 }
+
+export async function deleteAccount(): Promise<{ isSuccess: boolean; message: string | null }> {
+  try {
+    const response = await apiClient.delete('/user');
+    return response.data;
+  } catch (error: any) {
+    // If backend doesn't support DELETE /user endpoint yet
+    return {
+      isSuccess: false,
+      message: error?.response?.data?.message || 'Chức năng đang được cập nhật trên hệ thống.',
+    };
+  }
+}
+

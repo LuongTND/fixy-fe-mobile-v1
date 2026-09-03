@@ -160,28 +160,14 @@ const skeletonStyles = StyleSheet.create({
 
 export default function HomeScreen() {
   const insets = useSafeAreaInsets();
-  const { selectedCity } = useLocationStore();
+  const { selectedCity, userLocation, fetchUserLocation } = useLocationStore();
   const [cityModalVisible, setCityModalVisible] = React.useState(false);
   const [currentCity, setCurrentCity] = React.useState('');
   const [currentLocationLoading, setCurrentLocationLoading] = React.useState(false);
 
-  const [userLocation, setUserLocation] = React.useState<{ lat: number; lng: number } | null>(null);
-
   React.useEffect(() => {
-    (async () => {
-      try {
-        const { status } = await Location.requestForegroundPermissionsAsync();
-        if (status === 'granted') {
-          const pos = await Location.getCurrentPositionAsync({
-            accuracy: Location.Accuracy.Balanced,
-          });
-          setUserLocation({ lat: pos.coords.latitude, lng: pos.coords.longitude });
-        }
-      } catch (err) {
-        console.warn('[home] GPS location error:', err);
-      }
-    })();
-  }, []);
+    fetchUserLocation();
+  }, [fetchUserLocation]);
 
   const { data: apiCategories = [] } = useQuery({
     queryKey: ['categories'],

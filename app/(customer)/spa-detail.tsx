@@ -15,6 +15,7 @@ import {
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
+import { useLocationStore } from '@/store/store';
 import {
   getSpaPartnerDetail,
   SpaPartnerDetail,
@@ -38,25 +39,13 @@ export default function SpaDetailScreen() {
   const insets = useSafeAreaInsets();
   const { spaId } = useLocalSearchParams<{ spaId: string }>();
 
-  const [customerLocation, setCustomerLocation] = React.useState<{
-    lat: number;
-    lng: number;
-  } | null>(null);
+  const { userLocation: customerLocation, fetchUserLocation } = useLocationStore();
 
   const [likedReviews, setLikedReviews] = React.useState<Record<string, boolean>>({});
 
   React.useEffect(() => {
-    (async () => {
-      const { status } = await Location.requestForegroundPermissionsAsync();
-      if (status === 'granted') {
-        const loc = await Location.getCurrentPositionAsync({});
-        setCustomerLocation({
-          lat: loc.coords.latitude,
-          lng: loc.coords.longitude,
-        });
-      }
-    })();
-  }, []);
+    fetchUserLocation();
+  }, [fetchUserLocation]);
 
   const { data: spa, isLoading } = useQuery<SpaPartnerDetail | null>({
     queryKey: ['spa-partner-detail', spaId, customerLocation?.lat],
