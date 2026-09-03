@@ -1,16 +1,19 @@
 import { MaterialIcons } from '@expo/vector-icons';
-import { useQuery } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import * as Location from 'expo-location';
 import { router, useLocalSearchParams } from 'expo-router';
 import * as React from 'react';
 import {
   ActivityIndicator,
+  Alert,
   Dimensions,
   Image,
+  Modal,
   Pressable,
   ScrollView,
   StyleSheet,
   Text,
+  TextInput,
   View,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
@@ -18,9 +21,15 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { useLocationStore } from '@/store/store';
 import {
   getSpaPartnerDetail,
+  getNearbySpaPartners,
+  getSpaPartnerReviews,
+  createSpaPartnerReview,
+  SpaPartner,
   SpaPartnerDetail,
   SpaPartnerServiceDto,
+  SpaPartnerReviewDto,
 } from '@/services/api/spa-partners';
+import { formatDateTime } from '@/utils/date';
 import { formatCurrency } from '@/utils/format';
 
 const { width: SCREEN_WIDTH } = Dimensions.get('window');
@@ -38,10 +47,22 @@ function getInitials(name: string): string {
 export default function SpaDetailScreen() {
   const insets = useSafeAreaInsets();
   const { spaId } = useLocalSearchParams<{ spaId: string }>();
+  const queryClient = useQueryClient();
 
   const { userLocation: customerLocation, fetchUserLocation } = useLocationStore();
 
   const [likedReviews, setLikedReviews] = React.useState<Record<string, boolean>>({});
+
+  // Review Modal State (createSpaPartnerReview)
+  const [showReviewModal, setShowReviewModal] = React.useState(false);
+  const [ratingValue, setRatingValue] = React.useState(5);
+  const [commentText, setCommentText] = React.useState('');
+  const [isSubmittingReview, setIsSubmittingReview] = React.useState(false);
+
+  // All Reviews Modal State (getSpaPartnerReviews)
+  const [showAllReviewsModal, setShowAllReviewsModal] = React.useState(false);
+  const [selectedRatingFilter, setSelectedRatingFilter] = React.useState<number | undefined>(undefined);
+  const [reviewSearchTerm, setReviewSearchTerm] = React.useState('');
 
   React.useEffect(() => {
     fetchUserLocation();
@@ -54,8 +75,67 @@ export default function SpaDetailScreen() {
     staleTime: 2 * 60 * 1000,
   });
 
+  // Query Nearby Spas (getNearbySpaPartners)
+  const { data: nearbySpas = [] } = useQuery<SpaPartner[]>({
+    queryKey: ['spa-nearby', customerLocation?.lat, customerLocation?.lng],
+    queryFn: () =>
+      getNearbySpaPartners(
+        customerLocation?.lat || 10.7769,
+        customerLocation?.lng || 106.7009,
+        10,
+        6
+      ),
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const otherNearbySpas = (nearbySpas || []).filter((s) => s.id !== spaId);
+
+  // Query All Reviews (getSpaPartnerReviews)
+  const { data: allReviewsData, isLoading: loadingAllReviews } = useQuery({
+    queryKey: ['spa-reviews', spaId, selectedRatingFilter, reviewSearchTerm],
+    queryFn: () =>
+      getSpaPartnerReviews(spaId!, {
+        pageNumber: 1,
+        pageSize: 20,
+        searchTerm: reviewSearchTerm,
+        minRating: selectedRatingFilter,
+      }),
+    enabled: !!spaId && showAllReviewsModal,
+  });
+
   const toggleLikeReview = (reviewId: string) => {
     setLikedReviews((prev) => ({ ...prev, [reviewId]: !prev[reviewId] }));
+  };
+
+  const handleOpenReviewModal = () => {
+    setRatingValue(5);
+    setCommentText('');
+    setShowReviewModal(true);
+  };
+
+  const handleSubmitReview = async () => {
+    if (!spaId) return;
+    if (!commentText.trim()) {
+      Alert.alert('Thông báo', 'Vui lòng nhập nội dung đánh giá của bạn.');
+      return;
+    }
+    setIsSubmittingReview(true);
+    try {
+      await createSpaPartnerReview(spaId, {
+        rating: ratingValue,
+        comment: commentText.trim(),
+      });
+      setIsSubmittingReview(false);
+      setShowReviewModal(false);
+      setCommentText('');
+      setRatingValue(5);
+      Alert.alert('Thành công', 'Cảm ơn bạn đã gửi đánh giá cho đối tác Spa!');
+      queryClient.invalidateQueries({ queryKey: ['spa-partner-detail', spaId] });
+      queryClient.invalidateQueries({ queryKey: ['spa-reviews', spaId] });
+    } catch {
+      setIsSubmittingReview(false);
+      Alert.alert('Lỗi', 'Không thể gửi đánh giá, vui lòng thử lại.');
+    }
   };
 
   if (isLoading) {
@@ -259,7 +339,7 @@ export default function SpaDetailScreen() {
           </View>
 
           {/* Add Review Button */}
-          <Pressable style={styles.addReviewBtn}>
+          <Pressable style={styles.addReviewBtn} onPress={handleOpenReviewModal}>
             <MaterialIcons name="rate-review" size={18} color="#0F382C" />
             <Text style={styles.addReviewBtnText}>Thêm đánh giá của bạn</Text>
             <MaterialIcons name="chevron-right" size={18} color="#0F382C" />
@@ -332,7 +412,76 @@ export default function SpaDetailScreen() {
               })}
             </View>
           )}
+
+          {/* View All Reviews Button */}
+          <Pressable
+            style={styles.viewAllReviewsBtn}
+            onPress={() => setShowAllReviewsModal(true)}>
+            <Text style={styles.viewAllReviewsBtnText}>
+              Xem tất cả đánh giá ({allReviewsData?.totalCount || spa.totalReviews || 5})
+            </Text>
+            <MaterialIcons name="chevron-right" size={18} color="#0F382C" />
+          </Pressable>
         </View>
+
+        {/* Nearby Spas Recommendation Card */}
+        {otherNearbySpas.length > 0 && (
+          <View style={styles.nearbySectionCard}>
+            <View style={styles.nearbyHeaderRow}>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                <MaterialIcons name="near-me" size={20} color="#0F382C" />
+                <Text style={styles.nearbySectionTitle}>Cơ Sở Spa Lân Cận</Text>
+              </View>
+              <Text style={styles.nearbySectionSubtitle}>Bán kính 10km</Text>
+            </View>
+
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={styles.nearbyScrollList}>
+              {otherNearbySpas.map((nearby) => (
+                <Pressable
+                  key={nearby.id}
+                  style={styles.nearbyCard}
+                  onPress={() =>
+                    router.push({
+                      pathname: '/(customer)/spa-detail',
+                      params: { spaId: nearby.id },
+                    } as any)
+                  }>
+                  <Image
+                    source={{
+                      uri:
+                        nearby.coverImageUrl ||
+                        nearby.logoUrl ||
+                        'https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=400',
+                    }}
+                    style={styles.nearbyCardImage}
+                  />
+                  <View style={styles.nearbyCardBadge}>
+                    <MaterialIcons name="place" size={11} color="#FFFFFF" />
+                    <Text style={styles.nearbyCardBadgeText}>
+                      {nearby.distanceKm !== null ? `${nearby.distanceKm} km` : 'Gần bạn'}
+                    </Text>
+                  </View>
+                  <View style={styles.nearbyCardBody}>
+                    <Text style={styles.nearbyCardName} numberOfLines={1}>
+                      {nearby.name}
+                    </Text>
+                    <View style={styles.nearbyCardRatingRow}>
+                      <MaterialIcons name="star" size={13} color="#F59E0B" />
+                      <Text style={styles.nearbyCardRatingVal}>{nearby.ratingAvg.toFixed(1)}</Text>
+                      <Text style={styles.nearbyCardRatingCount}>({nearby.totalReviews})</Text>
+                    </View>
+                    <Text style={styles.nearbyCardAddress} numberOfLines={1}>
+                      {nearby.address}
+                    </Text>
+                  </View>
+                </Pressable>
+              ))}
+            </ScrollView>
+          </View>
+        )}
 
         <View style={{ height: 100 }} />
       </ScrollView>
@@ -353,6 +502,242 @@ export default function SpaDetailScreen() {
           <Text style={styles.primaryGreenBtnText}>Chat để đặt lịch</Text>
         </Pressable>
       </View>
+
+      {/* ────────────────── WRITE REVIEW MODAL ────────────────── */}
+      <Modal
+        visible={showReviewModal}
+        transparent
+        animationType="fade"
+        onRequestClose={() => setShowReviewModal(false)}>
+        <View style={styles.modalOverlay}>
+          <Pressable style={styles.modalBackdrop} onPress={() => setShowReviewModal(false)} />
+          <View style={styles.reviewModalContainer}>
+            <View style={styles.modalHeaderRow}>
+              <Text style={styles.modalTitle}>Đánh giá Spa</Text>
+              <Pressable onPress={() => setShowReviewModal(false)} hitSlop={8}>
+                <MaterialIcons name="close" size={22} color="#64748B" />
+              </Pressable>
+            </View>
+
+            <Text style={styles.modalSpaName} numberOfLines={1}>
+              {spa.name}
+            </Text>
+
+            {/* Interactive Star Picker */}
+            <View style={styles.starPickerRow}>
+              {[1, 2, 3, 4, 5].map((star) => (
+                <Pressable
+                  key={star}
+                  onPress={() => setRatingValue(star)}
+                  style={styles.starPickerBtn}>
+                  <MaterialIcons
+                    name={star <= ratingValue ? 'star' : 'star-outline'}
+                    size={36}
+                    color={star <= ratingValue ? '#F59E0B' : '#CBD5E1'}
+                  />
+                </Pressable>
+              ))}
+            </View>
+            <Text style={styles.starRatingLabel}>
+              {ratingValue === 5
+                ? '⭐️⭐️⭐️⭐️⭐️ Rất tuyệt vời!'
+                : ratingValue === 4
+                ? '⭐️⭐️⭐️⭐️ Hài lòng'
+                : ratingValue === 3
+                ? '⭐️⭐️⭐️ Bình thường'
+                : ratingValue === 2
+                ? '⭐️⭐️ Tạm được'
+                : '⭐️ Kém'}
+            </Text>
+
+            {/* Comment Input */}
+            <TextInput
+              style={styles.reviewInput}
+              multiline
+              numberOfLines={4}
+              placeholder="Chia sẻ trải nghiệm của bạn về không gian, kỹ thuật viên, chất lượng dịch vụ..."
+              placeholderTextColor="#94A3B8"
+              value={commentText}
+              onChangeText={setCommentText}
+              textAlignVertical="top"
+            />
+
+            {/* Buttons */}
+            <View style={styles.modalActionsRow}>
+              <Pressable
+                style={styles.modalCancelBtn}
+                onPress={() => setShowReviewModal(false)}
+                disabled={isSubmittingReview}>
+                <Text style={styles.modalCancelBtnText}>Hủy</Text>
+              </Pressable>
+              <Pressable
+                style={[styles.modalSubmitBtn, isSubmittingReview && { opacity: 0.7 }]}
+                onPress={handleSubmitReview}
+                disabled={isSubmittingReview}>
+                {isSubmittingReview ? (
+                  <ActivityIndicator size="small" color="#FFFFFF" />
+                ) : (
+                  <>
+                    <MaterialIcons name="send" size={16} color="#FFFFFF" />
+                    <Text style={styles.modalSubmitBtnText}>Gửi đánh giá</Text>
+                  </>
+                )}
+              </Pressable>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+      {/* ────────────────── ALL REVIEWS MODAL ────────────────── */}
+      <Modal
+        visible={showAllReviewsModal}
+        animationType="slide"
+        onRequestClose={() => setShowAllReviewsModal(false)}>
+        <View style={[styles.allReviewsScreen, { paddingTop: insets.top }]}>
+          {/* Header */}
+          <View style={styles.allReviewsHeader}>
+            <Pressable
+              style={styles.allReviewsBackBtn}
+              onPress={() => setShowAllReviewsModal(false)}>
+              <MaterialIcons name="arrow-back" size={22} color="#0F382C" />
+            </Pressable>
+            <View style={{ flex: 1 }}>
+              <Text style={styles.allReviewsHeaderTitle}>Tất cả đánh giá</Text>
+              <Text style={styles.allReviewsHeaderSubtitle} numberOfLines={1}>
+                {spa.name}
+              </Text>
+            </View>
+            <Pressable
+              style={styles.writeReviewMiniBtn}
+              onPress={() => {
+                setShowAllReviewsModal(false);
+                setShowReviewModal(true);
+              }}>
+              <MaterialIcons name="rate-review" size={16} color="#0F382C" />
+              <Text style={styles.writeReviewMiniText}>Viết</Text>
+            </Pressable>
+          </View>
+
+          {/* Search bar inside reviews */}
+          <View style={styles.reviewSearchBox}>
+            <MaterialIcons name="search" size={18} color="#94A3B8" />
+            <TextInput
+              style={styles.reviewSearchInput}
+              placeholder="Tìm theo nội dung hoặc tên khách hàng..."
+              placeholderTextColor="#94A3B8"
+              value={reviewSearchTerm}
+              onChangeText={setReviewSearchTerm}
+            />
+            {reviewSearchTerm.length > 0 && (
+              <Pressable onPress={() => setReviewSearchTerm('')}>
+                <MaterialIcons name="cancel" size={16} color="#94A3B8" />
+              </Pressable>
+            )}
+          </View>
+
+          {/* Rating filter chips */}
+          <View style={styles.ratingFilterChipsRow}>
+            {[
+              { label: 'Tất cả', value: undefined },
+              { label: '5 sao ⭐️', value: 5 },
+              { label: '4 sao ⭐️', value: 4 },
+              { label: '3 sao ⭐️', value: 3 },
+            ].map((chip, idx) => {
+              const isActive = selectedRatingFilter === chip.value;
+              return (
+                <Pressable
+                  key={idx}
+                  style={[styles.ratingFilterChip, isActive && styles.ratingFilterChipActive]}
+                  onPress={() => setSelectedRatingFilter(chip.value)}>
+                  <Text
+                    style={[
+                      styles.ratingFilterChipText,
+                      isActive && styles.ratingFilterChipTextActive,
+                    ]}>
+                    {chip.label}
+                  </Text>
+                </Pressable>
+              );
+            })}
+          </View>
+
+          {/* Reviews List */}
+          {loadingAllReviews ? (
+            <View style={styles.allReviewsLoading}>
+              <ActivityIndicator size="large" color="#0F382C" />
+              <Text style={styles.loadingText}>Đang tải đánh giá...</Text>
+            </View>
+          ) : (allReviewsData?.items || []).length === 0 ? (
+            <View style={styles.allReviewsEmpty}>
+              <MaterialIcons name="sentiment-dissatisfied" size={48} color="#CBD5E1" />
+              <Text style={styles.emptyTitle}>Chưa có đánh giá nào phù hợp</Text>
+            </View>
+          ) : (
+            <ScrollView
+              contentContainerStyle={{ padding: 16, paddingBottom: Math.max(insets.bottom, 24) }}
+              showsVerticalScrollIndicator={false}>
+              {(allReviewsData?.items || []).map((review) => {
+                const isLiked = !!likedReviews[review.id];
+                return (
+                  <View key={review.id} style={styles.reviewItem}>
+                    <View style={styles.reviewerHeader}>
+                      {review.customerAvatar ? (
+                        <Image
+                          source={{ uri: review.customerAvatar }}
+                          style={styles.reviewerAvatar}
+                        />
+                      ) : (
+                        <View style={styles.reviewerAvatarInitials}>
+                          <Text style={styles.reviewerInitialsText}>
+                            {getInitials(review.customerName)}
+                          </Text>
+                        </View>
+                      )}
+                      <View style={styles.reviewerInfo}>
+                        <Text style={styles.reviewerName}>{review.customerName}</Text>
+                        <View style={styles.reviewerStarsRow}>
+                          {[1, 2, 3, 4, 5].map((star) => (
+                            <MaterialIcons
+                              key={star}
+                              name="star"
+                              size={12}
+                              color={star <= review.rating ? '#F59E0B' : '#E2E8F0'}
+                            />
+                          ))}
+                          <Text style={styles.reviewDateText}>
+                            • {formatDateTime(review.createdDate)}
+                          </Text>
+                        </View>
+                      </View>
+                    </View>
+                    {review.comment && (
+                      <Text style={styles.reviewCommentText}>{review.comment}</Text>
+                    )}
+                    <View style={styles.reviewActionsRow}>
+                      <Pressable
+                        style={styles.reviewActionBtn}
+                        onPress={() => toggleLikeReview(review.id)}>
+                        <MaterialIcons
+                          name={isLiked ? 'thumb-up' : 'thumb-up-off-alt'}
+                          size={15}
+                          color={isLiked ? '#0F382C' : '#64748B'}
+                        />
+                        <Text
+                          style={[
+                            styles.reviewActionText,
+                            isLiked && styles.reviewActionTextActive,
+                          ]}>
+                          {isLiked ? 'Đã thích' : 'Thích'}
+                        </Text>
+                      </Pressable>
+                    </View>
+                  </View>
+                );
+              })}
+            </ScrollView>
+          )}
+        </View>
+      </Modal>
     </View>
   );
 }
@@ -859,5 +1244,335 @@ const styles = StyleSheet.create({
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
     color: '#FFFFFF',
+  },
+
+  // View all reviews button
+  viewAllReviewsBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingVertical: 11,
+    borderRadius: 12,
+    marginTop: 14,
+    gap: 4,
+  },
+  viewAllReviewsBtnText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#0F382C',
+  },
+
+  // Nearby Spas Section
+  nearbySectionCard: {
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 16,
+    borderRadius: 20,
+    padding: 16,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  nearbyHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 12,
+  },
+  nearbySectionTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
+    color: '#0F382C',
+  },
+  nearbySectionSubtitle: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  nearbyScrollList: {
+    gap: 12,
+    paddingRight: 10,
+  },
+  nearbyCard: {
+    width: 200,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 14,
+    overflow: 'hidden',
+    borderWidth: 1,
+    borderColor: '#F1F5F9',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.06,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  nearbyCardImage: {
+    width: '100%',
+    height: 110,
+    backgroundColor: '#E2E8F0',
+  },
+  nearbyCardBadge: {
+    position: 'absolute',
+    top: 8,
+    left: 8,
+    backgroundColor: 'rgba(15, 56, 44, 0.85)',
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    paddingHorizontal: 7,
+    paddingVertical: 3,
+    borderRadius: 8,
+  },
+  nearbyCardBadgeText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 10,
+    color: '#FFFFFF',
+  },
+  nearbyCardBody: {
+    padding: 10,
+  },
+  nearbyCardName: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#1C2526',
+    marginBottom: 4,
+  },
+  nearbyCardRatingRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 3,
+    marginBottom: 4,
+  },
+  nearbyCardRatingVal: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 12,
+    color: '#1C2526',
+  },
+  nearbyCardRatingCount: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 11,
+    color: '#818A91',
+  },
+  nearbyCardAddress: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 11,
+    color: '#64748B',
+  },
+
+  // Write Review Modal
+  modalOverlay: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    backgroundColor: 'rgba(0, 0, 0, 0.55)',
+    padding: 20,
+  },
+  modalBackdrop: {
+    ...StyleSheet.absoluteFillObject,
+  },
+  reviewModalContainer: {
+    width: '100%',
+    maxWidth: 400,
+    backgroundColor: '#FFFFFF',
+    borderRadius: 24,
+    padding: 20,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 8 },
+    shadowOpacity: 0.15,
+    shadowRadius: 16,
+    elevation: 8,
+  },
+  modalHeaderRow: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginBottom: 6,
+  },
+  modalTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 18,
+    color: '#0F382C',
+  },
+  modalSpaName: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    color: '#64748B',
+    marginBottom: 16,
+  },
+  starPickerRow: {
+    flexDirection: 'row',
+    justifyContent: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  starPickerBtn: {
+    padding: 4,
+  },
+  starRatingLabel: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 14,
+    color: '#0F382C',
+    textAlign: 'center',
+    marginBottom: 16,
+  },
+  reviewInput: {
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    color: '#1C2526',
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    borderRadius: 14,
+    padding: 12,
+    height: 100,
+    marginBottom: 18,
+  },
+  modalActionsRow: {
+    flexDirection: 'row',
+    gap: 10,
+  },
+  modalCancelBtn: {
+    flex: 1,
+    backgroundColor: '#F1F5F9',
+    paddingVertical: 12,
+    borderRadius: 14,
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  modalCancelBtnText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 13,
+    color: '#64748B',
+  },
+  modalSubmitBtn: {
+    flex: 2,
+    backgroundColor: '#0F382C',
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+    paddingVertical: 12,
+    borderRadius: 14,
+  },
+  modalSubmitBtnText: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 13,
+    color: '#FFFFFF',
+  },
+
+  // All Reviews Screen / Modal
+  allReviewsScreen: {
+    flex: 1,
+    backgroundColor: '#F7F6F2',
+  },
+  allReviewsHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 16,
+    paddingVertical: 12,
+    backgroundColor: '#FFFFFF',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E2E8F0',
+    gap: 12,
+  },
+  allReviewsBackBtn: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#F1F5F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  allReviewsHeaderTitle: {
+    fontFamily: 'Montserrat_700Bold',
+    fontSize: 16,
+    color: '#0F382C',
+  },
+  allReviewsHeaderSubtitle: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  writeReviewMiniBtn: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+    backgroundColor: '#E6F0EB',
+    paddingHorizontal: 10,
+    paddingVertical: 6,
+    borderRadius: 12,
+  },
+  writeReviewMiniText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
+    color: '#0F382C',
+  },
+  reviewSearchBox: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFFFFF',
+    marginHorizontal: 16,
+    marginTop: 12,
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    gap: 8,
+  },
+  reviewSearchInput: {
+    flex: 1,
+    fontFamily: 'Montserrat_500Medium',
+    fontSize: 13,
+    color: '#1C2526',
+  },
+  ratingFilterChipsRow: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingVertical: 10,
+    gap: 8,
+  },
+  ratingFilterChip: {
+    backgroundColor: '#FFFFFF',
+    paddingHorizontal: 12,
+    paddingVertical: 6,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+  },
+  ratingFilterChipActive: {
+    backgroundColor: '#0F382C',
+    borderColor: '#0F382C',
+  },
+  ratingFilterChipText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  ratingFilterChipTextActive: {
+    color: '#FFFFFF',
+  },
+  allReviewsLoading: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  allReviewsEmpty: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 32,
+  },
+  reviewDateText: {
+    fontFamily: 'Montserrat_400Regular',
+    fontSize: 11,
+    color: '#94A3B8',
+    marginLeft: 4,
   },
 });
