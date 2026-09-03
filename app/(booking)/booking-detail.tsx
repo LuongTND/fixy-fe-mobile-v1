@@ -129,7 +129,8 @@ const VNPAY_LOGO_URI = Image.resolveAssetSource(require('../../assets/vnpay.svg'
 
 export default function BookingDetailScreen() {
   const insets = useSafeAreaInsets();
-  const { bookingId } = useLocalSearchParams<{ bookingId: string }>();
+  const params = useLocalSearchParams<{ bookingId?: string; id?: string; workerPhone?: string }>();
+  const bookingId = params.bookingId || params.id;
   const queryClient = useQueryClient();
 
   // Queries
@@ -569,6 +570,22 @@ export default function BookingDetailScreen() {
     Alert.alert('Kết quả thanh toán', errorMsg);
   };
 
+  const handleCallWorker = () => {
+    const phone =
+      booking?.worker?.phone ||
+      booking?.workerPhone ||
+      tracking?.workerInfo?.phone ||
+      params.workerPhone;
+
+    if (phone) {
+      Linking.openURL(`tel:${phone}`).catch(() => {
+        Alert.alert('Lỗi', 'Không thể khởi chạy ứng dụng gọi điện.');
+      });
+    } else {
+      Alert.alert('Thông báo', 'Không có số điện thoại của KTV.');
+    }
+  };
+
   // Helper: get payment button label based on selected method
   const getPaymentButtonLabel = () => {
     switch (selectedPaymentMethod) {
@@ -835,12 +852,7 @@ export default function BookingDetailScreen() {
                 <View style={styles.actionButtonsRow}>
                   <Pressable
                     style={[styles.actionBtn, styles.actionBtnCall]}
-                    onPress={() =>
-                      Alert.alert(
-                        'Gọi KTV',
-                        `Đang kết nối cuộc gọi tới SĐT: ${booking.worker?.phone || booking.workerPhone || 'Đang cập nhật'}`
-                      )
-                    }>
+                    onPress={handleCallWorker}>
                     <MaterialIcons name="phone" size={18} color="#0F382C" />
                     <Text style={styles.actionBtnTextCall}>Gọi KTV</Text>
                   </Pressable>

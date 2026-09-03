@@ -8,7 +8,14 @@ import { FlatList, Image, Pressable, StyleSheet, Text, TextInput, View } from 'r
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { useLocationStore } from '@/store/store';
-import { searchSpaPartners, SpaPartner, SearchSpaPartnerParams } from '@/services/api/spa-partners';
+import {
+  searchSpaPartners,
+  getNearbySpaPartners,
+  fetchSpaServiceCategories,
+  SpaPartner,
+  SpaServiceCategory,
+  SearchSpaPartnerParams,
+} from '@/services/api/spa-partners';
 
 function getSpaFallbackThumbnail(_index: number): string | null {
   return null;
@@ -31,14 +38,25 @@ export default function SpaListScreen() {
 
   const [searchTerm, setSearchTerm] = React.useState('');
   const [activeFilter, setActiveFilter] = React.useState('all');
+  const [selectedCategoryId, setSelectedCategoryId] = React.useState<string | undefined>(categoryId);
   const { userLocation: customerLocation, fetchUserLocation } = useLocationStore();
 
   React.useEffect(() => {
     fetchUserLocation();
   }, [fetchUserLocation]);
 
+  // Load Spa Service Categories
+  const { data: categories = [] } = useQuery<SpaServiceCategory[]>({
+    queryKey: ['spa-service-categories'],
+    queryFn: fetchSpaServiceCategories,
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const activeCategory = categories.find((c) => c.id === selectedCategoryId);
+  const displayCategoryName = activeCategory?.name || (selectedCategoryId ? categoryName : undefined);
+
   const searchParams: SearchSpaPartnerParams = {
-    spaServiceCategoryId: categoryId,
+    spaServiceCategoryId: selectedCategoryId,
     customerLat: customerLocation?.lat,
     customerLng: customerLocation?.lng,
     minRating: activeFilter === 'top_rated' ? 4.5 : undefined,
@@ -53,12 +71,12 @@ export default function SpaListScreen() {
 
   const {
     data: searchResult,
-    isLoading,
+    isLoading: isLoadingSearch,
     refetch,
   } = useQuery({
     queryKey: [
       'spa-partners',
-      categoryId,
+      selectedCategoryId,
       customerLocation?.lat,
       customerLocation?.lng,
       activeFilter,
@@ -68,7 +86,24 @@ export default function SpaListScreen() {
     staleTime: 2 * 60 * 1000,
   });
 
-  const spaPartners = searchResult?.items ?? [];
+  const { data: nearbyPartners = [], isLoading: isLoadingNearby } = useQuery({
+    queryKey: ['spa-partners-nearby', customerLocation?.lat, customerLocation?.lng],
+    queryFn: () =>
+      getNearbySpaPartners(
+        customerLocation?.lat || 10.7769,
+        customerLocation?.lng || 106.7009,
+        10,
+        15
+      ),
+    enabled: activeFilter === 'nearby',
+    staleTime: 5 * 60 * 1000,
+  });
+
+  const isLoading = activeFilter === 'nearby' ? isLoadingNearby : isLoadingSearch;
+  const spaPartners =
+    activeFilter === 'nearby' && nearbyPartners.length > 0
+      ? nearbyPartners
+      : searchResult?.items ?? [];
 
   const handleSpaPress = (spa: SpaPartner) => {
     router.push({
@@ -221,7 +256,7 @@ export default function SpaListScreen() {
 
           <View style={styles.headerCenterContent}>
             <Text style={styles.headerTitle} numberOfLines={1}>
-              {categoryName ? `Spa: ${categoryName}` : 'Địa Điểm Spa'}
+              {displayCategoryName ? `Spa: ${displayCategoryName}` : 'Địa Điểm Spa'}
             </Text>
             <Text style={styles.headerSubtitle}>{spaPartners.length} spa uy tín được xác thực</Text>
           </View>
@@ -250,6 +285,36 @@ export default function SpaListScreen() {
             </Pressable>
           )}
         </View>
+      </View>
+
+      {/* Service Category Tabs Horizontal Scrollbar */}
+      <View style={styles.categoryBarWrapper}>
+        <FlatList
+          horizontal
+          data={[{ id: 'all-cat', name: 'Tất cả dịch vụ' }, ...categories]}
+          keyExtractor={(item) => item.id}
+          showsHorizontalScrollIndicator={false}
+          contentContainerStyle={styles.categoryScrollContent}
+          renderItem={({ item }) => {
+            const isSelected =
+              item.id === 'all-cat' ? !selectedCategoryId : selectedCategoryId === item.id;
+            return (
+              <Pressable
+                style={[styles.categoryChip, isSelected && styles.categoryChipActive]}
+                onPress={() => {
+                  setSelectedCategoryId(item.id === 'all-cat' ? undefined : item.id);
+                }}>
+                <Text
+                  style={[
+                    styles.categoryChipText,
+                    isSelected && styles.categoryChipTextActive,
+                  ]}>
+                  {item.name}
+                </Text>
+              </Pressable>
+            );
+          }}
+        />
       </View>
 
       {/* Quick Filter Horizontal Scrollbar */}
@@ -759,6 +824,38 @@ const styles = StyleSheet.create({
   resetFilterBtnText: {
     fontFamily: 'Montserrat_600SemiBold',
     fontSize: 13,
+    color: '#FFFFFF',
+  },
+
+  // Service Category Tabs Bar
+  categoryBarWrapper: {
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 9,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F1F5F9',
+  },
+  categoryScrollContent: {
+    paddingHorizontal: 16,
+    gap: 8,
+  },
+  categoryChip: {
+    backgroundColor: '#F8FAFC',
+    borderWidth: 1,
+    borderColor: '#E2E8F0',
+    paddingHorizontal: 14,
+    paddingVertical: 7,
+    borderRadius: 20,
+  },
+  categoryChipActive: {
+    backgroundColor: '#0F382C',
+    borderColor: '#0F382C',
+  },
+  categoryChipText: {
+    fontFamily: 'Montserrat_600SemiBold',
+    fontSize: 12,
+    color: '#64748B',
+  },
+  categoryChipTextActive: {
     color: '#FFFFFF',
   },
 });
