@@ -20,6 +20,9 @@ import {
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 
 import { BottomTabBar } from '@/components/layout/bottom-tab-bar';
+import { WorkerTabBar } from '@/components/layout/worker-tab-bar';
+import { useAuthStore } from '@/store/store';
+import { selectAuthRole } from '@/hooks/useProtectedRoute';
 import { getSupportTickets, SupportStatus, SupportTicket } from '@/services/api/support';
 import { formatDateTime } from '@/utils/date';
 import { getCategoryLabel, getPriorityStyle, getStatusStyle } from '@/utils/support';
@@ -96,6 +99,8 @@ const FAQ_DATA: FAQItem[] = [
 
 export default function SupportTicketsScreen() {
   const insets = useSafeAreaInsets();
+  const role = useAuthStore(selectAuthRole);
+  const isWorker = role === 'worker';
   const [filter, setFilter] = React.useState<FilterType>('all');
 
   // FAQ Modal State
@@ -472,7 +477,7 @@ export default function SupportTicketsScreen() {
       </Modal>
 
       {/* Persistent Bottom Tab Bar */}
-      <BottomTabBar activeTab="support" />
+      {isWorker ? <WorkerTabBar activeTab="profile" /> : <BottomTabBar activeTab="support" />}
     </View>
   );
 }

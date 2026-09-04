@@ -7,7 +7,7 @@ import { AuthButton } from '@/features/auth/components/auth-button';
 import { AuthScreen } from '@/features/auth/components/auth-screen';
 import { AuthTextField } from '@/features/auth/components/auth-text-field';
 import { FORGOT_PASSWORD_OTP_PURPOSE } from '@/features/auth/constants';
-import { forgotPassword } from '@/features/auth/services/auth-api';
+import { sendOtp } from '@/features/auth/services/auth-api';
 import { FieldErrors, validateForgotPasswordForm } from '@/features/auth/validation';
 import { getApiErrorMessage } from '@/services/api/client';
 import { useAuthStore } from '@/store/store';
@@ -28,7 +28,7 @@ export default function ForgotPasswordScreen() {
 
     setLoading(true);
     try {
-      await forgotPassword(validation.values.target);
+      await sendOtp(validation.values.target, FORGOT_PASSWORD_OTP_PURPOSE);
       setPendingOtp(validation.values.target, FORGOT_PASSWORD_OTP_PURPOSE);
       Alert.alert(
         'Đã gửi yêu cầu',

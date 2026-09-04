@@ -330,7 +330,7 @@ export default function WorkerWalletScreen() {
       {/* Header */}
       <View style={styles.header}>
         <View style={styles.headerBtn} />
-        <Text style={styles.headerTitle}>Ví của tôi</Text>
+        <Text style={styles.headerTitle}>Thu nhập của tôi</Text>
         <Pressable
           style={styles.headerBtn}
           onPress={() => Alert.alert('Thông báo', 'Không có thông báo mới.')}>
